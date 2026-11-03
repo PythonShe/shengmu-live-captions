@@ -4,16 +4,21 @@
 import { createLineAccumulator } from "../lib/asr-sessions.js";
 
 // Errors after which restarting the recognizer cannot help.
+// Values are messages.json keys.
 const FATAL_ERRORS = new Map([
-  ["language-not-supported", "Chrome 本机语音识别不支持英语模型，请改用其他识别引擎"],
-  ["not-allowed", "Chrome 拒绝了语音识别权限"],
-  ["service-not-allowed", "Chrome 不允许在此使用语音识别，请改用其他识别引擎"],
-  ["audio-capture", "语音识别读不到标签页音频"]
+  ["language-not-supported", "speech_language_not_supported"],
+  ["not-allowed", "speech_not_allowed"],
+  ["service-not-allowed", "speech_service_not_allowed"],
+  ["audio-capture", "speech_audio_capture"]
 ]);
 // A recognizer ends after silence or an error; this pause keeps a broken one
 // from spinning.
 const RESTART_DELAY_MS = 250;
 const STOP_TIMEOUT_MS = 2000;
+
+function t(key, ...params) {
+  return globalThis.chrome?.i18n?.getMessage(key, params.map(String)) || key;
+}
 
 function recognitionClass() {
   return globalThis.SpeechRecognition || globalThis.webkitSpeechRecognition || null;
@@ -27,17 +32,17 @@ function recognitionClass() {
 export async function prepareWebSpeech({ lang, onStatus }) {
   const Recognition = recognitionClass();
   if (!Recognition?.available) {
-    throw new Error("当前 Chrome 不支持本机语音识别，请升级 Chrome 或改用其他识别引擎");
+    throw new Error(t("speech_unsupported"));
   }
   const options = { langs: [lang], processLocally: true };
   const availability = await Recognition.available(options);
   if (availability === "available") return;
   if (availability === "unavailable") {
-    throw new Error("此设备不支持 Chrome 本机英语语音识别，请改用其他识别引擎");
+    throw new Error(t("speech_unavailable"));
   }
-  onStatus("正在下载 Chrome 本机语音模型，首次约需 20 秒");
+  onStatus(t("speech_downloading"));
   if (!(await Recognition.install(options))) {
-    throw new Error("Chrome 本机语音模型下载失败，请检查网络后重试");
+    throw new Error(t("speech_download_failed"));
   }
 }
 
@@ -113,7 +118,7 @@ export function createWebSpeechSession({ track, lang, phrases = [], onMessage, o
       const fatal = FATAL_ERRORS.get(event.error);
       if (!fatal || stopped) return;
       stopped = true;
-      onFatal(fatal);
+      onFatal(t(fatal));
     };
     current.onend = () => {
       if (recognizer !== current) return;
@@ -129,7 +134,7 @@ export function createWebSpeechSession({ track, lang, phrases = [], onMessage, o
     } catch (error) {
       recognizer = null;
       stopped = true;
-      onFatal(`语音识别启动失败：${error?.message || error}`);
+      onFatal(t("speech_start_failed", error?.message || error));
     }
   }
 

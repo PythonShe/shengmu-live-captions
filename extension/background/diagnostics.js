@@ -1,8 +1,11 @@
+import { msg } from "../lib/i18n-message.js";
 import {
+  providerName,
   resolveTranslationConfig,
   testTranslationConnection,
   translationConfigIssue
 } from "../lib/translation-api.js";
+import { render, t } from "./i18n.js";
 
 export const LOCAL_TRANSLATION_HEALTH_URL = "http://127.0.0.1:8013/health";
 const HEALTH_TIMEOUT_MS = 1600;
@@ -10,10 +13,10 @@ const HEALTH_TIMEOUT_MS = 1600;
 /** Round trip through the configured translation API, for the popup button. */
 export async function testTranslationApi(config, options = {}) {
   if (config.mode !== "api") {
-    throw new Error("当前翻译引擎是本地服务端，不需要测试 API");
+    throw new Error(t("diag_local_mode_no_api_test"));
   }
   const issue = translationConfigIssue(config);
-  if (issue) throw new Error(issue);
+  if (issue) throw new Error(render(issue));
   const result = await testTranslationConnection(config, options);
   return {
     ok: true,
@@ -45,10 +48,10 @@ export async function probeServices(settings) {
     services.push({
       key: "asr",
       ok: response.ok,
-      detail: response.ok ? "ASR 服务在线" : `HTTP ${response.status}`
+      detail: response.ok ? t("diag_asr_online") : `HTTP ${response.status}`
     });
   } catch {
-    services.push({ key: "asr", ok: false, detail: "未连接" });
+    services.push({ key: "asr", ok: false, detail: t("diag_not_connected") });
   }
 
   if (translation.mode === "server") {
@@ -59,18 +62,18 @@ export async function probeServices(settings) {
       services.push({
         key: "translation",
         ok: response.ok,
-        detail: response.ok ? "本地翻译服务在线" : `HTTP ${response.status}`
+        detail: response.ok ? t("diag_translation_online") : `HTTP ${response.status}`
       });
     } catch {
-      services.push({ key: "translation", ok: false, detail: "未连接" });
+      services.push({ key: "translation", ok: false, detail: t("diag_not_connected") });
     }
   } else {
     services.push({
       key: "translation",
       ok: Boolean(translation.enabled),
       detail: translation.enabled
-        ? `${translation.providerLabel} 已配置（点“测试翻译 API”验证）`
-        : translation.issue || "尚未配置翻译 API"
+        ? t("diag_api_configured", render(providerName(translation)))
+        : render(translation.issue || msg("translation_not_configured"))
     });
   }
   return services;
@@ -85,7 +88,7 @@ export async function requireLocalTranslation() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
   } catch {
     throw new Error(
-      "本地服务端翻译不可用（127.0.0.1:8013）。如果只想跑 ASR，请把翻译引擎切换为 API。"
+      t("diag_local_translation_unavailable")
     );
   }
 }

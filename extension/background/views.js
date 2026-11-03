@@ -1,9 +1,11 @@
 import {
   HISTORY_CHANGED_KEY,
+  OVERLAY_UNAVAILABLE_DETAIL,
   applyOverlayFailure,
   settingsForCaptions
 } from "../lib/caption-utils.js";
 import { createCaptionDeltaEncoder } from "../lib/caption-delta.js";
+import { errorText, t } from "./i18n.js";
 
 export const MONITOR_URL = "subtitle/subtitle.html";
 const MONITOR_BOUNDS = Object.freeze({ width: 1160, height: 760, left: 80, top: 60 });
@@ -75,18 +77,18 @@ export function createViews({ store, settings, ready }) {
         text: store.state.status === "reconnecting" ? "..." : "REC"
       });
       await chrome.action.setTitle({
-        title: store.state.detail || "声幕正在采集标签页音频"
+        title: store.state.detail || t("action_title_capturing")
       });
     } else {
       await chrome.action.setBadgeText({ text: "" });
-      await chrome.action.setTitle({ title: "声幕 - 实时字幕翻译" });
+      await chrome.action.setTitle({ title: t("action_title") });
     }
   }
 
   // Surfaced in the popup so a broken overlay never fails silently: the switch
   // stays on while nothing appears, which reads as "the toggle does nothing".
   async function reportOverlayFailure(error) {
-    if (!applyOverlayFailure(store.state, error)) return;
+    if (!applyOverlayFailure(store.state, error && errorText(error), t(OVERLAY_UNAVAILABLE_DETAIL))) return;
     await store.persist(true);
     // Both audiences matter: the content script needs the caption state, and
     // the extension views need the new overlayError to show or clear the hint.
@@ -120,7 +122,7 @@ export function createViews({ store, settings, ready }) {
         caption: tabCaptions.encode(store.state.current)
       });
       if (response && response.ok === false) {
-        throw new Error(response.error || "浮层初始化被拒绝");
+        throw new Error(response.error || t("overlay_init_rejected"));
       }
     } catch (error) {
       console.warn("声幕页面浮层没有响应", error);
@@ -146,12 +148,12 @@ export function createViews({ store, settings, ready }) {
   /** The popup's "reload overlay" button. */
   async function refreshOverlay() {
     if (!store.state.active || !store.state.tabId) {
-      return { ok: false, error: "当前没有正在采集的标签页" };
+      return { ok: false, error: t("overlay_no_capture_tab") };
     }
     const injected = await injectOverlay();
     return {
       ok: injected,
-      error: injected ? "" : store.state.overlayError || "页面浮层没有响应"
+      error: injected ? "" : store.state.overlayError || t("overlay_no_response")
     };
   }
 

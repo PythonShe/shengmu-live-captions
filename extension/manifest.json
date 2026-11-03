@@ -1,10 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "声幕 - 实时字幕翻译",
+  "name": "__MSG_ext_name__",
   "short_name": "声幕",
   "version": "0.5.5",
   "minimum_chrome_version": "116",
-  "description": "捕获当前标签页的英文音频，实时生成中文字幕；支持 DeepSeek/OpenAI 等翻译 API 与本地翻译服务。",
+  "description": "__MSG_ext_description__",
+  "default_locale": "zh_CN",
   "permissions": [
     "activeTab",
     "declarativeNetRequestWithHostAccess",
@@ -28,7 +29,7 @@
     "type": "module"
   },
   "action": {
-    "default_title": "声幕 - 实时字幕翻译",
+    "default_title": "__MSG_action_title__",
     "default_popup": "popup/popup.html"
   },
   "commands": {
@@ -36,13 +37,13 @@
       "suggested_key": {
         "default": "Ctrl+Shift+Y"
       },
-      "description": "打开声幕控制面板"
+      "description": "__MSG_command_open_popup__"
     },
     "open_caption_window": {
       "suggested_key": {
         "default": "Ctrl+Shift+U"
       },
-      "description": "打开字幕与历史窗口"
+      "description": "__MSG_command_open_caption_window__"
     }
   }
 }

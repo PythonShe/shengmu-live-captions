@@ -1,3 +1,5 @@
+import { errorText, t } from "./i18n.js";
+
 export const OFFSCREEN_URL = "offscreen/offscreen.html";
 // offscreen.js reports ready as soon as its message listener exists, which on
 // a warm browser takes a few milliseconds. The timeout only matters when the
@@ -80,7 +82,7 @@ export function createOffscreenClient({
     try {
       return await runtime.sendMessage({ target: "offscreen", ...message });
     } catch (error) {
-      throw new Error(`无法联系音频采集页面：${error?.message || error}`, { cause: error });
+      throw new Error(t("offscreen_unreachable", errorText(error)), { cause: error });
     }
   }
 

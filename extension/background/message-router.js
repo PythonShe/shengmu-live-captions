@@ -1,5 +1,6 @@
 import { sanitizeSettingsPatch } from "../lib/caption-utils.js";
 import { OFFSCREEN_URL } from "./offscreen-client.js";
+import { errorText, t } from "./i18n.js";
 
 /**
  * Who may send a message type:
@@ -9,7 +10,8 @@ import { OFFSCREEN_URL } from "./offscreen-client.js";
  */
 export const SENDER_POLICIES = Object.freeze(["extension-page", "any", "offscreen"]);
 
-export const EXTENSION_ONLY_ERROR = "此操作只能从声幕扩展界面发起";
+// Message key; the response carries its localized text.
+export const EXTENSION_ONLY_ERROR = "error_extension_only";
 
 /**
  * @typedef {object} RouteContext
@@ -67,7 +69,7 @@ export const MESSAGE_ROUTES = Object.freeze({
       try {
         return { ok: true, result: await services.testTranslationApi() };
       } catch (error) {
-        return { ok: false, error: error?.message || String(error) };
+        return { ok: false, error: errorText(error) };
       }
     }
   },
@@ -192,11 +194,11 @@ export function createMessageDispatcher({
 
       const route = findRoute(routes, message.type);
       if (!route || route.allow === "offscreen") {
-        return { ok: false, error: `未知消息：${message.type}` };
+        return { ok: false, error: t("error_unknown_message", String(message.type)) };
       }
       const fromExtensionPage = isExtensionPageSender(sender, runtime);
       if (route.allow === "extension-page" && !fromExtensionPage) {
-        return { ok: false, error: EXTENSION_ONLY_ERROR };
+        return { ok: false, error: t(EXTENSION_ONLY_ERROR) };
       }
       const settingsPatch = route.sanitizeSettings
         ? sanitizeSettingsPatch(message.settings, { fromExtensionPage })
@@ -204,7 +206,7 @@ export function createMessageDispatcher({
       return await route.handler({ message, sender, services, fromExtensionPage, settingsPatch });
     } catch (error) {
       console.error("声幕后台错误", error);
-      return { ok: false, error: error?.message || String(error) };
+      return { ok: false, error: errorText(error) };
     }
   };
 }

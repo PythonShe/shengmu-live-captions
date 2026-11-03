@@ -20,6 +20,10 @@ import {
   translateTexts,
   translationConfigIssue
 } from "../extension/lib/translation-api.js";
+import { renderZh } from "./helpers/i18n.js";
+
+// lib errors carry a message key; match against the zh_CN text users see.
+const zhError = (pattern) => (error) => pattern.test(renderZh(error));
 
 function startServer(handler) {
   const requests = [];
@@ -134,7 +138,7 @@ test("normalizeTranslationBaseUrl adds a protocol and strips trailing slashes", 
   assert.throws(() => normalizeTranslationBaseUrl("ftp://example.com"));
   assert.throws(
     () => normalizeTranslationBaseUrl("https://user:pass@example.com/v1"),
-    /用户名或密码/
+    zhError(/用户名或密码/)
   );
 });
 
@@ -168,7 +172,7 @@ test("translationConfigIssue requires a key only for providers that need one", (
     translationProvider: "deepseek"
   });
   assert.equal(deepseek.enabled, false);
-  assert.match(translationConfigIssue(deepseek), /API Key/);
+  assert.match(renderZh(translationConfigIssue(deepseek)), /API Key/);
 
   const custom = resolveTranslationConfig({
     translationMode: "api",
@@ -192,7 +196,7 @@ test("translationConfigIssue requires a key only for providers that need one", (
     translationApiKeys: { deepseek: "secret" }
   });
   assert.equal(insecure.enabled, false);
-  assert.match(insecure.issue, /http:/);
+  assert.match(renderZh(insecure.issue), /http:/);
 
   const localHttp = resolveTranslationConfig({
     translationMode: "api",
@@ -370,29 +374,29 @@ test("parseTranslationOutput handles JSON, code fences, objects and numbered lin
   );
   assert.throws(
     () => parseTranslationOutput("1. 你好\n2. 再见\n注意：这是解释", 2),
-    /条数不匹配/
+    zhError(/条数不匹配/)
   );
   assert.throws(
     () => parseTranslationOutput('["只有一条"]', 2),
-    /条数不匹配/
+    zhError(/条数不匹配/)
   );
   assert.throws(
     () => parseTranslationOutput('["译A","译C"]', 3),
-    /条数不匹配/
+    zhError(/条数不匹配/)
   );
   assert.throws(
     () => parseTranslationOutput('[ "你好", "今天', 2),
-    /JSON 不完整/
+    zhError(/JSON 不完整/)
   );
   assert.deepEqual(parseTranslationOutput("not a translation", 1), [
     "not a translation"
   ]);
-  assert.throws(() => parseTranslationOutput("", 1), /空内容/);
-  assert.throws(() => parseTranslationOutput("   ", 1), /空内容/);
+  assert.throws(() => parseTranslationOutput("", 1), zhError(/空内容/));
+  assert.throws(() => parseTranslationOutput("   ", 1), zhError(/空内容/));
 });
 
 test("mapHttpError produces actionable Chinese messages", () => {
-  assert.match(mapHttpError(401, "{}", "DeepSeek").message, /Key 无效/);
+  assert.match(renderZh(mapHttpError(401, "{}", "DeepSeek")), /DeepSeek API Key 无效/);
   assert.equal(mapHttpError(402, "{}", "DeepSeek").code, "balance");
   assert.equal(mapHttpError(429, "{}", "DeepSeek").code, "rate_limit");
   assert.equal(mapHttpError(400, "{}", "DeepSeek").code, "bad_request");
@@ -576,7 +580,7 @@ test("translateTexts reports auth and malformed responses", async () => {
       }),
       (error) => {
         assert.equal(error.code, "auth");
-        assert.match(error.message, /Key 无效/);
+        assert.match(renderZh(error), /Key 无效/);
         return true;
       }
     );
@@ -594,7 +598,7 @@ test("translateTexts reports auth and malformed responses", async () => {
         texts: ["Hello."],
         config: customConfig(badServer.url)
       }),
-      /空内容/
+      zhError(/空内容/)
     );
   } finally {
     await badServer.close();

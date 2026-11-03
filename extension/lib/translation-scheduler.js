@@ -10,6 +10,7 @@
  */
 import { createBufferTranslation } from "./buffer-translation.js";
 import { cleanText, selectDisplayCaption } from "./caption-utils.js";
+import { LocalizedError, errorMessage, isLocalMessage, msg, renderWith } from "./i18n-message.js";
 import { polishTranslation, stripSpeechFillers } from "./speech-cleanup.js";
 import { lineSignature } from "./transcript-reducer.js";
 import { createTranslationCooldown } from "./translation-cooldown.js";
@@ -50,8 +51,10 @@ export function shouldRetryTranslationError(error) {
   return !NON_RETRYABLE_CODES.has(error?.code);
 }
 
+/** @param {import("./i18n-message.js").LocalMessage | string} message */
 function codedError(message, code) {
-  return Object.assign(new Error(message), { code });
+  const error = isLocalMessage(message) ? new LocalizedError(message) : new Error(message);
+  return Object.assign(error, { code });
 }
 
 function emptyUsage() {
@@ -85,6 +88,8 @@ function emptyUsage() {
  * @property {(handle: any) => void} [clearTimeout]
  * @property {() => number} [now]
  * @property {() => number} [random] Jitter source in [0, 1); defaults to Math.random.
+ * @property {(error: unknown) => string} [describeError] Localized text for a
+ *   failure; lib errors carry a message key (see i18n-message.js).
  */
 
 /** @param {TranslationSchedulerDeps} deps */
@@ -101,7 +106,8 @@ export function createTranslationScheduler(deps) {
     setTimeout: setTimer = globalThis.setTimeout.bind(globalThis),
     clearTimeout: clearTimer = globalThis.clearTimeout.bind(globalThis),
     now = Date.now,
-    random = Math.random
+    random = Math.random,
+    describeError = (error) => String(renderWith((key) => key, errorMessage(error)))
   } = deps;
 
   const pending = new Map();
@@ -153,7 +159,6 @@ export function createTranslationScheduler(deps) {
     getState().translation = {
       mode: config.mode,
       provider: config.provider,
-      providerLabel: config.providerLabel,
       model: config.model,
       enabled: config.enabled,
       usage: { ...usage },
@@ -190,7 +195,7 @@ export function createTranslationScheduler(deps) {
       lastError = "";
     },
     recordFailure: (error) => {
-      lastError = cleanText(error?.message || error);
+      lastError = cleanText(describeError(error));
       return shouldRetryTranslationError(error);
     },
     publish: (change) => publishCaptions(change),
@@ -345,7 +350,7 @@ export function createTranslationScheduler(deps) {
 
   async function handleFailure(entries, error) {
     const startGeneration = generation;
-    lastError = cleanText(error?.message || error);
+    lastError = cleanText(describeError(error));
     const retryable = shouldRetryTranslationError(error);
     const fallbacks = [];
     let nextRetryAttempts = Infinity;
@@ -434,7 +439,7 @@ export function createTranslationScheduler(deps) {
           if (outcome.emptyEntries.length > 0) {
             await handleFailure(
               outcome.emptyEntries,
-              codedError("翻译 API 返回了空译文", "empty_translation")
+              codedError(msg("translation_empty_translation"), "empty_translation")
             );
           }
         }
@@ -473,7 +478,7 @@ export function createTranslationScheduler(deps) {
         const batchIds = new Set(entries.map(([lineId]) => lineId));
         const config = getConfig();
         if (!config.enabled) {
-          await handleFailure(entries, codedError(config.issue || "翻译 API 未启用", "config"));
+          await handleFailure(entries, codedError(config.issue || msg("translation_disabled"), "config"));
           return;
         }
         const result = await requestBatch(entries, batchIds, config, startGeneration);
@@ -487,7 +492,7 @@ export function createTranslationScheduler(deps) {
         if (outcome.emptyEntries.length > 0) {
           await handleFailure(
             outcome.emptyEntries,
-            codedError("翻译 API 返回了空译文", "empty_translation")
+            codedError(msg("translation_empty_translation"), "empty_translation")
           );
           if (pending.size > 0 && sessionActive() && !retryTimer) {
             scheduleLines(LINE_FOLLOW_UP_DELAY_MS);
@@ -503,7 +508,7 @@ export function createTranslationScheduler(deps) {
           }
           await handleFailure(
             entries,
-            codedError("翻译 API 没有返回对应译文", "empty_translation")
+            codedError(msg("translation_missing_line"), "empty_translation")
           );
           return;
         }

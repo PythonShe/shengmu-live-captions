@@ -10,6 +10,8 @@
  * recognizer and imports this module dynamically.
  */
 
+import { msg } from "./i18n-message.js";
+
 /** Rows resent with each message; older ones already reached history. */
 export const ASR_MESSAGE_LINE_LIMIT = 120;
 
@@ -145,7 +147,7 @@ export function bailianFinishTask(taskId) {
 
 /**
  * @typedef {{ kind: "started" | "finished" | "ignored" }
- *   | { kind: "failed", code: string, message: string }
+ *   | { kind: "failed", code: string, message: string | import("./i18n-message.js").LocalMessage }
  *   | { kind: "sentence", text: string, beginSeconds: number, endSeconds: number | null, final: boolean }} BailianEvent
  */
 
@@ -158,7 +160,7 @@ export function parseBailianEvent(raw) {
   try {
     data = JSON.parse(raw);
   } catch {
-    return { kind: "failed", code: "parse_error", message: "无法解析百炼语音识别消息" };
+    return { kind: "failed", code: "parse_error", message: msg("bailian_unparsable") };
   }
   const event = data?.header?.event;
   if (event === "task-started") return { kind: "started" };
@@ -167,7 +169,7 @@ export function parseBailianEvent(raw) {
     return {
       kind: "failed",
       code: String(data.header.error_code || "task_failed"),
-      message: String(data.header.error_message || "百炼语音识别任务失败")
+      message: data.header.error_message ? String(data.header.error_message) : msg("bailian_task_failed")
     };
   }
   if (event !== "result-generated") return { kind: "ignored" };
@@ -183,13 +185,17 @@ export function parseBailianEvent(raw) {
   };
 }
 
-/** Plain-language messages for the task-failed codes users can act on. */
+/**
+ * Plain-language messages for the task-failed codes users can act on.
+ * @param {string} code
+ * @param {import("./i18n-message.js").LocalMessage | string} message
+ */
 export function bailianErrorDetail(code, message) {
   if (/InvalidApiKey|Unauthorized|AccessDenied/i.test(code)) {
-    return "百炼 API Key 无效或没有语音识别权限，请检查 Key 和所选地域";
+    return msg("bailian_error_auth");
   }
   if (/Throttling|RateQuota|Arrearage/i.test(code)) {
-    return `百炼语音识别被限流或欠费：${message}`;
+    return msg("bailian_error_quota", message);
   }
-  return `百炼语音识别失败（${code}）：${message}`;
+  return msg("bailian_error_failed", code, message);
 }

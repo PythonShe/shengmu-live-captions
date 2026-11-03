@@ -9,6 +9,19 @@ const FINAL_WRITE_TIMEOUT_MS = 5000;
 // grow memory without bound) when WhisperLiveKit or the link falls behind.
 const WS_BUFFERED_LIMIT_BYTES = 64 * 1024;
 
+// chrome.i18n; this classic script cannot import ui/i18n.js.
+function t(key, ...params) {
+  return chrome.i18n.getMessage(key, params.map((param) => String(param ?? ""))) || key;
+}
+
+// Renders a lib/ { key, params } message (see lib/i18n-message.js).
+function render(value) {
+  if (value && typeof value === "object" && typeof value.key === "string") {
+    return t(value.key, ...(value.params || []).map(render));
+  }
+  return value == null ? "" : String(value);
+}
+
 let sessionId = null;
 let targetTabId = null;
 let requestedWsUrl = "";
@@ -61,7 +74,7 @@ let translatorPromise = null;
 function normalizeWsUrl(value) {
   const url = new URL(String(value || "").trim());
   if (!["ws:", "wss:"].includes(url.protocol)) {
-    throw new Error("WebSocket 地址必须以 ws:// 或 wss:// 开头");
+    throw new Error(t("ws_url_protocol"));
   }
   if (!url.pathname || url.pathname === "/") {
     url.pathname = "/asr";
@@ -79,7 +92,7 @@ function normalizeAsr(message) {
   }
   if (asr.backend === "bailian") {
     const url = new URL(String(asr.url || ""));
-    if (url.protocol !== "wss:") throw new Error("百炼语音识别地址必须是 wss://");
+    if (url.protocol !== "wss:") throw new Error(t("bailian_url_not_wss"));
     return { backend: "bailian", url: url.toString(), context: String(asr.context || "") };
   }
   return { backend: "wlk", wsUrl: normalizeWsUrl(asr.wsUrl) };
@@ -307,7 +320,7 @@ function scheduleReconnect() {
   reconnectAttempts += 1;
   void publishStatus(
     "reconnecting",
-    `${Math.round(delay / 1000)} 秒后重试字幕服务`
+    t("offscreen_retry_in", Math.round(delay / 1000))
   );
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
@@ -322,20 +335,20 @@ async function handleServerMessage(event) {
   } catch (error) {
     await publishStatus(
       "error",
-      `无法解析字幕服务消息：${error.message}`,
+      t("offscreen_unparsable_message", error.message),
       { fatal: true }
     );
     return;
   }
 
   if (data.type === "config") {
-    void publishStatus("capturing", "字幕模型已连接", { serverConfig: data });
+    void publishStatus("capturing", t("offscreen_model_connected"), { serverConfig: data });
     return;
   }
   if (data.type === "error") {
     await publishStatus(
       "error",
-      data.error || "字幕服务返回错误",
+      data.error || t("offscreen_server_error"),
       { fatal: true }
     );
     return;
@@ -343,7 +356,7 @@ async function handleServerMessage(event) {
   if (data.type === "ready_to_stop") {
     await waitForChain(backgroundWriteChain, 3000);
     markServerFinished();
-    await publishStatus("finished", "字幕服务已完成当前音频");
+    await publishStatus("finished", t("offscreen_server_finished"));
     return;
   }
 
@@ -373,20 +386,20 @@ async function handleBailianMessage(event) {
   const parsed = asrLib.parseBailianEvent(event.data);
   if (parsed.kind === "started") {
     bailianStarted = true;
-    void publishStatus("capturing", "百炼语音识别已连接");
+    void publishStatus("capturing", t("offscreen_bailian_connected"));
     return;
   }
   if (parsed.kind === "finished") {
     await waitForChain(backgroundWriteChain, 3000);
     markServerFinished();
-    await publishStatus("finished", "百炼语音识别已完成当前音频");
+    await publishStatus("finished", t("offscreen_bailian_finished"));
     return;
   }
   if (parsed.kind === "failed") {
     // The server closes the socket after a failed task; a reconnect would
     // fail the same way (bad key, no quota), so the capture ends instead.
     markServerFinished();
-    await publishStatus("error", asrLib.bailianErrorDetail(parsed.code, parsed.message), { fatal: true });
+    await publishStatus("error", render(asrLib.bailianErrorDetail(parsed.code, parsed.message)), { fatal: true });
     return;
   }
   if (parsed.kind !== "sentence") return;
@@ -406,7 +419,7 @@ function openWebSocket() {
   try {
     socket = new WebSocket(requestedWsUrl);
   } catch (error) {
-    void publishStatus("error", `WebSocket 地址无效：${error.message}`);
+    void publishStatus("error", t("offscreen_ws_url_invalid", error.message));
     scheduleReconnect();
     return;
   }
@@ -428,10 +441,10 @@ function openWebSocket() {
       bailianTaskId = crypto.randomUUID().replaceAll("-", "");
       bailianLines = asrLib.createLineAccumulator();
       socket.send(JSON.stringify(asrLib.bailianRunTask({ taskId: bailianTaskId, context: asrConfig.context })));
-      void publishStatus("starting", "正在启动百炼语音识别");
+      void publishStatus("starting", t("offscreen_bailian_starting"));
       return;
     }
-    void publishStatus("capturing", "正在接收实时转写");
+    void publishStatus("capturing", t("offscreen_receiving"));
   };
 
   socket.onmessage = (event) => {
@@ -442,7 +455,7 @@ function openWebSocket() {
       .catch((error) =>
         publishStatus(
           "error",
-          `处理字幕服务消息失败：${error?.message || error}`,
+          t("offscreen_message_failed", error?.message || error),
           { fatal: true }
         )
       );
@@ -450,7 +463,7 @@ function openWebSocket() {
 
   socket.onerror = () => {
     if (token !== connectionToken) return;
-    void publishStatus("reconnecting", "字幕服务连接异常");
+    void publishStatus("reconnecting", t("offscreen_connection_problem"));
   };
 
   socket.onclose = (event) => {
@@ -459,7 +472,7 @@ function openWebSocket() {
     resetPendingAudio();
     if (stopping) return;
     if (serverFinished) {
-      void publishStatus("finished", event.reason || "字幕服务已完成当前音频");
+      void publishStatus("finished", event.reason || t("offscreen_server_finished"));
       return;
     }
     scheduleReconnect();
@@ -530,7 +543,7 @@ async function startCapture(message) {
   resamplePosition = 0;
   resampleTail = 0;
   finishWaiter = null;
-  await publishStatus("starting", "正在读取标签页音频");
+  await publishStatus("starting", t("offscreen_reading_audio"));
 
   try {
     mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -543,7 +556,7 @@ async function startCapture(message) {
       video: false
     });
     const track = mediaStream.getAudioTracks()[0];
-    if (!track) throw new Error("标签页没有可用的音频轨道");
+    if (!track) throw new Error(t("offscreen_no_audio_track"));
     captureInfo = {
       label: track.label,
       settings: track.getSettings(),
@@ -552,21 +565,21 @@ async function startCapture(message) {
     track.addEventListener("ended", () => {
       if (stopping) return;
       console.info("[capture-diag] track ended", track.readyState);
-      void publishStatus("error", "标签页音频已结束或页面已关闭");
-      void stopCapture({ detail: "标签页音频已结束或页面已关闭" });
+      void publishStatus("error", t("offscreen_track_ended"));
+      void stopCapture({ detail: t("offscreen_track_ended") });
     });
     // Navigation can leave the track alive but muted (no active media in the
     // tab at that moment), which looks identical to a working capture until
     // the transcripts stop arriving. Report both edges for diagnosis.
     track.addEventListener("muted", () => {
       console.info("[capture-diag] track muted", track.readyState);
-      void publishStatus("capturing", "标签页音频暂时静音，等待页面恢复播放", {
+      void publishStatus("capturing", t("offscreen_track_muted"), {
         trackMuted: true
       });
     });
     track.addEventListener("unmuted", () => {
       console.info("[capture-diag] track unmuted", track.readyState);
-      void publishStatus("capturing", "标签页音频已恢复", { trackMuted: false });
+      void publishStatus("capturing", t("offscreen_track_unmuted"), { trackMuted: false });
     });
 
     // Monitor at the device rate and resample only the ASR stream.
@@ -621,7 +634,7 @@ async function startCapture(message) {
     }
     await publishStatus(
       "starting",
-      `已捕获 ${track.label || "当前标签页"}，正在连接字幕服务`
+      t("offscreen_captured_connecting", track.label || t("offscreen_this_tab"))
     );
     openWebSocket();
   } catch (error) {
@@ -657,7 +670,7 @@ async function startWebSpeech(track) {
     onMessage: (data) => void emitTranscript(data),
     onFatal: (detail) => void publishStatus("error", detail, { fatal: true })
   });
-  await publishStatus("capturing", "正在使用 Chrome 本机语音识别");
+  await publishStatus("capturing", t("offscreen_using_chrome_speech"));
 }
 
 function stopCapture(options = {}) {
@@ -670,7 +683,7 @@ function stopCapture(options = {}) {
 
 async function performStopCapture(options = {}) {
   const quiet = options.quiet === true;
-  const stopDetail = options.detail || "标签页音频采集已停止";
+  const stopDetail = options.detail || t("session_capture_stopped");
   const stoppedSessionId = sessionId;
   stopping = true;
   clearReconnectTimer();
@@ -745,7 +758,7 @@ function builtinTranslator() {
   if (!translatorPromise) {
     translatorPromise = (async () => {
       if (!globalThis.Translator) {
-        throw Object.assign(new Error("当前 Chrome 没有内置翻译，请升级 Chrome 或改用翻译 API"), {
+        throw Object.assign(new Error(t("offscreen_no_translator")), {
           code: "builtin_unavailable"
         });
       }
@@ -753,7 +766,7 @@ function builtinTranslator() {
       const availability = await Translator.availability(languages);
       if (availability !== "available") {
         throw Object.assign(
-          new Error("Chrome 内置翻译模型尚未下载，请在扩展弹窗中点击“下载本机模型”"),
+          new Error(t("offscreen_translator_not_downloaded")),
           { code: "builtin_unavailable" }
         );
       }
@@ -781,7 +794,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     try {
       if (message.type === "start-capture") {
         await startCapture(message);
-        sendResponse({ ok: true, detail: "音频采集已启动" });
+        sendResponse({ ok: true, detail: t("offscreen_capture_started") });
       } else if (message.type === "builtin-translate") {
         try {
           sendResponse({ ok: true, translations: await builtinTranslate(message.texts) });
@@ -803,7 +816,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           audio: latestAudioStats
         });
       } else {
-        sendResponse({ ok: false, error: `未知消息：${message.type}` });
+        sendResponse({ ok: false, error: t("error_unknown_message", message.type) });
       }
     } catch (error) {
       await publishStatus("error", error?.message || String(error));

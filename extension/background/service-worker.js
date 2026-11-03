@@ -1,8 +1,10 @@
 import { settingsForBroadcast } from "../lib/caption-utils.js";
+import { msg } from "../lib/i18n-message.js";
 import { TranslationApiError, translateTexts } from "../lib/translation-api.js";
 import { createTranslationScheduler } from "../lib/translation-scheduler.js";
 import { createAsrAuth } from "./asr-auth.js";
 import { probeServices, testTranslationApi } from "./diagnostics.js";
+import { errorText, t } from "./i18n.js";
 import { createHistorySync } from "./history-sync.js";
 import { createMessageDispatcher } from "./message-router.js";
 import { createOffscreenClient } from "./offscreen-client.js";
@@ -22,7 +24,7 @@ const asrAuth = createAsrAuth();
 async function builtinTranslate(texts) {
   const response = await offscreen.send({ type: "builtin-translate", texts });
   if (!response?.ok) {
-    throw new TranslationApiError(response?.error || "Chrome 内置翻译失败", {
+    throw new TranslationApiError(response?.error || msg("translation_builtin_failed"), {
       code: response?.code || "builtin_unavailable"
     });
   }
@@ -37,7 +39,8 @@ const scheduler = createTranslationScheduler({
   translateTexts: (options) => translateTexts({ ...options, builtinTranslate }),
   knownLines: history.knownLines,
   enqueueHistory: (lines) => history.enqueue(lines),
-  publish: () => lifecycle.publishCaptions()
+  publish: () => lifecycle.publishCaptions(),
+  describeError: errorText
 });
 const lifecycle = createSessionLifecycle({
   store,
@@ -129,7 +132,7 @@ chrome.commands.onCommand.addListener((command) => {
 
 chrome.tabs.onRemoved.addListener((tabId) => {
   if (store.state.active && tabId === store.state.tabId) {
-    void lifecycle.stop({ detail: "直播标签页已关闭" });
+    void lifecycle.stop({ detail: t("session_tab_closed") });
   }
 });
 

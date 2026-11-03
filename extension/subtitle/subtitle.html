@@ -17,35 +17,35 @@
               <small>LIVE INTERPRETER</small>
             </div>
           </div>
-          <button id="focusLiveTab" class="rail-action" type="button">回到直播</button>
+          <button id="focusLiveTab" class="rail-action" type="button" data-i18n="subtitle_focus_live">回到直播</button>
         </header>
 
         <section id="liveCard" class="live-card">
           <div class="live-card-top">
             <span id="liveDot" class="live-dot"></span>
-            <span id="liveStatus">等待开始</span>
+            <span id="liveStatus" data-i18n="subtitle_waiting_start">等待开始</span>
             <span id="liveTime" class="live-time"></span>
           </div>
-          <h2 id="liveTitle">当前没有字幕任务</h2>
-          <p id="liveDetail">在直播页面点击扩展图标开始。</p>
+          <h2 id="liveTitle" data-i18n="subtitle_no_task">当前没有字幕任务</h2>
+          <p id="liveDetail" data-i18n="subtitle_no_task_hint">在直播页面点击扩展图标开始。</p>
         </section>
 
         <div class="rail-heading">
           <div>
             <span>ARCHIVE</span>
-            <h2>字幕场次</h2>
+            <h2 data-i18n="subtitle_sessions">字幕场次</h2>
           </div>
-          <button id="clearHistory" class="icon-text-button" type="button">清空</button>
+          <button id="clearHistory" class="icon-text-button" type="button" data-i18n="subtitle_clear">清空</button>
         </div>
         <label class="session-search">
           <span aria-hidden="true">⌕</span>
-          <input id="sessionSearch" type="search" placeholder="搜索场次">
+          <input id="sessionSearch" type="search" placeholder="搜索场次" data-i18n-placeholder="subtitle_search_sessions">
         </label>
 
-        <div id="sessionList" class="session-list" role="group" aria-label="场次列表"></div>
+        <div id="sessionList" class="session-list" role="group" aria-label="场次列表" data-i18n-aria-label="subtitle_session_list"></div>
 
         <footer class="rail-footer">
-          <p>音频只在当前标签页内采集，历史保存在本机。</p>
+          <p data-i18n="subtitle_privacy">音频只在当前标签页内采集，历史保存在本机。</p>
           <span>Ctrl + Shift + U</span>
         </footer>
       </aside>
@@ -54,35 +54,35 @@
         <header class="workspace-header">
           <div class="title-block">
             <p class="eyebrow">SESSION TRANSCRIPT</p>
-            <h1 id="sessionTitle">实时字幕与翻译记录</h1>
-            <p id="sessionMeta" class="session-meta">选择左侧场次查看历史，或开始一个新的直播字幕任务。</p>
+            <h1 id="sessionTitle" data-i18n="subtitle_default_title">实时字幕与翻译记录</h1>
+            <p id="sessionMeta" class="session-meta" data-i18n="subtitle_default_meta">选择左侧场次查看历史，或开始一个新的直播字幕任务。</p>
           </div>
           <div class="header-actions">
-            <button id="copyTranscript" class="quiet-button" type="button">复制</button>
-            <button id="exportSrt" class="quiet-button" type="button">导出 SRT</button>
-            <button id="deleteSession" class="danger-quiet" type="button" hidden>删除场次</button>
+            <button id="copyTranscript" class="quiet-button" type="button" data-i18n="subtitle_copy">复制</button>
+            <button id="exportSrt" class="quiet-button" type="button" data-i18n="subtitle_export_srt">导出 SRT</button>
+            <button id="deleteSession" class="danger-quiet" type="button" hidden data-i18n="subtitle_delete_session">删除场次</button>
           </div>
         </header>
 
-        <section class="control-deck" aria-label="字幕控制">
+        <section class="control-deck" aria-label="字幕控制" data-i18n-aria-label="subtitle_controls">
           <div class="status-cluster">
             <span id="captureDot" class="capture-dot"></span>
             <div>
-              <strong id="captureStatus">未开始</strong>
-              <span id="captureDetail">等待标签页音频</span>
+              <strong id="captureStatus" data-i18n="subtitle_not_started">未开始</strong>
+              <span id="captureDetail" data-i18n="status_waiting_audio">等待标签页音频</span>
             </div>
           </div>
           <div class="deck-controls">
             <label class="compact-select">
-              <span>显示</span>
+              <span data-i18n="display_mode">显示</span>
               <select id="displayMode"></select>
             </label>
             <label class="transcript-search">
               <span aria-hidden="true">⌕</span>
-              <input id="transcriptSearch" type="search" placeholder="在本场字幕中搜索">
+              <input id="transcriptSearch" type="search" placeholder="在本场字幕中搜索" data-i18n-placeholder="subtitle_search_transcript">
             </label>
-            <button id="toggleOverlay" class="deck-button" type="button">浮层：开</button>
-            <button id="stopCapture" class="deck-button stop-button" type="button" disabled>停止采集</button>
+            <button id="toggleOverlay" class="deck-button" type="button" data-i18n="subtitle_overlay_on">浮层：开</button>
+            <button id="stopCapture" class="deck-button stop-button" type="button" disabled data-i18n="subtitle_stop_capture">停止采集</button>
           </div>
         </section>
 
@@ -91,32 +91,32 @@
             <div class="welcome-index">01</div>
             <div>
               <p class="eyebrow">HOW TO START</p>
-              <h2>让画面开口说中文</h2>
-              <p>打开 YouTube、Twitch 或其他英文视频页面，点击浏览器工具栏中的「声幕」，再选择“开始实时翻译”。字幕会浮在播放器上，所有已完成句子会保存在这里。</p>
+              <h2 data-i18n="subtitle_empty_title">让画面开口说中文</h2>
+              <p data-i18n="subtitle_empty_body">打开 YouTube、Twitch 或其他英文视频页面，点击浏览器工具栏中的「声幕」，再选择“开始实时翻译”。字幕会浮在播放器上，所有已完成句子会保存在这里。</p>
               <div class="shortcut-row">
                 <kbd>Ctrl</kbd><span>+</span><kbd>Shift</kbd><span>+</span><kbd>Y</kbd>
-                <span>打开控制面板</span>
+                <span data-i18n="subtitle_open_popup">打开控制面板</span>
               </div>
             </div>
           </div>
-          <button id="loadEarlier" class="load-earlier" type="button" hidden>载入更早的字幕</button>
+          <button id="loadEarlier" class="load-earlier" type="button" hidden data-i18n="subtitle_load_older">载入更早的字幕</button>
           <div id="transcriptList" class="transcript-list"></div>
           <article id="interimCard" class="interim-card" hidden>
-            <span class="interim-label">正在听</span>
+            <span class="interim-label" data-i18n="subtitle_listening">正在听</span>
             <p id="interimSource"></p>
             <p id="interimTranslation"></p>
           </article>
           <div id="emptyTranscript" class="empty-transcript" hidden>
-            <span>暂无字幕</span>
-            <p>当前场次还没有稳定句子。语音开始后，字幕会自动出现在这里。</p>
+            <span data-i18n="subtitle_no_lines">暂无字幕</span>
+            <p data-i18n="subtitle_no_lines_hint">当前场次还没有稳定句子。语音开始后，字幕会自动出现在这里。</p>
           </div>
-          <button id="scrollLatest" class="scroll-latest" type="button" hidden>回到最新 ↓</button>
+          <button id="scrollLatest" class="scroll-latest" type="button" hidden data-i18n="subtitle_jump_latest">回到最新 ↓</button>
         </section>
 
         <footer class="workspace-footer">
           <div>
-            <span id="lineCount">0 条字幕</span>
-            <span id="audioHealth">等待音频</span>
+            <span id="lineCount" data-i18n="subtitle_zero_lines">0 条字幕</span>
+            <span id="audioHealth" data-i18n="subtitle_waiting_audio">等待音频</span>
           </div>
           <div id="translationWarning" class="translation-warning"></div>
         </footer>

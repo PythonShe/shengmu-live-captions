@@ -12,6 +12,7 @@ import {
   speechPhrases
 } from "../extension/lib/asr-sessions.js";
 import { parseTimecode } from "../extension/lib/caption-utils.js";
+import { renderZh } from "./helpers/i18n.js";
 
 test("formatTimecode round-trips through the reducer's parser", () => {
   assert.equal(formatTimecode(0), "0:00:00.00");
@@ -80,6 +81,12 @@ test("parseBailianEvent maps server events and skips heartbeats", () => {
     "ignored"
   );
   assert.equal(parseBailianEvent("not json").kind, "failed");
-  assert.match(bailianErrorDetail("InvalidApiKey", "x"), /API Key 无效/);
-  assert.match(bailianErrorDetail("Other", "boom"), /Other.*boom/);
+  assert.match(renderZh(bailianErrorDetail("InvalidApiKey", "x")), /API Key 无效/);
+  assert.match(renderZh(bailianErrorDetail("Other", "boom")), /Other.*boom/);
+  assert.match(renderZh(parseBailianEvent("not json").message), /无法解析/);
+  assert.match(
+    renderZh(parseBailianEvent(frame({ event: "task-failed" })).message),
+    /任务失败/,
+    "a failure without a server message still says what failed"
+  );
 });

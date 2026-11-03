@@ -16,17 +16,17 @@
           <span>LIVE INTERPRETER</span>
         </div>
       </div>
-      <button id="openMonitor" class="text-button" type="button">字幕记录</button>
+      <button id="openMonitor" class="text-button" type="button" data-i18n="popup_open_history">字幕记录</button>
     </header>
 
     <main>
       <section class="now-card">
-        <p class="eyebrow">当前声源</p>
-        <h1 id="tabTitle">正在读取标签页</h1>
+        <p class="eyebrow" data-i18n="popup_current_source">当前声源</p>
+        <h1 id="tabTitle" data-i18n="popup_reading_tab">正在读取标签页</h1>
         <p id="tabUrl" class="tab-url">Chrome tab</p>
         <div class="status-row">
           <span id="statusDot" class="status-dot"></span>
-          <span id="statusLabel" role="status">准备就绪</span>
+          <span id="statusLabel" role="status" data-i18n="status_ready">准备就绪</span>
           <span id="audioRatio" class="ratio"></span>
         </div>
         <p id="livePreview" class="live-preview" hidden></p>
@@ -34,67 +34,67 @@
 
       <button id="primaryButton" class="primary-button" type="button">
         <span class="button-kicker">TAB AUDIO</span>
-        <span id="primaryLabel">开始实时翻译</span>
+        <span id="primaryLabel" data-i18n="popup_start">开始实时翻译</span>
       </button>
 
       <p id="errorMessage" class="error-message" role="alert" hidden></p>
 
-      <section class="controls" aria-label="语音识别">
+      <section class="controls" aria-label="语音识别" data-i18n-aria-label="popup_speech_section">
         <div class="control-row">
-          <label for="asrBackend">识别</label>
+          <label for="asrBackend" data-i18n="popup_asr_backend">识别</label>
           <select id="asrBackend">
-            <option value="chrome">Chrome 本机识别</option>
-            <option value="bailian">阿里云百炼（云端）</option>
-            <option value="wlk">本地 WhisperLiveKit</option>
+            <option value="chrome" data-i18n="asr_backend_chrome">Chrome 本机识别</option>
+            <option value="bailian" data-i18n="asr_backend_bailian">阿里云百炼（云端）</option>
+            <option value="wlk" data-i18n="asr_backend_wlk">本地 WhisperLiveKit</option>
           </select>
         </div>
         <p id="builtinSupportHint" class="field-hint" hidden></p>
         <div id="bailianFields" hidden>
           <div class="control-row">
-            <label for="bailianRegion">地域</label>
+            <label for="bailianRegion" data-i18n="popup_bailian_region">地域</label>
             <select id="bailianRegion">
-              <option value="cn">中国内地</option>
-              <option value="intl">国际</option>
+              <option value="cn" data-i18n="bailian_region_cn">中国内地</option>
+              <option value="intl" data-i18n="bailian_region_intl">国际</option>
             </select>
           </div>
-          <label for="bailianApiKey">百炼 API Key</label>
-          <input id="bailianApiKey" type="password" spellcheck="false" autocomplete="off" placeholder="留空则不修改已保存的 Key">
+          <label for="bailianApiKey" data-i18n="popup_bailian_key">百炼 API Key</label>
+          <input id="bailianApiKey" type="password" spellcheck="false" autocomplete="off" placeholder="留空则不修改已保存的 Key" data-i18n-placeholder="popup_key_placeholder">
           <p class="field-hint">
             <span id="bailianKeyHint"></span>
-            <a id="bailianKeyLink" href="https://bailian.console.aliyun.com/?tab=model#/api-key" target="_blank" rel="noreferrer">获取 Key</a>
+            <a id="bailianKeyLink" href="https://bailian.console.aliyun.com/?tab=model#/api-key" target="_blank" rel="noreferrer" data-i18n="popup_get_key">获取 Key</a>
           </p>
         </div>
       </section>
 
-      <section id="localModelSection" class="local-model" aria-label="本地模型">
+      <section id="localModelSection" class="local-model" aria-label="本地模型" data-i18n-aria-label="popup_local_models">
         <div class="local-model-head">
-          <p class="eyebrow">本地模型</p>
-          <span id="localServiceBadge" class="local-badge">检测中</span>
+          <p class="eyebrow" data-i18n="popup_local_models">本地模型</p>
+          <span id="localServiceBadge" class="local-badge" data-i18n="popup_checking">检测中</span>
         </div>
         <div class="local-status">
           <span>
             <b>ASR</b>
-            <i id="localAsrState" class="local-state">未连接</i>
+            <i id="localAsrState" class="local-state" data-i18n="local_not_connected">未连接</i>
           </span>
           <span>
-            <b>翻译</b>
-            <i id="localTranslationState" class="local-state">未连接</i>
+            <b data-i18n="popup_translation">翻译</b>
+            <i id="localTranslationState" class="local-state" data-i18n="local_not_connected">未连接</i>
           </span>
         </div>
         <div class="control-row">
-          <label for="localTranslationModel">翻译模型</label>
+          <label for="localTranslationModel" data-i18n="popup_translation_model">翻译模型</label>
           <select id="localTranslationModel"></select>
         </div>
         <div class="control-row">
-          <label for="localAsrModel">ASR 模型</label>
+          <label for="localAsrModel" data-i18n="popup_asr_model">ASR 模型</label>
           <select id="localAsrModel"></select>
         </div>
         <p id="localModelHint" class="field-hint"></p>
         <div id="localMissingBox" class="local-missing" hidden>
           <p id="localMissingText"></p>
           <div class="button-row">
-            <a id="localDownloadPage" class="outline-button" target="_blank" rel="noreferrer">下载页</a>
-            <button id="localDownloadButton" class="outline-button" type="button">下载模型</button>
+            <a id="localDownloadPage" class="outline-button" target="_blank" rel="noreferrer" data-i18n="popup_download_page">下载页</a>
+            <button id="localDownloadButton" class="outline-button" type="button" data-i18n="popup_download_model">下载模型</button>
           </div>
           <div id="localProgress" class="local-progress" hidden>
             <i id="localProgressBar"></i>
@@ -102,52 +102,52 @@
           <p id="localProgressText" class="field-hint" hidden></p>
         </div>
         <div class="button-row">
-          <button id="localStartButton" class="outline-button" type="button">一键启动</button>
-          <button id="localStopButton" class="outline-button" type="button" disabled>停止</button>
+          <button id="localStartButton" class="outline-button" type="button" data-i18n="popup_local_start">一键启动</button>
+          <button id="localStopButton" class="outline-button" type="button" disabled data-i18n="popup_local_stop">停止</button>
         </div>
         <p id="localJobMessage" class="field-hint" hidden></p>
         <div id="localServiceOffline" class="local-offline" hidden>
-          <p>本地控制服务未运行，在项目目录执行下面命令后点“重新检测”：</p>
-          <button id="startControlService" class="outline-button" type="button" hidden>启动控制服务</button>
+          <p data-i18n="popup_service_offline">本地控制服务未运行，在项目目录执行下面命令后点“重新检测”：</p>
+          <button id="startControlService" class="outline-button" type="button" hidden data-i18n="popup_start_control_service">启动控制服务</button>
           <code id="localServiceCommand"></code>
           <div class="button-row">
-            <button id="copyLocalServiceCommand" class="outline-button" type="button">复制命令</button>
-            <button id="retryLocalService" class="outline-button" type="button">重新检测</button>
+            <button id="copyLocalServiceCommand" class="outline-button" type="button" data-i18n="popup_copy_command">复制命令</button>
+            <button id="retryLocalService" class="outline-button" type="button" data-i18n="popup_check_again">重新检测</button>
           </div>
         </div>
       </section>
 
-      <section class="controls" aria-label="字幕显示设置">
+      <section class="controls" aria-label="字幕显示设置" data-i18n-aria-label="popup_display_section">
         <div class="control-row">
-          <label for="displayMode">显示</label>
+          <label for="displayMode" data-i18n="display_mode">显示</label>
           <select id="displayMode"></select>
         </div>
         <div class="control-row range-row">
-          <label for="fontSize">字号</label>
+          <label for="fontSize" data-i18n="popup_font_size">字号</label>
           <input id="fontSize" type="range" min="20" max="64" step="1">
           <output id="fontSizeValue" for="fontSize">34</output>
         </div>
         <div class="control-row range-row">
-          <label for="opacity">不透明度</label>
+          <label for="opacity" data-i18n="popup_opacity">不透明度</label>
           <input id="opacity" type="range" min="5" max="100" step="1">
           <output id="opacityValue" for="opacity">86%</output>
         </div>
         <label class="switch-row">
           <span>
-            <strong>页面浮层</strong>
-            <small>覆盖在直播画面上；浮层上滚动滚轮可回看历史</small>
+            <strong data-i18n="popup_overlay">页面浮层</strong>
+            <small data-i18n="popup_overlay_hint">覆盖在直播画面上；浮层上滚动滚轮可回看历史</small>
           </span>
           <input id="overlayEnabled" type="checkbox">
           <i aria-hidden="true"></i>
         </label>
         <p id="overlayHint" class="overlay-hint" role="alert" hidden>
           <span id="overlayHintText"></span>
-          <button id="overlayRetry" type="button">重新注入</button>
+          <button id="overlayRetry" type="button" data-i18n="popup_overlay_retry">重新注入</button>
         </p>
         <label class="switch-row">
           <span>
-            <strong>自动打开记录</strong>
-            <small>开始后显示字幕面板</small>
+            <strong data-i18n="popup_open_on_start">自动打开记录</strong>
+            <small data-i18n="popup_open_on_start_hint">开始后显示字幕面板</small>
           </span>
           <input id="openPanelOnStart" type="checkbox">
           <i aria-hidden="true"></i>
@@ -155,54 +155,54 @@
       </section>
 
       <details class="advanced">
-        <summary>翻译引擎</summary>
+        <summary data-i18n="popup_translation_engine">翻译引擎</summary>
         <div id="translationModeRow" class="control-row">
-          <label for="translationMode">来源</label>
+          <label for="translationMode" data-i18n="popup_translation_mode">来源</label>
           <select id="translationMode">
-            <option value="api">API 翻译</option>
-            <option value="server">本地服务端</option>
+            <option value="api" data-i18n="translation_mode_api">API 翻译</option>
+            <option value="server" data-i18n="translation_mode_server">本地服务端</option>
           </select>
         </div>
         <div id="apiTranslationFields">
           <div class="control-row">
-            <label for="translationProvider">服务商</label>
+            <label for="translationProvider" data-i18n="popup_provider">服务商</label>
             <select id="translationProvider">
-              <option value="chrome">Chrome 内置翻译</option>
+              <option value="chrome" data-i18n="provider_chrome">Chrome 内置翻译</option>
               <option value="deepseek">DeepSeek</option>
-              <option value="bailian">阿里云百炼（通义千问）</option>
+              <option value="bailian" data-i18n="provider_bailian">阿里云百炼（通义千问）</option>
               <option value="openai">OpenAI</option>
-              <option value="custom">自定义兼容 API</option>
+              <option value="custom" data-i18n="provider_custom">自定义兼容 API</option>
             </select>
           </div>
           <p id="translationNudge" class="field-hint" hidden>
-            内置翻译偏直译。填一个 DeepSeek Key 译文会自然得多。
-            <button id="switchToDeepseek" class="text-button" type="button">改用 DeepSeek</button>
+            <span data-i18n="popup_translation_nudge">内置翻译偏直译。填一个 DeepSeek Key 译文会自然得多。</span>
+            <button id="switchToDeepseek" class="text-button" type="button" data-i18n="popup_switch_deepseek">改用 DeepSeek</button>
           </p>
           <div id="remoteTranslationFields">
-            <p class="field-hint">API 模式会把识别出的英文字幕和最近两条上下文发送给所选服务商。</p>
+            <p class="field-hint" data-i18n="popup_api_privacy">API 模式会把识别出的英文字幕和最近两条上下文发送给所选服务商。</p>
             <div id="translationBaseUrlField">
-              <label for="translationBaseUrl">API 地址</label>
+              <label for="translationBaseUrl" data-i18n="popup_base_url">API 地址</label>
               <input id="translationBaseUrl" type="url" spellcheck="false">
             </div>
-            <label for="translationModel">模型</label>
+            <label for="translationModel" data-i18n="popup_model">模型</label>
             <input id="translationModel" type="text" spellcheck="false">
             <div id="translationKeyField">
               <label for="translationApiKey">API Key</label>
-              <input id="translationApiKey" type="password" spellcheck="false" autocomplete="off" placeholder="留空则不修改已保存的 Key">
+              <input id="translationApiKey" type="password" spellcheck="false" autocomplete="off" placeholder="留空则不修改已保存的 Key" data-i18n-placeholder="popup_key_placeholder">
               <p id="translationKeyHint" class="field-hint"></p>
             </div>
           </div>
           <label class="switch-row">
             <span>
-              <strong>半句预翻译</strong>
-              <small>中文更早出现，API 用量更高</small>
+              <strong data-i18n="popup_partial">半句预翻译</strong>
+              <small data-i18n="popup_partial_hint">中文更早出现，API 用量更高</small>
             </span>
             <input id="translationTranslatePartial" type="checkbox">
             <i aria-hidden="true"></i>
           </label>
           <div class="button-row">
-            <button id="testTranslationButton" class="outline-button" type="button">测试翻译 API</button>
-            <button id="clearTranslationKey" class="outline-button" type="button" hidden>清除 Key</button>
+            <button id="testTranslationButton" class="outline-button" type="button" data-i18n="popup_test_api">测试翻译 API</button>
+            <button id="clearTranslationKey" class="outline-button" type="button" hidden data-i18n="popup_clear_key">清除 Key</button>
           </div>
           <div id="translationTestResult" class="service-results" hidden></div>
         </div>
@@ -210,49 +210,49 @@
       </details>
 
       <details class="advanced">
-        <summary>术语库</summary>
+        <summary data-i18n="popup_glossary">术语库</summary>
         <label class="switch-row">
           <span>
-            <strong>启用术语库</strong>
-            <small>按句匹配专名注入翻译提示词，并为本地识别提供英文热词</small>
+            <strong data-i18n="popup_glossary_enabled">启用术语库</strong>
+            <small data-i18n="popup_glossary_hint">按句匹配专名注入翻译提示词，并为本地识别提供英文热词</small>
           </span>
           <input id="glossaryEnabled" type="checkbox">
           <i aria-hidden="true"></i>
         </label>
         <label class="switch-row">
           <span>
-            <strong>流放之路 (Path of Exile 1/2)</strong>
-            <small>内置 313 条国服解包官译：精魂、节杖、引路石、符文结界、焚界者、异界图鉴与同音纠错</small>
+            <strong data-i18n="popup_glossary_poe">流放之路 (Path of Exile 1/2)</strong>
+            <small data-i18n="popup_glossary_poe_hint">内置 313 条国服解包官译：精魂、节杖、引路石、符文结界、焚界者、异界图鉴与同音纠错</small>
           </span>
           <input id="glossaryPresetPoe" type="checkbox">
           <i aria-hidden="true"></i>
         </label>
         <p id="glossarySummaryHint" class="field-hint"></p>
-        <label for="glossaryDomainHint">领域背景提示</label>
-        <input id="glossaryDomainHint" type="text" spellcheck="false" maxlength="120" placeholder="例如：Path of Exile (流放之路) 游戏直播">
-        <label for="customGlossary">自定义术语（每行一条：英文 | 同音别名 -> 中文）</label>
+        <label for="glossaryDomainHint" data-i18n="popup_domain_hint">领域背景提示</label>
+        <input id="glossaryDomainHint" type="text" spellcheck="false" maxlength="120" placeholder="例如：Path of Exile (流放之路) 游戏直播" data-i18n-placeholder="popup_domain_placeholder">
+        <label for="customGlossary" data-i18n="popup_custom_glossary">自定义术语（每行一条：英文 | 同音别名 -> 中文）</label>
         <textarea id="customGlossary" rows="5" spellcheck="false" placeholder="Path of Exile | Path of Excel -> 流放之路&#10;Spirit -> 精魂&#10;SSF -> SSF"></textarea>
         <div class="button-row glossary-actions">
-          <button id="importGlossaryButton" class="outline-button" type="button">导入 TXT/CSV</button>
-          <button id="exportGlossaryTextButton" class="outline-button" type="button">导出 TXT</button>
-          <button id="exportGlossaryCsvButton" class="outline-button" type="button">导出 CSV</button>
+          <button id="importGlossaryButton" class="outline-button" type="button" data-i18n="popup_import_glossary">导入 TXT/CSV</button>
+          <button id="exportGlossaryTextButton" class="outline-button" type="button" data-i18n="popup_export_txt">导出 TXT</button>
+          <button id="exportGlossaryCsvButton" class="outline-button" type="button" data-i18n="popup_export_csv">导出 CSV</button>
         </div>
         <input id="importGlossaryInput" type="file" accept=".txt,.csv,text/plain,text/csv" hidden>
         <p id="glossaryActionHint" class="field-hint" hidden></p>
       </details>
 
       <details id="connectionSettings" class="advanced">
-        <summary>连接设置</summary>
+        <summary data-i18n="popup_connection">连接设置</summary>
         <label for="wsUrl">ASR WebSocket</label>
         <input id="wsUrl" type="url" spellcheck="false">
-        <button id="probeButton" class="outline-button" type="button">检查本地服务</button>
+        <button id="probeButton" class="outline-button" type="button" data-i18n="popup_probe">检查本地服务</button>
         <div id="serviceResults" class="service-results" hidden></div>
       </details>
     </main>
 
     <footer>
       <span>Ctrl + Shift + Y</span>
-      <button id="openMonitorFooter" class="text-button" type="button">查看全部记录</button>
+      <button id="openMonitorFooter" class="text-button" type="button" data-i18n="popup_view_all">查看全部记录</button>
     </footer>
 
     <script type="module" src="popup.js"></script>

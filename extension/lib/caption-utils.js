@@ -9,6 +9,7 @@ import {
   GLOSSARY_PRESET_IDS,
   MAX_CUSTOM_GLOSSARY_CHARS
 } from "./glossary.js";
+import { LocalizedError, msg } from "./i18n-message.js";
 import { needsCompletion, startsContinuation } from "./utterance.js";
 
 export const SETTINGS_KEY = "settings";
@@ -64,7 +65,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
 export const EMPTY_RUNTIME_STATE = Object.freeze({
   active: false,
   status: "idle",
-  detail: "等待开始",
+  detail: "",
   sessionId: null,
   epochId: null,
   tabId: null,
@@ -88,21 +89,22 @@ export const EMPTY_RUNTIME_STATE = Object.freeze({
   }
 });
 
-// Detail line shown while the page overlay is broken; cleared again once an
-// injection succeeds so the status label goes back to its normal wording.
-export const OVERLAY_UNAVAILABLE_DETAIL =
-  "页面浮层不可用，可在字幕窗口中继续观看";
+// Message key of the detail line shown while the page overlay is broken;
+// cleared again once an injection succeeds so the status label goes back to
+// its normal wording.
+export const OVERLAY_UNAVAILABLE_DETAIL = "overlay_unavailable_detail";
 
 // Idempotent transition for the page-overlay health flag. Mutates the state in
 // place and reports whether anything changed, so callers can skip a broadcast.
-export function applyOverlayFailure(state, error) {
+// `unavailableDetail` is the localized OVERLAY_UNAVAILABLE_DETAIL text.
+export function applyOverlayFailure(state, error, unavailableDetail = OVERLAY_UNAVAILABLE_DETAIL) {
   if (!state) return false;
   const message = error ? String(error?.message || error) : "";
   if ((state.overlayError || "") === message) return false;
   state.overlayError = message;
   if (message) {
-    state.detail = OVERLAY_UNAVAILABLE_DETAIL;
-  } else if (state.detail === OVERLAY_UNAVAILABLE_DETAIL) {
+    state.detail = unavailableDetail;
+  } else if (state.detail === unavailableDetail) {
     // The normal status label falls back to the status wording when empty.
     state.detail = "";
   }
@@ -281,10 +283,10 @@ export function normalizeWsUrl(value) {
   try {
     url = new URL(String(value || DEFAULT_SETTINGS.wsUrl).trim());
   } catch {
-    throw new Error("WebSocket 地址格式不正确");
+    throw new LocalizedError(msg("ws_url_invalid"));
   }
   if (!["ws:", "wss:"].includes(url.protocol)) {
-    throw new Error("WebSocket 地址必须以 ws:// 或 wss:// 开头");
+    throw new LocalizedError(msg("ws_url_protocol"));
   }
   if (!url.pathname || url.pathname === "/") {
     url.pathname = "/asr";
