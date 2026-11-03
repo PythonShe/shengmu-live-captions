@@ -13,6 +13,8 @@ import { fileURLToPath } from "node:url";
 
 const EXTENSION = fileURLToPath(new URL("../extension", import.meta.url));
 const TIMEOUT_MS = 15000;
+// A cold Chrome on a shared CI runner can take well over 15 s to listen.
+const STARTUP_TIMEOUT_MS = 60000;
 
 function findChrome() {
   const candidates = [
@@ -35,8 +37,8 @@ const sleep = (ms) =>
     setTimeout(resolve, ms);
   });
 
-async function waitFor(probe, label) {
-  const deadline = Date.now() + TIMEOUT_MS;
+async function waitFor(probe, label, timeoutMs = TIMEOUT_MS) {
+  const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const value = await probe().catch(() => null);
     if (value) return value;
@@ -67,8 +69,12 @@ const browser = spawn(
     ...(process.platform === "linux" ? ["--no-sandbox"] : []),
     "about:blank"
   ],
-  { stdio: "ignore" }
+  { stdio: ["ignore", "ignore", "pipe"] }
 );
+let browserStderr = "";
+browser.stderr.on("data", (chunk) => {
+  browserStderr = (browserStderr + String(chunk)).slice(-2000);
+});
 
 const results = [];
 const check = (name, ok, detail = "") => results.push({ name, ok: Boolean(ok), detail });
@@ -79,7 +85,8 @@ try {
   const portFile = path.join(profile, "DevToolsActivePort");
   const port = await waitFor(
     async () => fs.existsSync(portFile) && fs.readFileSync(portFile, "utf8").split("\n")[0],
-    "DevTools port"
+    "DevTools port",
+    STARTUP_TIMEOUT_MS
   );
   const version = await waitFor(
     async () => (await fetch(`http://127.0.0.1:${port}/json/version`)).json(),
@@ -203,7 +210,7 @@ try {
   const workerErrors = exceptionsFor(workerSession);
   check("worker raises no exceptions", workerErrors.length === 0, JSON.stringify(workerErrors));
 } catch (error) {
-  check("smoke run", false, error.message);
+  check("smoke run", false, `${error.message}${browserStderr ? `\n--- chrome stderr ---\n${browserStderr}` : ""}`);
 } finally {
   socket?.close();
   browser.kill();
