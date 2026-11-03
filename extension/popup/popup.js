@@ -108,7 +108,8 @@ const elements = {
   translationNudge: document.querySelector("#translationNudge"),
   switchToDeepseek: document.querySelector("#switchToDeepseek"),
   remoteTranslationFields: document.querySelector("#remoteTranslationFields"),
-  translationBaseUrlField: document.querySelector("#translationBaseUrlField")
+  translationBaseUrlField: document.querySelector("#translationBaseUrlField"),
+  translationKeyField: document.querySelector("#translationKeyField")
 };
 
 const BUILTIN_SPEECH = { langs: ["en-US"], processLocally: true };
@@ -362,6 +363,9 @@ function renderTranslationSettings() {
   const builtin = Boolean(provider.builtin);
   elements.remoteTranslationFields.hidden = builtin;
   elements.translationBaseUrlField.hidden = provider.id === "bailian";
+  // One Bailian key serves both halves; the speech section already asks for it.
+  elements.translationKeyField.hidden =
+    provider.id === "bailian" && settings.asrBackend === "bailian";
   elements.translationNudge.hidden = !builtin;
   elements.testTranslationButton.textContent = builtin ? "测试内置翻译" : "测试翻译 API";
   elements.translationMode.value = settings.translationMode;
