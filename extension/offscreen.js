@@ -32,6 +32,9 @@ let captureInfo = null;
 let audioStatsTimer = null;
 let serverFinished = false;
 let resamplePosition = 0;
+// Last input sample of the previous chunk: the carried position can land
+// between it and the next chunk's first sample (index -1).
+let resampleTail = 0;
 let finishWaiter = null;
 let stopPromise = null;
 let serverMessageChain = Promise.resolve();
@@ -116,11 +119,12 @@ function resampleLinear(samples, sourceRate, targetRate) {
   let position = resamplePosition;
   while (position < samples.length - 1) {
     const lower = Math.floor(position);
-    const upper = Math.min(samples.length - 1, lower + 1);
     const fraction = position - lower;
-    output.push(samples[lower] * (1 - fraction) + samples[upper] * fraction);
+    const base = lower < 0 ? resampleTail : samples[lower];
+    output.push(base * (1 - fraction) + samples[lower + 1] * fraction);
     position += ratio;
   }
+  resampleTail = samples[samples.length - 1];
   resamplePosition = position - samples.length;
   return Float32Array.from(output);
 }
@@ -188,6 +192,7 @@ function resetPendingAudio() {
   pendingSamples = [];
   pendingLength = 0;
   resamplePosition = 0;
+  resampleTail = 0;
 }
 
 function updateAudioStats() {
@@ -424,6 +429,7 @@ async function startCapture(message) {
   lastDataSignature = "";
   serverFinished = false;
   resamplePosition = 0;
+  resampleTail = 0;
   finishWaiter = null;
   await publishStatus("starting", "正在读取标签页音频");
 
@@ -581,6 +587,7 @@ async function performStopCapture(options = {}) {
   lastDataSignature = "";
   serverFinished = false;
   resamplePosition = 0;
+  resampleTail = 0;
   finishWaiter = null;
   serverMessageChain = Promise.resolve();
   backgroundWriteChain = Promise.resolve();
