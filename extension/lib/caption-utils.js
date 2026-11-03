@@ -99,7 +99,7 @@ export function applyOverlayFailure(state, error) {
 
 // "dual" keeps the previous translated line above the current one, so a
 // sentence cut in two by the ASR segmenter still reads continuously.
-const DISPLAY_MODES = new Set(["bilingual", "dual", "chinese", "english"]);
+export const DISPLAY_MODES = new Set(["bilingual", "dual", "chinese", "english"]);
 
 // Content scripts only need presentation settings. Translation/API settings
 // must come from an extension page so a page-side script cannot redirect the
