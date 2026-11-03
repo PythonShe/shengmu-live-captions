@@ -1,8 +1,9 @@
 (() => {
-  // Bumped with the 0.5.5 stale-slot rework (the previous translation stays at
-  // full brightness and a corner dot marks the wait): an overlay left behind by
-  // the previous injection must be rebuilt, not reused.
-  const OVERLAY_VERSION = 6;
+  // 5 -> 6 (0.5.5): stale-slot rework (the previous translation stays at full
+  // brightness and a corner dot marks the wait). 6 -> 7: the wheel listener is
+  // bound only while the pointer is over the captions. An instance of an older
+  // version is rebuilt, not reused, so open tabs drop the always-on listener.
+  const OVERLAY_VERSION = 7;
   const existing = globalThis.__shengmuCaptionOverlay;
   if (existing?.version === OVERLAY_VERSION && existing.refresh) {
     existing.refresh();
@@ -103,6 +104,10 @@
   let renderedScrollbackKey = "";
   let syncedLinesRef = null;
   let windowListenersBound = false;
+  let wheelListenerBound = false;
+  // Last pointer position seen by the passive tracker, so the wheel binding can
+  // be re-evaluated when the captions move under a stationary pointer.
+  let lastPointer = null;
 
   function clean(value) {
     return String(value ?? "").replace(/\s+/g, " ").trim();
@@ -681,15 +686,47 @@
     if (windowListenersBound) return;
     windowListenersBound = true;
     window.addEventListener("resize", handleWindowResize);
-    // The stage is pointer-events:none so it never blocks the player. Wheel
-    // events are therefore caught here in the capture phase: only when the
-    // pointer is over the caption box, and only while we actually consume the
-    // scroll (history open, or scrolling up to open it).
-    window.addEventListener("wheel", handleWheel, {
+    // The stage is pointer-events:none, so enter/leave events never fire on it
+    // and the pointer is tracked with a passive listener instead. A
+    // non-passive wheel listener on window blocks compositor scrolling on the
+    // whole page, so it is attached only while the pointer is over the
+    // captions (see syncWheelBinding).
+    window.addEventListener("pointermove", handlePointerMove, {
       capture: true,
-      passive: false
+      passive: true
     });
     document.addEventListener("fullscreenchange", handleFullscreenChange);
+  }
+
+  function handlePointerMove(event) {
+    lastPointer = { clientX: event.clientX, clientY: event.clientY };
+    syncWheelBinding();
+  }
+
+  function setWheelBinding(wanted) {
+    if (wanted === wheelListenerBound) return;
+    wheelListenerBound = wanted;
+    if (wanted) {
+      window.addEventListener("wheel", handleWheel, {
+        capture: true,
+        passive: false
+      });
+    } else {
+      window.removeEventListener("wheel", handleWheel, { capture: true });
+    }
+  }
+
+  // Attach the blocking wheel listener only while the pointer is over the
+  // overlay (or its just-closed history panel during the cooldown).
+  function syncWheelBinding() {
+    const wanted = Boolean(
+      lastPointer &&
+        stage &&
+        !stage.hidden &&
+        host?.isConnected &&
+        pointerInsideOverlay(lastPointer)
+    );
+    setWheelBinding(wanted);
   }
 
   // Wheel hit tests read layout boxes; ResizeObserver invalidates the cache on
@@ -700,6 +737,7 @@
     sizeObserver = new ResizeObserver(() => {
       stageRectCache = null;
       historyRectCache = null;
+      syncWheelBinding();
     });
     sizeObserver.observe(stage);
     if (historyElement) sizeObserver.observe(historyElement);
@@ -1230,6 +1268,9 @@
 
   function render() {
     if (!stage) return;
+    // render() has several early returns that flip stage.hidden; re-check the
+    // wheel binding once the whole pass is done.
+    queueMicrotask(syncWheelBinding);
     applyVisualSettings();
     syncHistory();
     const active = Boolean(runtimeState?.active);
@@ -1383,9 +1424,13 @@
     if (windowListenersBound) {
       windowListenersBound = false;
       window.removeEventListener("resize", handleWindowResize);
-      window.removeEventListener("wheel", handleWheel, { capture: true });
+      window.removeEventListener("pointermove", handlePointerMove, {
+        capture: true
+      });
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
     }
+    setWheelBinding(false);
+    lastPointer = null;
     if (sizeObserver) {
       sizeObserver.disconnect();
       sizeObserver = null;
