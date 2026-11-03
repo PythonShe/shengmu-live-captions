@@ -1,98 +1,76 @@
 import {
-  DEFAULT_SETTINGS,
   EMPTY_RUNTIME_STATE,
-  HISTORY_CHANGED_KEY,
-  SETTINGS_KEY,
-  applyOverlayFailure,
-  lineNeedsTranslation,
-  migrateLegacySettings,
-  normalizeSettings,
   normalizeWsUrl,
   sanitizeSettingsPatch,
-  settingsForBroadcast,
-  settingsForCaptions
+  settingsForBroadcast
 } from "../lib/caption-utils.js";
-import {
-  buildAsrContextPrompt,
-  resolveEffectiveGlossary
-} from "../lib/glossary.js";
-import {
-  TRANSLATION_PROVIDERS,
-  normalizeTranslationBaseUrl,
-  normalizeTranslationProvider,
-  resolveTranslationConfig,
-  testTranslationConnection,
-  translateTexts,
-  translationConfigIssue
-} from "../lib/translation-api.js";
-import {
-  countHistoryLines,
-  createHistorySession,
-  getHistoryLines,
-  updateHistorySession,
-  upsertHistoryLines
-} from "../storage/history-db.js";
-import { HistoryWriteQueue } from "../lib/history-write-queue.js";
-import { createRuntimeStore, safeClone } from "./runtime-store.js";
-import { rememberLine, reduceTranscriptUpdate } from "../lib/transcript-reducer.js";
+import { translateTexts, translationConfigIssue } from "../lib/translation-api.js";
+import { reduceTranscriptUpdate } from "../lib/transcript-reducer.js";
 import {
   TRANSLATION_STOP_TIMEOUT_MS,
   createTranslationScheduler
 } from "../lib/translation-scheduler.js";
+import {
+  probeServices,
+  requireLocalTranslation,
+  testTranslationApi
+} from "./diagnostics.js";
+import { createHistorySync } from "./history-sync.js";
+import { OFFSCREEN_URL, createOffscreenClient } from "./offscreen-client.js";
+import { createRuntimeStore, safeClone } from "./runtime-store.js";
+import { createSettingsStore, translationSettingsChanged } from "./settings-store.js";
+import { createViews } from "./views.js";
 
-const OFFSCREEN_URL = "offscreen/offscreen.html";
-const MONITOR_URL = "subtitle/subtitle.html";
-const LINE_FLUSH_DELAY_MS = 700;
-
-let settingsCache = { ...DEFAULT_SETTINGS };
 const store = createRuntimeStore();
+const settings = createSettingsStore();
+const offscreen = createOffscreenClient();
+const views = createViews({ store, settings, ready: initialize });
+const history = createHistorySync({ store, views });
 let initializationPromise = null;
 let finalizingPromise = null;
-const knownLineSignatures = new Map();
 let pendingStopDetail = "";
-let lastHistoryWriteError = "";
+
+// Persists and broadcasts the caption state after the scheduler patched it.
+async function publishCaptionState() {
+  await store.persist();
+  await views.broadcastToExtension({
+    type: "caption-state",
+    current: safeClone(store.state.current),
+    lineCount: store.state.lineCount
+  });
+  await views.broadcastCaptionState();
+  await history.flush(false);
+}
+
+const scheduler = createTranslationScheduler({
+  getState: () => store.state,
+  getConfig: () => settings.translationConfig(),
+  isApiEnabled: () => settings.apiTranslationActive(),
+  partialEnabled: () => Boolean(settings.current.translationTranslatePartial),
+  translateTexts,
+  knownLines: history.knownLines,
+  enqueueHistory: (lines) => history.enqueue(lines),
+  publish: publishCaptionState
+});
 
 function initialize() {
   if (initializationPromise) return initializationPromise;
   initializationPromise = (async () => {
-    const [localValues, restored] = await Promise.all([
-      chrome.storage.local.get([SETTINGS_KEY]),
-      store.rehydrate()
-    ]);
-    try {
-      settingsCache = migrateLegacySettings(localValues[SETTINGS_KEY]);
-      if (
-        localValues[SETTINGS_KEY] &&
-        localValues[SETTINGS_KEY].translationMode === undefined
-      ) {
-        await chrome.storage.local.set({ [SETTINGS_KEY]: settingsCache });
-      }
-    } catch {
-      // Keep API keys and other valid fields if only one setting (usually the
-      // legacy wsUrl) is malformed.
-      settingsCache = normalizeSettings({
-        ...(localValues[SETTINGS_KEY] || {}),
-        wsUrl: DEFAULT_SETTINGS.wsUrl
-      });
-      await chrome.storage.local.set({ [SETTINGS_KEY]: settingsCache });
-    }
-    if (!localValues[SETTINGS_KEY]) {
-      await chrome.storage.local.set({ [SETTINGS_KEY]: settingsCache });
-    }
+    const [, restored] = await Promise.all([settings.load(), store.rehydrate()]);
     if (restored) {
       scheduler.restore({
         usage: restored.translation?.usage,
         error: restored.translation?.error
       });
     }
-    await updateBadge();
-    if (store.state.active && !(await hasOffscreenDocument())) {
+    await views.updateBadge();
+    if (store.state.active && !(await offscreen.hasDocument())) {
       await finalizeSession(
         "error",
         "浏览器后台采集页面已中断，请重新开始",
         { quiet: true }
       );
-    } else if (store.state.active && apiTranslationActive()) {
+    } else if (store.state.active && settings.apiTranslationActive()) {
       // The service worker can be recycled mid-session. Rebuild the pending
       // queue from the restored runtime lines; none of the queue/timers are
       // persisted in memory.
@@ -102,438 +80,16 @@ function initialize() {
   return initializationPromise;
 }
 
-async function getSettings() {
-  await initialize();
-  return { ...settingsCache };
-}
-
 async function saveSettings(patch) {
   await initialize();
-  const merged = { ...settingsCache, ...patch };
-  if (patch.translationProvider) {
-    // A provider switch must not inherit another provider's endpoint/model,
-    // otherwise a DeepSeek key could be sent to a stale custom URL.
-    const preset =
-      TRANSLATION_PROVIDERS[
-        normalizeTranslationProvider(patch.translationProvider)
-      ];
-    if (!("translationBaseUrl" in patch)) {
-      merged.translationBaseUrl = preset.baseUrl;
-    }
-    if (!("translationModel" in patch)) {
-      merged.translationModel = preset.model;
-    }
-  }
-  if (
-    patch.translationApiKeys &&
-    typeof patch.translationApiKeys === "object"
-  ) {
-    merged.translationApiKeys = {
-      ...settingsCache.translationApiKeys,
-      ...patch.translationApiKeys
-    };
-  }
-  if ("translationBaseUrl" in patch) {
-    // An explicit endpoint edit must not silently reuse the old key on a new
-    // host. Force the user to re-enter it unless this patch also supplies one
-    // or the URL is the provider's official preset.
-    const provider = normalizeTranslationProvider(
-      merged.translationProvider
-    );
-    const preset = TRANSLATION_PROVIDERS[provider];
-    let nextUrl;
-    try {
-      nextUrl = normalizeTranslationBaseUrl(
-        patch.translationBaseUrl,
-        merged.translationBaseUrl
-      );
-    } catch {
-      nextUrl = merged.translationBaseUrl;
-    }
-    const providedKey =
-      patch.translationApiKeys &&
-      typeof patch.translationApiKeys === "object" &&
-      provider in patch.translationApiKeys;
-    if (
-      !providedKey &&
-      nextUrl !== preset.baseUrl &&
-      settingsCache.translationBaseUrl !== nextUrl
-    ) {
-      merged.translationApiKeys = {
-        ...merged.translationApiKeys,
-        [provider]: ""
-      };
-    }
-  }
-  settingsCache = normalizeSettings(merged);
-  await chrome.storage.local.set({ [SETTINGS_KEY]: settingsCache });
-  await broadcastToExtension({
+  const saved = await settings.applyPatch(patch);
+  await views.broadcastToExtension({
     type: "settings-changed",
-    settings: settingsForBroadcast(settingsCache)
+    settings: settingsForBroadcast(saved)
   });
   if (translationSettingsChanged(patch)) scheduler.handleConfigChanged();
-  await applyOverlaySetting();
-  return settingsForBroadcast(settingsCache);
-}
-
-function translationSettingsChanged(patch = {}) {
-  return [
-    "translationMode",
-    "translationProvider",
-    "translationBaseUrl",
-    "translationModel",
-    "translationApiKeys",
-    "translationTranslatePartial",
-    "translationTimeoutMs",
-    "glossaryEnabled",
-    "glossaryPresetIds",
-    "glossaryDomainHint",
-    "customGlossary"
-  ].some((key) => key in patch);
-}
-
-async function updateBadge() {
-  if (store.state.active) {
-    await chrome.action.setBadgeBackgroundColor({ color: "#c6412c" });
-    await chrome.action.setBadgeText({
-      text: store.state.status === "reconnecting" ? "..." : "REC"
-    });
-    await chrome.action.setTitle({
-      title: store.state.detail || "声幕正在采集标签页音频"
-    });
-  } else {
-    await chrome.action.setBadgeText({ text: "" });
-    await chrome.action.setTitle({ title: "声幕 - 实时字幕翻译" });
-  }
-}
-
-async function broadcastToExtension(message) {
-  try {
-    await chrome.runtime.sendMessage({
-      target: "extension-view",
-      ...message,
-      state: store.snapshot()
-    });
-  } catch {
-    // No extension view is open.
-  }
-}
-
-async function sendToTab(message) {
-  if (!store.state.tabId) return false;
-  try {
-    await chrome.tabs.sendMessage(store.state.tabId, {
-      target: "content",
-      ...message
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function broadcastCaptionState() {
-  await sendToTab({
-    type: "caption-state",
-    payload: {
-      active: store.state.active,
-      status: store.state.status,
-      detail: store.state.detail,
-      lineCount: store.state.lineCount,
-      wsConnected: store.state.wsConnected,
-      updatedAt: store.state.updatedAt,
-      overlayError: store.state.overlayError || "",
-      current: safeClone(store.state.current)
-    },
-    settings: settingsForCaptions(settingsCache)
-  });
-}
-
-async function hasOffscreenDocument() {
-  const contexts = await chrome.runtime.getContexts({
-    contextTypes: ["OFFSCREEN_DOCUMENT"],
-    documentUrls: [chrome.runtime.getURL(OFFSCREEN_URL)]
-  });
-  return contexts.length > 0;
-}
-
-async function ensureOffscreenDocument() {
-  if (await hasOffscreenDocument()) return;
-  await chrome.offscreen.createDocument({
-    url: OFFSCREEN_URL,
-    reasons: ["USER_MEDIA", "AUDIO_PLAYBACK"],
-    justification: "Capture one tab, play its audio, and stream PCM to local captions."
-  });
-  await delay(120);
-}
-
-function delay(ms) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
-
-async function messageOffscreen(message) {
-  await ensureOffscreenDocument();
-  try {
-    return await chrome.runtime.sendMessage({
-      target: "offscreen",
-      ...message
-    });
-  } catch (error) {
-    throw new Error(`无法联系音频采集页面：${error?.message || error}`, { cause: error });
-  }
-}
-
-async function injectOverlay(tabId = store.state.tabId) {
-  if (!tabId) return false;
-  try {
-    await chrome.scripting.executeScript({
-      target: { tabId },
-      files: ["content/overlay-history.js", "content/content-overlay.js"]
-    });
-  } catch (error) {
-    console.warn("声幕页面浮层注入失败", error);
-    await reportOverlayFailure(error);
-    return false;
-  }
-  try {
-    // A content script that threw during startup has no listener yet; the
-    // sendMessage rejection is the only signal the worker ever gets, so treat
-    // it as an injection failure instead of swallowing it.
-    const response = await chrome.tabs.sendMessage(tabId, {
-      target: "content",
-      type: "init",
-      settings: settingsForCaptions(settingsCache),
-      state: store.snapshot()
-    });
-    if (response && response.ok === false) {
-      throw new Error(response.error || "浮层初始化被拒绝");
-    }
-  } catch (error) {
-    console.warn("声幕页面浮层没有响应", error);
-    await reportOverlayFailure(error);
-    return false;
-  }
-  if (store.state.overlayError) await reportOverlayFailure(null);
-  return true;
-}
-
-// Surfaced in the popup so a broken overlay never fails silently: the switch
-// stays on while nothing appears, which reads as "the toggle does nothing".
-async function reportOverlayFailure(error) {
-  if (!applyOverlayFailure(store.state, error)) return;
-  await store.persist(true);
-  // Both audiences matter: the content script needs the caption state, and the
-  // extension views need the new overlayError to show or clear the hint.
-  await broadcastToExtension({ type: "status" });
-  await broadcastCaptionState();
-}
-
-async function hideOverlay() {
-  await sendToTab({ type: "hide-overlay" });
-}
-
-async function applyOverlaySetting() {
-  if (!store.state.tabId) return;
-  if (settingsCache.overlayEnabled) {
-    // injectOverlay() records overlayError (and broadcasts) on its own, so a
-    // failure must not trigger a second, identical broadcast here.
-    const injected = await injectOverlay(store.state.tabId);
-    if (injected) await broadcastCaptionState();
-  } else {
-    await hideOverlay();
-  }
-}
-
-async function findMonitorTab() {
-  const monitorUrl = chrome.runtime.getURL(MONITOR_URL);
-  const tabs = await chrome.tabs.query({});
-  return tabs.find((tab) => (tab.url || "").startsWith(monitorUrl)) || null;
-}
-
-async function openMonitorWindow(options = {}) {
-  await initialize();
-  const query = options.welcome ? "?welcome=1" : "";
-  const url = chrome.runtime.getURL(`${MONITOR_URL}${query}`);
-  const existing = await findMonitorTab();
-  if (existing?.id) {
-    await chrome.windows.update(existing.windowId, { focused: true });
-    if (existing.url !== url && existing.id) {
-      await chrome.tabs.update(existing.id, { url, active: true });
-    }
-    return existing;
-  }
-  const bounds = { width: 1160, height: 760, left: 80, top: 60 };
-  try {
-    return await chrome.windows.create({ url, type: "popup", focused: true, ...bounds });
-  } catch (error) {
-    // Chrome rejects bounds that leave less than half the window on screen
-    // (small or scaled displays); let it pick a placement instead.
-    if (!/bounds/i.test(String(error?.message))) throw error;
-    return chrome.windows.create({ url, type: "popup", focused: true });
-  }
-}
-
-async function notifyHistoryChanged(sessionId) {
-  await chrome.storage.local.set({ [HISTORY_CHANGED_KEY]: Date.now() });
-  await broadcastToExtension({
-    type: "history-changed",
-    sessionId
-  });
-}
-
-async function commitHistoryBatch(lines) {
-  const bySession = new Map();
-  for (const line of lines || []) {
-    if (!line?.sessionId) continue;
-    if (!bySession.has(line.sessionId)) bySession.set(line.sessionId, []);
-    bySession.get(line.sessionId).push(line);
-  }
-
-  for (const [sessionId, sessionLines] of bySession) {
-    await upsertHistoryLines(sessionLines);
-    const count = await countHistoryLines(sessionId);
-    const lastLine = [...sessionLines]
-      .filter((line) => line.source || line.translation)
-      .sort((left, right) => (left.order || 0) - (right.order || 0))
-      .at(-1);
-    const isCurrentSession = sessionId === store.state.sessionId;
-    if (isCurrentSession) store.state.lineCount = count;
-    const patch = {
-      lineCount: count,
-      preview: lastLine?.translation || lastLine?.source || ""
-    };
-    if (isCurrentSession) {
-      patch.status = store.state.active ? "capturing" : store.state.status;
-    }
-    await updateHistorySession(sessionId, patch);
-    if (isCurrentSession) {
-      if (lastHistoryWriteError) {
-        lastHistoryWriteError = "";
-        if (store.state.detail.startsWith("字幕历史写入失败")) {
-          store.state.detail = "字幕历史已恢复写入";
-        }
-      }
-      await store.persist(true);
-      await broadcastToExtension({ type: "line-count", lineCount: count });
-    }
-  }
-}
-
-function handleHistoryWriteError(error) {
-  lastHistoryWriteError = error?.message || String(error);
-  console.error("声幕历史字幕写入失败", error);
-  if (!store.state.active) return;
-  store.state.detail = `字幕历史写入失败，正在重试：${lastHistoryWriteError}`;
-  store.state.updatedAt = Date.now();
-  void store.persist();
-  void broadcastToExtension({
-    type: "status",
-    status: {
-      state: store.state.status,
-      detail: store.state.detail,
-      wsConnected: store.state.wsConnected
-    }
-  });
-}
-
-const historyWriteQueue = new HistoryWriteQueue({
-  writeBatch: commitHistoryBatch,
-  debounceMs: LINE_FLUSH_DELAY_MS,
-  onError: handleHistoryWriteError
-});
-
-async function flushPendingHistory(force = false) {
-  if (!force) {
-    historyWriteQueue.schedule();
-    return;
-  }
-  await historyWriteQueue.flush({ drain: true });
-}
-
-async function summarizeHistorySession(sessionId) {
-  const lines = await getHistoryLines(sessionId);
-  const ordered = [...lines].sort(
-    (left, right) => (left.order || 0) - (right.order || 0)
-  );
-  const lastLine = ordered.at(-1);
-  return {
-    lineCount: ordered.length,
-    translationMissing: ordered.filter(lineNeedsTranslation).length,
-    preview: lastLine?.translation || lastLine?.source || ""
-  };
-}
-
-function translationConfig() {
-  const base = resolveTranslationConfig(settingsCache);
-  const glossary = resolveEffectiveGlossary(settingsCache);
-  return {
-    ...base,
-    glossaryEntries: glossary.entries,
-    domainHint: glossary.domainHint
-  };
-}
-
-function buildSessionWsUrl(baseWsUrl, settings = settingsCache) {
-  const url = new URL(baseWsUrl);
-  const glossary = resolveEffectiveGlossary(settings);
-  const asrContext = glossary.enabled
-    ? buildAsrContextPrompt(glossary.asrEntries)
-    : "";
-  if (asrContext) {
-    url.searchParams.set("context", asrContext);
-  } else {
-    url.searchParams.delete("context");
-  }
-  return url.toString();
-}
-
-function apiTranslationActive() {
-  return translationConfig().enabled;
-}
-
-// Persists and broadcasts the caption state after the scheduler patched it.
-async function publishCaptionState() {
-  await store.persist();
-  await broadcastToExtension({
-    type: "caption-state",
-    current: safeClone(store.state.current),
-    lineCount: store.state.lineCount
-  });
-  await broadcastCaptionState();
-  await flushPendingHistory(false);
-}
-
-const scheduler = createTranslationScheduler({
-  getState: () => store.state,
-  getConfig: translationConfig,
-  isApiEnabled: apiTranslationActive,
-  partialEnabled: () => Boolean(settingsCache.translationTranslatePartial),
-  translateTexts,
-  knownLines: knownLineSignatures,
-  enqueueHistory: (lines) => historyWriteQueue.enqueue(lines),
-  publish: publishCaptionState
-});
-
-async function testTranslationApi() {
-  const config = translationConfig();
-  if (config.mode !== "api") {
-    throw new Error("当前翻译引擎是本地服务端，不需要测试 API");
-  }
-  const issue = translationConfigIssue(config);
-  if (issue) throw new Error(issue);
-  const result = await testTranslationConnection(config);
-  return {
-    ok: true,
-    translation: result.translation,
-    model: result.model,
-    latencyMs: result.latencyMs
-  };
-}
-
-async function resetSessionMemory() {
-  knownLineSignatures.clear();
+  await views.applyOverlaySetting();
+  return settingsForBroadcast(settings.current);
 }
 
 // Two start requests (double click, popup plus shortcut) would both pass the
@@ -555,14 +111,13 @@ async function startSessionNow(message) {
 
   let wsUrl;
   try {
-    wsUrl = normalizeWsUrl(message.wsUrl || settingsCache.wsUrl);
+    wsUrl = normalizeWsUrl(message.wsUrl || settings.current.wsUrl);
   } catch (error) {
     throw new Error(error?.message || String(error), { cause: error });
   }
-  settingsCache = normalizeSettings({ ...settingsCache, wsUrl });
-  await chrome.storage.local.set({ [SETTINGS_KEY]: settingsCache });
+  await settings.update({ wsUrl });
 
-  const translation = translationConfig();
+  const translation = settings.translationConfig();
   if (translation.mode === "api") {
     const issue = translationConfigIssue(translation);
     if (issue) {
@@ -571,16 +126,7 @@ async function startSessionNow(message) {
       );
     }
   } else {
-    try {
-      const response = await fetch("http://127.0.0.1:8013/health", {
-        signal: AbortSignal.timeout(1600)
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    } catch {
-      throw new Error(
-        "本地服务端翻译不可用（127.0.0.1:8013）。如果只想跑 ASR，请把翻译引擎切换为 API。"
-      );
-    }
+    await requireLocalTranslation();
   }
 
   const sessionId = crypto.randomUUID();
@@ -599,9 +145,9 @@ async function startSessionNow(message) {
     lineCount: 0,
     preview: ""
   };
-  await resetSessionMemory();
+  history.resetSession();
   scheduler.reset();
-  await createHistorySession(metadata);
+  await history.createSession(metadata);
   pendingStopDetail = "";
 
   store.replace({
@@ -618,21 +164,21 @@ async function startSessionNow(message) {
   });
   scheduler.refreshSummary();
   await store.persist(true);
-  await updateBadge();
-  await broadcastToExtension({
+  await views.updateBadge();
+  await views.broadcastToExtension({
     type: "session-state",
     session: metadata
   });
-  await notifyHistoryChanged(sessionId);
+  await views.notifyHistoryChanged(sessionId);
 
   let result;
   try {
-    result = await messageOffscreen({
+    result = await offscreen.send({
       type: "start-capture",
       sessionId,
       targetTabId: message.targetTabId,
       streamId: message.streamId,
-      wsUrl: buildSessionWsUrl(wsUrl, settingsCache)
+      wsUrl: settings.sessionWsUrl(wsUrl)
     });
     if (!result?.ok) throw new Error(result?.error || "音频采集启动失败");
   } catch (error) {
@@ -642,19 +188,19 @@ async function startSessionNow(message) {
     throw error;
   }
 
-  if (settingsCache.overlayEnabled) {
-    await injectOverlay(store.state.tabId);
+  if (settings.current.overlayEnabled) {
+    await views.injectOverlay(store.state.tabId);
   }
   let warning = "";
-  if (settingsCache.openPanelOnStart) {
+  if (settings.current.openPanelOnStart) {
     try {
-      await openMonitorWindow();
+      await views.openMonitorWindow();
     } catch (error) {
       warning = `字幕窗口未能自动打开：${error?.message || error}`;
       store.state.detail = warning;
       store.state.updatedAt = Date.now();
       await store.persist(true);
-      await broadcastToExtension({ type: "session-state" });
+      await views.broadcastToExtension({ type: "session-state" });
     }
   }
   return { ok: true, sessionId, warning };
@@ -681,7 +227,7 @@ async function finalizeSession(status, detail, options = {}) {
         // Invalidate any request that outlived the stop deadline so it cannot
         // write history after the final flush/summary.
         scheduler.invalidate();
-        await flushPendingHistory(true);
+        await history.flush(true);
       } catch (error) {
         finalStatus = "error";
         finalDetail = `字幕历史写入失败：${error?.message || error}`;
@@ -689,7 +235,7 @@ async function finalizeSession(status, detail, options = {}) {
 
       if (sessionId) {
         try {
-          const summary = await summarizeHistorySession(sessionId);
+          const summary = await history.summarize(sessionId);
           lineCount = summary.lineCount;
           translationMissing = summary.translationMissing;
           preview = summary.preview || preview;
@@ -698,7 +244,7 @@ async function finalizeSession(status, detail, options = {}) {
             finalDetail =
               `${finalDetail}；${translationMissing} 条字幕缺少译文`;
           }
-          await updateHistorySession(sessionId, {
+          await history.updateSession(sessionId, {
             endedAt: Date.now(),
             status: finalStatus,
             lineCount,
@@ -723,19 +269,19 @@ async function finalizeSession(status, detail, options = {}) {
       store.state.updatedAt = Date.now();
       try {
         await store.persist(true);
-        await updateBadge();
+        await views.updateBadge();
       } catch (error) {
         console.error("声幕运行状态收尾失败", error);
       }
       if (!options.quiet) {
-        await broadcastToExtension({
+        await views.broadcastToExtension({
           type: "session-ended",
           status: finalStatus,
           detail: store.state.detail
         });
-        await broadcastCaptionState();
+        await views.broadcastCaptionState();
       }
-      if (sessionId) await notifyHistoryChanged(sessionId);
+      if (sessionId) await views.notifyHistoryChanged(sessionId);
       scheduler.reset({ keepUsage: true });
       pendingStopDetail = "";
     }
@@ -749,23 +295,13 @@ async function finalizeSession(status, detail, options = {}) {
 
 async function stopSession(options = {}) {
   await initialize();
-  if (!store.state.active && !(await hasOffscreenDocument())) {
+  if (!store.state.active && !(await offscreen.hasDocument())) {
     return { ok: true, alreadyStopped: true };
   }
   if (store.state.active) {
     pendingStopDetail = options.detail || "标签页音频采集已停止";
   }
-  try {
-    if (await hasOffscreenDocument()) {
-      await chrome.runtime.sendMessage({
-        target: "offscreen",
-        type: "stop-capture",
-        quiet: true
-      });
-    }
-  } catch (error) {
-    console.warn("声幕停止采集时出现错误", error);
-  }
+  await offscreen.stopCapture();
   await finalizeSession(
     options.status || "stopped",
     pendingStopDetail || options.detail || "标签页音频采集已停止",
@@ -791,9 +327,9 @@ async function handleStatusReport(message) {
   store.state.captureInfo = status.captureInfo || store.state.captureInfo;
   store.state.updatedAt = status.updatedAt || Date.now();
   await store.persist();
-  await updateBadge();
-  await broadcastToExtension({ type: "status", status: safeClone(status) });
-  await broadcastCaptionState();
+  await views.updateBadge();
+  await views.broadcastToExtension({ type: "status", status: safeClone(status) });
+  await views.broadcastCaptionState();
 
   if (status.state === "error" && status.fatal && store.state.active) {
     await stopSession({
@@ -825,44 +361,41 @@ async function refreshSourceMetadata(tabId) {
   store.state.tabUrl = url;
   store.state.updatedAt = Date.now();
   if (store.state.sessionId) {
-    await updateHistorySession(store.state.sessionId, {
+    await history.updateSession(store.state.sessionId, {
       title,
       url,
       updatedAt: store.state.updatedAt
     });
   }
   await store.persist(true);
-  await broadcastToExtension({ type: "session-state" });
+  await views.broadcastToExtension({ type: "session-state" });
 }
 
 async function handleTranscriptUpdate(message) {
   if (!store.state.active || message.sessionId !== store.state.sessionId) return;
-  const apiConfig = translationConfig();
+  const apiConfig = settings.translationConfig();
   const useApi = apiConfig.mode === "api" && apiConfig.enabled;
   const next = reduceTranscriptUpdate(store.state, message, {
-    knownLines: knownLineSignatures,
+    knownLines: history.knownLines,
     useApi,
     apiError: scheduler.lastError,
     now: Date.now()
   });
-  for (const line of next.historyLines) {
-    knownLineSignatures.set(line.id, rememberLine(line));
-  }
-  if (next.historyLines.length > 0) historyWriteQueue.enqueue(next.historyLines);
+  history.record(next.historyLines);
   Object.assign(store.state, next.patch);
   scheduler.refreshSummary();
 
   if (useApi && next.bufferChanged) scheduler.abortStaleBuffer();
 
   await store.persist();
-  await broadcastToExtension({
+  await views.broadcastToExtension({
     type: "caption-state",
     current: safeClone(store.state.current),
     epochId: message.epochId,
     lineCount: store.state.lineCount
   });
-  await broadcastCaptionState();
-  await flushPendingHistory(false);
+  await views.broadcastCaptionState();
+  await history.flush(false);
 
   if (useApi) {
     scheduler.scheduleLines();
@@ -874,64 +407,11 @@ async function handleAudioStats(message) {
   if (message.sessionId && message.sessionId !== store.state.sessionId) return;
   store.state.audio = message.audio || store.state.audio;
   store.state.updatedAt = Date.now();
-  await broadcastToExtension({
+  await views.broadcastToExtension({
     type: "audio-stats",
     audio: safeClone(store.state.audio)
   });
   await store.persist();
-}
-
-async function probeServices() {
-  const settings = await getSettings();
-  const translation = resolveTranslationConfig(settings);
-  let wsHost = "127.0.0.1";
-  let wsPort = "8010";
-  let healthProtocol = "http:";
-  try {
-    const wsUrl = new URL(settings.wsUrl);
-    wsHost = wsUrl.hostname;
-    wsPort = wsUrl.port || (wsUrl.protocol === "wss:" ? "443" : "80");
-    healthProtocol = wsUrl.protocol === "wss:" ? "https:" : "http:";
-  } catch {
-    // Keep local defaults; settings validation normally prevents this path.
-  }
-  const services = [];
-  try {
-    const response = await fetch(`${healthProtocol}//${wsHost}:${wsPort}/health`, {
-      signal: AbortSignal.timeout(1600)
-    });
-    services.push({
-      key: "asr",
-      ok: response.ok,
-      detail: response.ok ? "ASR 服务在线" : `HTTP ${response.status}`
-    });
-  } catch {
-    services.push({ key: "asr", ok: false, detail: "未连接" });
-  }
-
-  if (translation.mode === "server") {
-    try {
-      const response = await fetch("http://127.0.0.1:8013/health", {
-        signal: AbortSignal.timeout(1600)
-      });
-      services.push({
-        key: "translation",
-        ok: response.ok,
-        detail: response.ok ? "本地翻译服务在线" : `HTTP ${response.status}`
-      });
-    } catch {
-      services.push({ key: "translation", ok: false, detail: "未连接" });
-    }
-  } else {
-    services.push({
-      key: "translation",
-      ok: Boolean(translation.enabled),
-      detail: translation.enabled
-        ? `${translation.providerLabel} 已配置（点“测试翻译 API”验证）`
-        : translation.issue || "尚未配置翻译 API"
-    });
-  }
-  return services;
 }
 
 function isExtensionPageSender(sender) {
@@ -947,7 +427,7 @@ function rejectNonExtensionSender(sendResponse) {
 chrome.runtime.onInstalled.addListener((details) => {
   void initialize().then(async () => {
     if (details.reason === "install") {
-      await openMonitorWindow({ welcome: true });
+      await views.openMonitorWindow({ welcome: true });
     }
   });
 });
@@ -1006,12 +486,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({
           ok: true,
           state: store.snapshot(),
-          settings: settingsForBroadcast(settingsCache)
+          settings: settingsForBroadcast(settings.current)
         });
       } else if (message.type === "get-settings") {
         sendResponse({
           ok: true,
-          settings: settingsForBroadcast(settingsCache)
+          settings: settingsForBroadcast(settings.current)
         });
       } else if (message.type === "save-settings") {
         sendResponse({
@@ -1028,7 +508,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           return;
         }
         try {
-          sendResponse({ ok: true, result: await testTranslationApi() });
+          sendResponse({
+            ok: true,
+            result: await testTranslationApi(settings.translationConfig())
+          });
         } catch (error) {
           sendResponse({
             ok: false,
@@ -1036,10 +519,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           });
         }
       } else if (message.type === "open-monitor") {
-        await openMonitorWindow();
+        await views.openMonitorWindow();
         sendResponse({ ok: true });
       } else if (message.type === "toggle-overlay") {
-        const next = !settingsCache.overlayEnabled;
+        const next = !settings.current.overlayEnabled;
         const saved = await saveSettings({ overlayEnabled: next });
         sendResponse({ ok: true, settings: saved, enabled: next });
       } else if (message.type === "show-overlay") {
@@ -1053,34 +536,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           rejectNonExtensionSender(sendResponse);
           return;
         }
-        if (!store.state.active || !store.state.tabId) {
-          sendResponse({ ok: false, error: "当前没有正在采集的标签页" });
-          return;
-        }
-        const injected = await injectOverlay();
-        sendResponse({
-          ok: injected,
-          error: injected
-            ? ""
-            : store.state.overlayError || "页面浮层没有响应"
-        });
+        sendResponse(await views.refreshOverlay());
       } else if (message.type === "content-ready") {
-        // The content script finished initializing on its own: whatever init
-        // handshake failed earlier is stale now.
-        if (
-          store.state.overlayError &&
-          sender?.tab?.id &&
-          sender.tab.id === store.state.tabId
-        ) {
-          await reportOverlayFailure(null);
-        }
+        await views.acknowledgeContentReady(sender);
         sendResponse({
           ok: true,
           state: store.snapshot(),
-          settings: settingsForBroadcast(settingsCache)
+          settings: settingsForBroadcast(settings.current)
         });
       } else if (message.type === "probe-services") {
-        sendResponse({ ok: true, services: await probeServices() });
+        await initialize();
+        sendResponse({ ok: true, services: await probeServices({ ...settings.current }) });
       } else {
         sendResponse({ ok: false, error: `未知消息：${message.type}` });
       }
@@ -1094,7 +560,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 chrome.commands.onCommand.addListener((command) => {
   if (command === "open_caption_window") {
-    void openMonitorWindow();
+    void views.openMonitorWindow();
   }
 });
 
@@ -1116,10 +582,10 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   void (async () => {
     await refreshSourceMetadata(tabId);
     if (changeInfo.status === "complete") {
-      if (settingsCache.overlayEnabled) {
-        await injectOverlay(tabId);
+      if (settings.current.overlayEnabled) {
+        await views.injectOverlay(tabId);
       }
-      await broadcastCaptionState();
+      await views.broadcastCaptionState();
     }
   })();
 });
