@@ -77,15 +77,13 @@ Chrome MV3 扩展。采集当前标签页的英文音频，在本机实时转写
 ## 开发
 
 ```powershell
-npm test                     # node:test，113 项
+npm ci                       # 只装开发工具（ESLint、TypeScript），扩展本身不依赖 node_modules
+npm run verify               # 语法检查 + ESLint + 类型检查（lib/）+ 单元测试，提交前必过
+npm run smoke                # 无头 Chrome 加载扩展，检查后台、offscreen、面板、字幕页与浮层注入
 .\scripts\Start-Services.ps1 # 本地 ASR + 翻译
 ```
 
-改完扩展脚本建议过一遍语法检查：
-
-```powershell
-Get-ChildItem .\extension -Filter *.js -Recurse | ForEach-Object { node --check $_.FullName }
-```
+`verify` 中各项也可单独运行：`npm run check`（全部脚本 `node --check`）、`npm run lint`、`npm run typecheck`、`npm test`。CI（`.github/workflows/ci.yml`）在每次 push 与 PR 上跑 `verify` 与 `smoke`。
 
 分层约定：`extension/` 按入口分目录（`background/`、`offscreen/`、`content/`、`popup/`、`subtitle/`），入口之间只通过 `chrome.runtime` / `chrome.storage.local` 通信；`lib/` 为纯函数模块，禁止引入 `chrome.*` 与 DOM；`storage/history-db.js` 封装 IndexedDB。设计与验收记录在 `paseo/`。
 
