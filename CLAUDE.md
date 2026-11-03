@@ -27,24 +27,15 @@ Chrome MV3 extension: `tabCapture` audio -> `offscreen` -> WhisperLiveKit ASR (`
 - Never hand-edit or clear `server.pid`, `.runtime/`, `logs/`, `chrome-profile/`, `*.part` or `.research/`.
 - A version bump updates `package.json` and `extension/manifest.json` together (a test enforces it).
 
-## Invariants (each one came from a real bug)
+## Easy to break silently
 
-- Entry-point folders never import each other; they talk only via `chrome.runtime` / `chrome.storage.local`. Nothing outside `background/` imports `background/`.
+No test catches these; each one came from a real bug.
+
 - Frozen: the IndexedDB schema (`shengmu-caption-history` v1) and the top-level `chrome.storage.local` keys. New settings go through `normalizeSettings` / `migrateLegacySettings`.
-- Overlay injection is `files: ["content/overlay-history.js", "content/content-overlay.js"]`. `content-overlay.js` keeps the null-fallback `HISTORY_API` shim and delegates dynamically, so an old worker injecting one file does not throw. Bump `OVERLAY_VERSION` on any DOM/CSS/listener change so open tabs rebuild, and always call `existing?.teardown?.()` first.
-- The overlay's non-passive `wheel` listener is bound only while the pointer is over the captions; binding it for the overlay's lifetime blocks compositor scrolling on the host page.
-- Overlay width is measured with canvas `measureText`, never on the DOM: `text-wrap: balance` makes measured and current width feed each other and oscillate. Shrinking is delayed so the border does not twitch while text streams.
-- `selectDisplayCaption` shows the newest English immediately; the translation slot keeps the previous sentence at full size (`.stale`) until the new one arrives, and only the corner dot signals waiting. Styling stale text smaller makes every sentence jump in height.
-- Fragment merging (`mergeCaptionFragments`) is API mode only (in server mode WLK aligns translations to its own segments). `startsContinuation` accepts only subordinating connectors plus the participle allowlist, never so/from/in/for, and a merge closes on whether that line itself `needsCompletion`, otherwise whole passages glue into one line.
-- `settings.opacity` `0` must not fall back to the default. The popup slider is the only opacity control.
-- No empty `catch {}` or `console.error`-only handlers across boundaries; translation failures are `TranslationApiError` with a stable `code`, surfaced in `runtimeState`.
-- Every translation passes `polishTranslation` before display or storage, on every path. Only `promptText` passes `stripSpeechFillers`; if that returns empty, fall back to the original text, or the line counts as failed and retries forever.
-- The translation system prompt is a static constant (provider prefix caching measured at 35% -> 62% hit). Never interpolate request data into it; variable parts live in the user JSON payload. Tests pin the rule numbers. `recentTranslationContext` must receive the current batch ids, or a sentence appears in both `segments` and `context`.
-- `finalize` runs once per session and seals history after its last flush; a late stop must not finalize again.
-- Local model tiers stay in lockstep between `caption-utils.js` and `scripts/local-service/config.mjs` (tested).
-- WLK flags are tuned on 120 s sample comparisons; rerun one before changing them: `--asr-coalesce-min-s 0.5` (`0.3` turns 54% of captions into "The."-sized shards), `--buffer_trimming_sec 10` (`4` cuts audio every 4 s and triggers `Resetting buffer`). Several flags exist only in the `.research/WhisperLiveKit` fork.
-- Translation mode coupling: `api` with a key starts WLK ASR-only (all VRAM to ASR); otherwise the local translation model starts as fallback. WLK does not report its mode, so `server.mjs` remembers the launch mode and glossary and restarts on mismatch. A failed stop returns 500 and does not continue starting.
-- The service manager kills only processes it launched (PID files in `.runtime/`, image or command-line check first); anything else on 8010/8013 is reported, not killed. Starting WLK sets `HF_HUB_DISABLE_XET=1` (HF Xet deadlocks behind a local proxy).
+- Bump `OVERLAY_VERSION` on any overlay DOM/CSS/listener change, or open tabs keep the old instance. Keep the `HISTORY_API` null-fallback shim in `content-overlay.js`: an old worker may inject only that one file.
+- Overlay width is measured with canvas `measureText`, never on the DOM: `text-wrap: balance` makes measured and current width feed each other and oscillate.
+- Every translation path (including new backends) runs `polishTranslation` before display or storage.
+- WLK flags are tuned on 120 s sample comparisons (`--asr-coalesce-min-s 0.3` turned 54% of captions into "The."-sized shards; `--buffer_trimming_sec 4` cut audio every 4 s); rerun one before changing them.
 
 ## Security
 
