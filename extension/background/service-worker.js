@@ -114,6 +114,9 @@ chrome.runtime.onStartup.addListener(() => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // The offscreen document answers its own requests; replying here too would
+  // race it for the single response.
+  if (message?.target === "offscreen") return false;
   void dispatch(message, sender).then(sendResponse);
   return true;
 });
