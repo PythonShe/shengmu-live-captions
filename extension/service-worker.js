@@ -8,6 +8,7 @@ import {
   getTranslationText,
   lineChanged,
   lineNeedsTranslation,
+  mergeCaptionFragments,
   mergeCaptionLines,
   migrateLegacySettings,
   normalizeCaptionLines,
@@ -41,6 +42,8 @@ import {
   upsertHistoryLines
 } from "./history-db.js";
 import { HistoryWriteQueue } from "./history-write-queue.js";
+import { polishTranslation, stripSpeechFillers } from "./speech-cleanup.js";
+import { planTranslationBatch } from "./utterance.js";
 
 const OFFSCREEN_URL = "offscreen.html";
 const MONITOR_URL = "subtitle.html";
@@ -704,7 +707,7 @@ async function applyLineTranslations(entries, translations, fallback = false) {
       }
       continue;
     }
-    const text = compactText(translations[index]);
+    const text = polishTranslation(compactText(translations[index]));
     if (!text) {
       // The model returned an empty slot. Count it so one untranslatable
       // marker cannot be retried forever and starve later lines.
@@ -764,14 +767,21 @@ function collectPendingLineTranslations() {
         existing.source = line.source;
         existing.attempts = 0;
       }
+      existing.promptText = stripSpeechFillers(line.source);
       existing.fallback =
         compactText(line.fallbackTranslation) || existing.fallback;
       continue;
     }
     translationPending.set(line.id, {
       source: line.source,
+      // Only what leaves for the API is cleaned; the displayed transcript keeps
+      // the verbatim ASR text.
+      promptText: stripSpeechFillers(line.source),
       attempts: 0,
-      fallback: compactText(line.fallbackTranslation)
+      fallback: compactText(line.fallbackTranslation),
+      // queuedAt lets planTranslationBatch decide when a trailing fragment has
+      // waited long enough for the row that would complete its sentence.
+      queuedAt: Date.now()
     });
   }
 }
@@ -851,10 +861,16 @@ async function flushLineTranslations() {
       }
       collectPendingLineTranslations();
       if (translationPending.size === 0) return;
-      const entries = [...translationPending.entries()].slice(
-        0,
-        TRANSLATION_LINE_BATCH_SIZE
-      );
+      // Fragments are translated together with the rows that complete them; a
+      // trailing fragment is held briefly instead of becoming an orphan
+      // sentence ("他找到了。" with no object on screen).
+      const plan = planTranslationBatch([...translationPending.entries()], {
+        maxLines: TRANSLATION_LINE_BATCH_SIZE,
+        now: Date.now()
+      });
+      const entries = plan.batch;
+      if (entries.length === 0) return;
+      const batchIds = new Set(entries.map(([lineId]) => lineId));
       const config = translationConfig();
       if (!config.enabled) {
         const error = new Error(config.issue || "翻译 API 未启用");
@@ -867,8 +883,12 @@ async function flushLineTranslations() {
       translationLineAbort = controller;
       try {
         result = await translateTexts({
-          texts: entries.map(([, entry]) => entry.source),
-          context: recentTranslationContext(runtimeState.current?.lines || []),
+          texts: entries.map(([, entry]) => entry.promptText || entry.source),
+          context: recentTranslationContext(
+            runtimeState.current?.lines || [],
+            undefined,
+            batchIds
+          ),
           config,
           signal: controller.signal
         });
@@ -984,7 +1004,10 @@ async function flushBufferTranslation() {
   }
   const text = compactText(runtimeState.current?.bufferSource);
   if (!text) return;
-  if (translationPending.size > 0 || translationFlushPromise) {
+  // The half-sentence on screen matters more than the backlog: waiting for the
+  // whole line queue to drain starved the buffer translation completely, so the
+  // reader kept seeing the previous sentence while finished rows queued up.
+  if (translationPending.size > 2 || translationFlushPromise) {
     translationBufferTimer = setTimeout(() => {
       translationBufferTimer = null;
       void flushBufferTranslation();
@@ -1009,7 +1032,7 @@ async function flushBufferTranslation() {
   translationBufferAbort = controller;
   try {
     const result = await translateTexts({
-      texts: [text],
+      texts: [stripSpeechFillers(text)],
       context: recentTranslationContext(runtimeState.current?.lines || []),
       config,
       partial: true,
@@ -1019,8 +1042,8 @@ async function flushBufferTranslation() {
     addTranslationUsage(result.usage);
     translationLastError = "";
     if (compactText(runtimeState.current?.bufferSource) === text) {
-      runtimeState.current.bufferTranslation = compactText(
-        result.translations[0]
+      runtimeState.current.bufferTranslation = polishTranslation(
+        compactText(result.translations[0])
       );
       await broadcastCaptionUpdate();
     }
@@ -1419,16 +1442,23 @@ async function handleTranscriptUpdate(message) {
     sessionStartedAt: runtimeState.startedAt,
     updatedAt
   });
+  // In API mode the extension translates the rows itself, so ASR fragments are
+  // joined first and the overlay, history and SRT all work on whole sentences.
+  // In server mode WhisperLiveKit already returned translations aligned to its
+  // own segments; merging the rows there would throw those translations away.
   const apiConfig = translationConfig();
   const useApi = apiConfig.mode === "api" && apiConfig.enabled;
+  if (useApi) {
+    normalized.lines = mergeCaptionFragments(normalized.lines);
+  }
   const previousLines = new Map(
     (runtimeState.current?.lines || []).map((line) => [line.id, line])
   );
   const lines = normalized.lines.map((rawLine) => {
     const previous =
       previousLines.get(rawLine.id) || knownLineSignatures.get(rawLine.id);
-    const serverTranslation = getTranslationText(rawLine);
-    let translation = useApi ? "" : rawLine.translation;
+    const serverTranslation = polishTranslation(getTranslationText(rawLine));
+    let translation = useApi ? "" : serverTranslation;
     let fallbackTranslation = useApi ? serverTranslation : "";
     if (
       !translation &&

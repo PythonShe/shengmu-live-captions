@@ -210,6 +210,30 @@ test("recentTranslationContext keeps the latest translated lines", () => {
   ]);
 });
 
+test("recentTranslationContext keeps untranslated rows and skips the current batch", () => {
+  const lines = [
+    { id: "a", source: "and riddled with excitement", translation: "" },
+    { id: "b", source: "he wants to learn", translation: "" },
+    { id: "c", source: "how to merge modern Kalgurin techniques", translation: "" }
+  ];
+  // A pending row is the most useful context there is: dropping untranslated
+  // rows made every batch look like the start of a conversation.
+  const context = recentTranslationContext(lines, 4, new Set(["c"]));
+  assert.deepEqual(context, [
+    { source: "and riddled with excitement", translation: "" },
+    { source: "he wants to learn", translation: "" }
+  ]);
+});
+
+test("system prompt tells the model that segments are one continuous utterance", () => {
+  const config = deepseekConfig("https://api.deepseek.com/v1");
+  const body = buildTranslationRequestBody({ texts: ["one", "two"], config });
+  const system = body.messages[0].content;
+  assert.match(system, /相邻的片段来自同一段连续语音/);
+  assert.match(system, /不要把上一片段的意思再译一遍/);
+  assert.match(system, /context 是紧邻的前文/);
+});
+
 test("custom provider pointed at DeepSeek also disables thinking", () => {
   const config = resolveTranslationConfig({
     translationProvider: "custom",
@@ -278,9 +302,9 @@ test("buildTranslationRequestBody injects only matched glossary terms and domain
     spirit: "精魂"
   });
   assert.equal("Chaos Orb" in matchedPayload.glossary, false);
-  assert.match(matched.messages[0].content, /5\. 当前输入是实时字幕里尚未定稿的半句/);
-  assert.match(matched.messages[0].content, /6\. 当前直播领域：Path of Exile \(流放之路\) 游戏直播/);
-  assert.match(matched.messages[0].content, /7\. 必须严格使用输入 glossary 中的术语译名/);
+  assert.match(matched.messages[0].content, /7\. 当前输入是实时字幕里尚未定稿的半句/);
+  assert.match(matched.messages[0].content, /8\. 当前直播领域：Path of Exile \(流放之路\) 游戏直播/);
+  assert.match(matched.messages[0].content, /9\. 必须严格使用输入 glossary 中的术语译名/);
 });
 
 test("parseTranslationOutput handles JSON, code fences, objects and numbered lines", () => {

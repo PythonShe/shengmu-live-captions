@@ -1,107 +1,94 @@
-# 声幕 - 实时字幕翻译
+# 声幕 · 实时字幕翻译
 
-捕获 Chrome 标签页的英文音频，通过本地 Whisper ASR 实时识别，并翻译成中文字幕。所有处理在本机完成，无需上传音频到云端。
+Chrome MV3 扩展。采集当前标签页的英文音频，在本机实时转写成英文并翻译成中文，以浮层叠在视频画面上。
 
-## 功能特性
+音频只在本机流转：`tabCapture → 扩展 → ws://127.0.0.1:8010`（本地 WhisperLiveKit）。**文本**去哪里取决于翻译引擎：选 DeepSeek / OpenAI 时字幕文本会发往对应云端 API，选本地模型时不出本机。
 
-- **实时双语字幕**：英文语音识别 + 中文翻译，支持中英双语、仅中文、仅英文三种显示模式
-- **页面浮层**：字幕显示在视频页面上方，支持拖动、字号与背景透明度调整、宽度随句长自适应、暂停保留
-- **历史回看**：滚轮向上滚动可回看近期字幕，收起后自动恢复实时模式
-- **字幕历史窗口**：完整记录所有字幕，支持搜索、续看、SRT 导出
-- **多种翻译引擎**：支持 DeepSeek API、OpenAI API、本地 Index-Translate 模型
-- **专业术语库**：内置 313 条《流放之路 (Path of Exile 1/2)》国服解包官译（`poedb.tw/cn` / `poe2db.tw/cn` 逐条核验），支持自定义词条、同音纠错别名、TXT/CSV 导入导出，同时作用于 API 翻译、本地模型翻译与 Whisper 语音识别热词
-- **自动重连**：WebSocket 断线自动重连，时间码持续累加
-- **智能降噪**：自动过滤静音碎片和噪声，避免无意义字幕
-- **一键启动**：控制面板可直接启动/停止本地 ASR 和翻译服务
+当前版本 0.5.5。
 
-## 快速启动
+## 快速开始
 
-### 环境要求
-
-- Windows 11
-- Chrome 浏览器
-- NVIDIA GPU（用于本地模型推理）
-- Node.js（用于启动脚本）
-
-### 启动步骤
-
-1. 启动本地服务（WhisperLiveKit + 翻译服务）：
+需要 Windows + Chrome + NVIDIA GPU（本地模型推理），以及 Node.js（启动脚本用）。
 
 ```powershell
+# 1. 起本地服务：ASR(8010) + 本地翻译(8013)；纯 API 用法加 -AsrOnly 省显存
 .\scripts\Start-Services.ps1
-```
 
-如果只想用 DeepSeek API 翻译，不加载本地翻译模型（节省显存）：
-
-```powershell
-.\scripts\Start-Services.ps1 -AsrOnly
-```
-
-2. 启动开发浏览器（加载扩展）：
-
-```powershell
+# 2. 起开发浏览器并加载扩展
 .\scripts\Start-DevBrowser.ps1 -Url 'https://www.youtube.com/'
+
+# 3. 在目标页面按 Ctrl+Shift+Y 打开面板，点「开始实时翻译」
+#    Ctrl+Shift+U 打开字幕与历史窗口
 ```
 
-3. 在目标页面按 `Ctrl+Shift+Y` 打开控制面板，点击"开始实时翻译"
+也可以用 `.\scripts\Start-LocalService.ps1` 起控制服务（`127.0.0.1:8014`），之后在面板里一键启停本地模型，不必手动敲命令。
 
-4. 按 `Ctrl+Shift+U` 打开字幕与历史窗口
+模型档位可切换：`-TranslationModel 9b-q4km|2b-iq4xs`、`-AsrModel large-v3-turbo|medium`。
 
-### 使用 API 翻译
+## 字幕怎么显示
 
-默认使用 DeepSeek API。在控制面板的"翻译引擎"中填入 API Key 即可。Key 只保存在本机，不会同步或发送给网页。
+浮层默认停靠在画面下方，可拖动、可隐藏，字号与背景透明度在面板里调。
 
-使用 API 时推荐只启动 ASR：
+| 模式 | 内容 |
+|---|---|
+| 双语 | 当前句英文 + 当前句中文 |
+| 双行 | 上一句中文 + 当前句英文 + 当前句中文 |
+| 中文 | 只有中文译文 |
+| 英文 | 只有识别出的英文 |
 
-```powershell
-.\scripts\Start-Services.ps1 -AsrOnly
-```
+面板与浮层工具栏里每点一次「双语」按钮就按这个顺序切换。
 
-### 本地翻译模型
+几句实测行为，看懂了就不会误以为出故障：
 
-如果不想使用 API，可以使用本地 Index-Translate 模型：
+- 新的英文片段出现后，译文槽会继续显示**上一句中文**（不做变灰处理），右下角出现一个小金点表示「这句还在翻」。等待不足 0.7 秒不会显示金点。
+- 被 ASR 切碎的半句会与后一句合并成一条字幕再翻译，所以偶尔会看到一行字幕比平常长、出现得稍晚。
+- 滚轮上滑可回看最近字幕，回到最底部自动恢复实时。
 
-- **9B Q4_K_M**：质量最好，约 5.4 GiB
-- **2B IQ4_XS**：省显存，约 1.15 GiB
+## 翻译引擎
 
-启动控制服务后，可在控制面板一键启动/停止模型：
+| 引擎 | 位置 | 说明 |
+|---|---|---|
+| DeepSeek API（默认） | 云端 | 面板填 Key，响应快，文本会发往 DeepSeek |
+| OpenAI API | 云端 | 同上，模型可改 |
+| 自定义 OpenAI 兼容 | 自定 | 可指向本地 `llama-server`（`http://127.0.0.1:8013/v1`）或任何兼容端点 |
+| WhisperLiveKit 内置 | 本机 | 面板把翻译引擎切到「本地服务」，由 WLK 调用 8013 翻译，扩展不再改写译文 |
 
-```powershell
-.\scripts\Start-LocalService.ps1
-```
+纯 API 用法推荐 `Start-Services.ps1 -AsrOnly`，显存全给 ASR。API Key 只存在本机 `chrome.storage`，不会下发给网页。
+
+## 术语库
+
+内置 313 条《流放之路 1/2》国服解包官译（逐条对照 `poedb.tw/cn`、`poe2db.tw/cn`），另可导入自定义词条（TXT/CSV），支持同音误听别名。术语同时作用于三处：Whisper 识别热词、WhisperLiveKit 内部词表、API 翻译提示词。
+
+不需要游戏术语时可在面板里关掉，或只保留「领域提示」一句话。
 
 ## 安装到日常 Chrome
 
-1. 打开 `chrome://extensions`
-2. 开启"开发者模式"
-3. 点击"加载已解压的扩展程序"
-4. 选择项目目录下的 `extension` 文件夹
+`chrome://extensions` → 开启开发者模式 → 「加载已解压的扩展程序」→ 选 `extension` 目录。改代码后在扩展页面点「重新加载」。
 
-更新扩展文件后，在扩展页面点击"重新加载"。
+## 常见问题
 
-## 使用限制
-
-- 标签页内的所有声音都会被采集，包括广告
-- 首次启动需要加载模型，比后续启动慢
-- 本地链路延迟通常 1-3 秒，API 翻译还取决于网络
-- DRM 保护内容可能无法使用 tabCapture
-- 全屏视频时浮层可能不可见，可使用历史窗口查看
+- **没有字幕**：先确认 8010 在线（面板「检查本地服务」），再看面板的状态与音频电平；本地模型首次加载要几十秒。
+- **字幕慢一拍**：本地 9B 单次翻译 1~3 秒，长句合并后更明显；换 DeepSeek API 会快很多。链路总延迟通常 1~3 秒。
+- **浮层不见了**：可能被隐藏或页面全屏；面板里可重新注入，历史窗口始终可见。
+- **切换页面后没声音**：会话绑定在开始采集时那个标签页，页面内跳转偶尔会让浏览器停掉音频流；先停止再开始一次即可。这是已知问题，诊断埋点（音频峰值、track 静音事件）已就位。
+- **抓到广告/其他声音**：标签页整体音频都会被采集，无法按内容过滤。
+- **DRM 内容**：Netflix 等受保护内容可能拿不到音频。
 
 ## 开发
 
-运行单元测试：
-
 ```powershell
-npm test
+npm test                     # node:test，113 项
+.\scripts\Start-Services.ps1 # 本地 ASR + 翻译
 ```
 
-检查扩展脚本语法：
+改完扩展脚本建议过一遍语法检查：
 
 ```powershell
-Get-ChildItem -LiteralPath .\extension -Filter *.js |
-    ForEach-Object { node --check $_.FullName }
+Get-ChildItem .\extension -Filter *.js | ForEach-Object { node --check $_.FullName }
 ```
+
+分层约定：`extension/` 下页面脚本之间只通过 `chrome.runtime` / `chrome.storage.local` 通信；`caption-utils.js`、`utterance.js`、`speech-cleanup.js`、`glossary*.js` 为纯函数模块，禁止引入 `chrome.*` 与 DOM。设计与验收记录在 `paseo/`。
 
 ## 许可证
 
-MIT License - 详见 [LICENSE](LICENSE) 文件
+MIT，见 [LICENSE](LICENSE)。

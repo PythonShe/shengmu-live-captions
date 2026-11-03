@@ -8,6 +8,7 @@ import {
   GLOSSARY_PRESET_IDS,
   MAX_CUSTOM_GLOSSARY_CHARS
 } from "./glossary.js";
+import { needsCompletion, startsContinuation } from "./utterance.js";
 
 export const SETTINGS_KEY = "settings";
 export const RUNTIME_STATE_KEY = "runtimeState";
@@ -481,6 +482,80 @@ export function mergeCaptionLines(existingLines, incomingLines, limit = 20000) {
     (left, right) => (left.order || 0) - (right.order || 0)
   );
   return result.length > limit ? result.slice(result.length - limit) : result;
+}
+
+/** A fragment is only merged when the next row really follows it. */
+export const FRAGMENT_GAP_SECONDS = 2.0;
+export const FRAGMENT_MAX_LINES = 4;
+export const FRAGMENT_MAX_CHARS = 180;
+
+/**
+ * Joins ASR fragments into sentence-level rows.
+ *
+ * WhisperLiveKit cuts on acoustic agreement, so one spoken sentence often
+ * arrives as "that he has found." followed by "From here on." Translated row by
+ * row each fragment becomes a dangling Chinese half-sentence. Merging the rows
+ * before they reach the translator keeps the unit intact for the subtitle, the
+ * history list and the SRT export.
+ *
+ * The merged row keeps the first row's id, so a growing unit updates an
+ * existing row instead of adding one; the id only changes when a new sentence
+ * starts.
+ */
+export function mergeCaptionFragments(lines, options = {}) {
+  const source = Array.isArray(lines) ? lines : [];
+  const gapSeconds = Number.isFinite(Number(options.gapSeconds))
+    ? Number(options.gapSeconds)
+    : FRAGMENT_GAP_SECONDS;
+  const maxLines = Number(options.maxLines) || FRAGMENT_MAX_LINES;
+  const maxChars = Number(options.maxChars) || FRAGMENT_MAX_CHARS;
+  const merged = [];
+  let unit = null;
+
+  const startUnit = (line) => {
+    const next = { ...line, fragmentLines: 1, open: needsCompletion(line.source) };
+    merged.push(next);
+    return next;
+  };
+
+  for (const line of source) {
+    if (!line?.source) {
+      merged.push(line);
+      unit = null;
+      continue;
+    }
+    if (!unit) {
+      unit = startUnit(line);
+      continue;
+    }
+    const gapOk =
+      !unit.end ||
+      !line.start ||
+      parseTimecode(line.start) - parseTimecode(unit.end) <= gapSeconds;
+    // Join backwards when the row continues the previous sentence, and forwards
+    // while the unit itself is still unfinished.
+    const joinable =
+      gapOk &&
+      unit.fragmentLines < maxLines &&
+      unit.source.length + line.source.length + 1 <= maxChars &&
+      (startsContinuation(line.source) || unit.open);
+    if (!joinable) {
+      unit = startUnit(line);
+      continue;
+    }
+    unit.source = `${unit.source} ${line.source}`.replace(/\s+/g, " ").trim();
+    unit.end = line.end || unit.end;
+    unit.fragmentLines += 1;
+    // Only "this row is itself unfinished" keeps the unit open. A row that
+    // merely continues the previous sentence closes it, otherwise a whole
+    // paragraph gets glued together and never gets translated.
+    unit.open = needsCompletion(line.source);
+    // The unit grew, so any translation it already had is stale.
+    unit.translation = "";
+    unit.translationPending = true;
+    unit.translationFailed = false;
+  }
+  return merged;
 }
 
 /**

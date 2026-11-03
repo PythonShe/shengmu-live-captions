@@ -45,16 +45,18 @@ export const TRANSLATION_PROVIDERS = Object.freeze({
 });
 
 const PROVIDER_IDS = Object.keys(TRANSLATION_PROVIDERS);
-const DEFAULT_CONTEXT_LINES = 2;
-const MAX_CONTEXT_CHARS = 240;
+const DEFAULT_CONTEXT_LINES = 4;
+const MAX_CONTEXT_CHARS = 480;
 
 const SYSTEM_PROMPT = [
   "你是专业的中英实时字幕翻译器。把英文直播语音转写翻译成简体中文。",
   "必须遵守：",
   "1. 只输出 JSON 字符串数组，长度与输入 segments 完全相同；不要输出 Markdown、代码围栏、编号、注释或解释。",
-  "2. 译文要像自然的中文口语，保留语气；不要逐词硬译，不要补写原文没有的信息。",
+  "2. 译文要像自然的中文口语：删除语气词、口头禅、结巴重头重复与自我打断（嗯、啊、那个、就是说都不要出现），不要逐词硬译，不要补写原文没有的信息。",
   "3. 人名、地名、品牌、产品名、数字、单位保持准确；没有通用中文译名的专有名词保留英文原文。",
-  "4. 输入可能是未说完的半句，只翻译已有内容，不要续写；每条译文只对应同下标的 segments 项，不合并、不拆分、不重复。"
+  "4. 输入可能是未说完的半句，也可能把一句话切成了多个片段。只翻译已有内容，不要续写或补全；每条译文只对应同下标的 segments 项，不合并、不拆分、不重复。",
+  "5. segments 中相邻的片段来自同一段连续语音：译文必须前后衔接，不要把每个片段都翻成独立完整句，也不要把上一片段的意思再译一遍。",
+  "6. context 是紧邻的前文（英文原文与已有中文译文）。译文必须承接前文语境，省略的主语和代词按前文补足；不要重复前文已译的内容。"
 ].join("\n");
 
 const PARTIAL_HINT =
@@ -215,12 +217,19 @@ export function chatCompletionsUrl(baseUrl) {
 
 export function recentTranslationContext(
   lines,
-  limit = DEFAULT_CONTEXT_LINES
+  limit = DEFAULT_CONTEXT_LINES,
+  excludeIds = null
 ) {
   const context = [];
   if (Number(limit) <= 0) return context;
+  const skip = excludeIds instanceof Set ? excludeIds : null;
   for (const line of [...(lines || [])].reverse()) {
+    if (skip && line?.id && skip.has(line.id)) continue;
     const source = String(line?.source || "").replace(/\s+/g, " ").trim();
+    // A line that is still being translated is exactly the context the model
+    // needs most: dropping it (the old rule) made every batch look like the
+    // start of a conversation.
+    if (!source) continue;
     const translation = String(
       line?.translation && typeof line.translation === "object"
         ? line.translation.text
@@ -228,7 +237,6 @@ export function recentTranslationContext(
     )
       .replace(/\s+/g, " ")
       .trim();
-    if (!source || !translation) continue;
     context.unshift({
       source: source.slice(0, MAX_CONTEXT_CHARS),
       translation: translation.slice(0, MAX_CONTEXT_CHARS)
@@ -240,7 +248,7 @@ export function recentTranslationContext(
 
 function buildSystemPrompt({ partial = false, domainHint = "", hasGlossary = false } = {}) {
   const lines = [SYSTEM_PROMPT];
-  let ruleNumber = 5;
+  let ruleNumber = 7;
   if (partial) {
     lines.push(`${ruleNumber}. ${PARTIAL_HINT}`);
     ruleNumber += 1;

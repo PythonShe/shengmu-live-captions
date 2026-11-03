@@ -1,5 +1,35 @@
 # 项目进度记录 (PROGRESS.md)
 
+## 2026-11-03 · 0.5.5：去灰化、语义单元合并、语气词三道、采集埋点
+
+设计/验收记录：`paseo/13-subtitle-flow-0.5.5.md`。起因是实际使用反馈四条（译文整行变灰、断句导致中文不连贯、语气词被直译、切页后采集失效），前三者判定为同一条流水线的时间结构问题，统一改；第四条先埋点，按「复现再修」搁置。
+
+### 已修改文件
+- `C:\Users\moule\Documents\ChatGPT\实时字幕翻译\extension\utterance.js`（新增，148 行）：`needsCompletion`（≤4 词/≤25 字符/逗号或虚词收尾）、`startsContinuation`（从属连接词 + 分词白名单）、`isSpeechShard`、`planTranslationBatch`（碎片与其完成行同批、尾部碎片 hold 2 s）。
+- `C:\Users\moule\Documents\ChatGPT\实时字幕翻译\extension\speech-cleanup.js`（新增，168 行）：`stripSpeechFillers`（送翻前清洗，只改发送文本）与 `polishTranslation`（上屏/落盘前清洗，两种模式共用，非空输入不返回空串）。
+- `C:\Users\moule\Documents\ChatGPT\实时字幕翻译\extension\caption-utils.js`：新增 `mergeCaptionFragments`（行级合并，间隔 2.0 s / 4 行 / 180 字符，沿用首行 id），常量 `FRAGMENT_*`。
+- `C:\Users\moule\Documents\ChatGPT\实时字幕翻译\extension\translation-api.js`：`recentTranslationContext` 支持未译行、窗口 4 行 / 480 字符、可排除当前批次；prompt 新增规则 5（片段同属一句、译文衔接不重复）与规则 6（承接 context、补足主语），规则 2 改为删除语气词/口头禅/结巴/自我打断。
+- `C:\Users\moule\Documents\ChatGPT\实时字幕翻译\extension\service-worker.js`：API 模式下先 `mergeCaptionFragments` 再走后续链路；`collectPendingLineTranslations` 存 `promptText` 与 `queuedAt`；`flushLineTranslations` 用 `planTranslationBatch` 选批并排除当前批 id；译文过 `polishTranslation`；buffer 翻译不再被行队列饿死（积压 >2 才让位）。
+- `C:\Users\moule\Documents\ChatGPT\实时字幕翻译\extension\content-overlay.js`：`.translation.stale` 全亮、dual 上一句 0.82、新增 `data-awaiting` 角落小点（700 ms 延迟出现、2.4 s 呼吸、尊重 reduced-motion）、`syncAwaitingDot` 与 teardown 清理、`OVERLAY_VERSION` 5→6。
+- `C:\Users\moule\Documents\ChatGPT\实时字幕翻译\extension\offscreen.js`：`audioStats` 增 `peak`/`trackMuted`，track 增 `muted`/`unmuted` 上报与 `[capture-diag]` 日志。
+- `C:\Users\moule\Documents\ChatGPT\实时字幕翻译\tests\utterance.test.js`（新增 10 例）、`tests\speech-cleanup.test.js`（新增 6 例）、`tests\caption-utils.test.js`（+3）、`tests\translation-api.test.js`（+3）。
+- `C:\Users\moule\Documents\ChatGPT\实时字幕翻译\package.json` `extension\manifest.json`：0.5.4 → 0.5.5；`AGENTS.md`：版本、113 测试、新模块、灰化/合并/prompt/节流四条规范。
+- `C:\Users\moule\Documents\ChatGPT\实时字幕翻译\paseo\13-subtitle-flow-0.5.5.md`（新增）：基线、判据红线、两道踩坑、验收数据、自动化验证工具、未做项。
+
+### 已执行验证
+- `npm test`：113 项全通过；`extension/*.js` 全部 `node --check` 通过。
+- 基线（改动前，固定样本 100 s）：`.translation.stale` 65%、碎片行 33%、孤儿句 3、译文变化 0.42/s。
+- 0.5.5 端到端（API 模式 + 本地 9B + 同一 wav）：译文 color 只有 `rgb(255,253,244)`（灰化消失）、碎片行 0~6%、孤儿句 0、中文语气词 0、译文变化 0.19~0.34/s；合并后出现整句译文（`a real Khulgurran runesmith. and riddled with excitement…` → 一条完整中文）。
+- 离线对照 `.research/p1p2-offline-check.mjs`：同一组碎片，旧 prompt 输出"他找到了。"式悬空句，新 prompt 输出承接上下文的完整译句。
+- 采集埋点实测：静音会话 `peak 0` 而 `deliveredRatio 0.999`；正常会话 `peak 0.62~0.87`，证明 peak 是区分两者的必要指标。
+
+### 未执行 / 待后续
+- 第四条自愈（导航后重取 streamId、热替换音频源、一键续采）未实现：用户实测已无法复现，按要求搁置；埋点已就位。
+- 本地 9B 下 `data-awaiting` 出现率 80%（旧版灰化 65%），屏幕不再变灰但会慢一拍；未用云端 DeepSeek 额度复测延迟。
+- 同位语（`a real Kalgurin runesmith.`）无法向前合并，仍单独成行。
+- `.research/` 下自动化工具（reload-extension / start-capture / baseline-attach / config-api-mode / run-probe）为本地文件，不入库。
+
+
 ## 2026-10-31 · 0.5.4：术语库全链路 + 《流放之路》313 条国服词库定稿
 
 设计/验收记录：`paseo/11-glossary-0.5.3.md`（链路）、`paseo/12-poe-glossary-0.5.4.md`（词库数据与判据）、`GLOSSARY-ISSUES.md`（框架问题复核）。两部分改动合并在 0.5.4 交付：链路由上一会话完成、词库由本会话定稿。

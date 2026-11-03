@@ -1,7 +1,8 @@
 (() => {
-  // Bumped with the 0.5.2 restructure (caption-stack + width sync + stale slot):
-  // an overlay left behind by the previous injection must be rebuilt, not reused.
-  const OVERLAY_VERSION = 5;
+  // Bumped with the 0.5.5 stale-slot rework (the previous translation stays at
+  // full brightness and a corner dot marks the wait): an overlay left behind by
+  // the previous injection must be rebuilt, not reused.
+  const OVERLAY_VERSION = 6;
   const existing = globalThis.__shengmuCaptionOverlay;
   if (existing?.version === OVERLAY_VERSION && existing.refresh) {
     existing.refresh();
@@ -36,6 +37,8 @@
   let statusElement = null;
   let modeButton = null;
   let idleTimer = null;
+  let awaitingDotTimer = null;
+  let awaitingSince = 0;
   let positionStore = {};
   let positionPending = false;
   let dragState = null;
@@ -324,7 +327,7 @@
         .prev-translation {
           max-height: 2.68em;
           margin-bottom: 7px;
-          color: rgba(255, 253, 244, 0.62);
+          color: rgba(255, 253, 244, 0.82);
           font-family: "Noto Serif SC", "Songti SC", "SimSun", serif;
           font-size: calc(var(--translation-size) * 0.8);
           font-weight: 600;
@@ -369,10 +372,35 @@
           color: rgba(255, 186, 162, 0.9);
         }
         /* A sentence whose translation has not arrived yet keeps the previous
-           translation on screen. It stays at full size (a smaller font there
-           would make the box jump on every sentence) and is only dimmed. */
+           translation on screen at full brightness: dimming the whole slot made
+           every sentence flash grey while the next one was being translated.
+           The wait is signalled by a small corner dot instead (see
+           .caption-shell[data-awaiting="1"]::before), so the Chinese text the
+           reader is looking at never changes contrast. */
         .translation.stale {
-          color: rgba(255, 253, 244, 0.58);
+          color: #fffdf4;
+        }
+        .caption-shell[data-awaiting="1"]::before {
+          position: absolute;
+          right: 13px;
+          bottom: 7px;
+          width: 5px;
+          height: 5px;
+          border-radius: 50%;
+          background: rgb(232 184 75 / calc(0.3 + var(--overlay-opacity) * 0.45));
+          box-shadow: 0 0 6px rgb(232 184 75 / calc(0.2 * var(--overlay-opacity)));
+          content: "";
+          animation: shengmu-awaiting 2.4s ease-in-out infinite;
+        }
+        @keyframes shengmu-awaiting {
+          0%, 100% { opacity: 0.45; }
+          50% { opacity: 0.95; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .caption-shell[data-awaiting="1"]::before {
+            animation: none;
+            opacity: 0.75;
+          }
         }
         .drag-handle {
           position: absolute;
@@ -1162,6 +1190,37 @@
     };
   }
 
+  const AWAITING_DOT_DELAY_MS = 700;
+
+  // Long translations do happen (measured 1-7 s on a 9B local model), so the
+  // reader needs *some* sign that the Chinese on screen is still the previous
+  // sentence. A dot that appears immediately would blink on almost every
+  // sentence, so it waits out the short gaps and only shows up when the wait
+  // is real.
+  function syncAwaitingDot(waiting) {
+    if (!shell) return;
+    if (!waiting) {
+      awaitingSince = 0;
+      clearTimeout(awaitingDotTimer);
+      awaitingDotTimer = null;
+      shell.dataset.awaiting = "";
+      return;
+    }
+    const now = performance.now();
+    if (!awaitingSince) awaitingSince = now;
+    const remaining = AWAITING_DOT_DELAY_MS - (now - awaitingSince);
+    if (remaining <= 0) {
+      shell.dataset.awaiting = "1";
+      return;
+    }
+    if (!awaitingDotTimer) {
+      awaitingDotTimer = setTimeout(() => {
+        awaitingDotTimer = null;
+        if (awaitingSince && shell) shell.dataset.awaiting = "1";
+      }, remaining);
+    }
+  }
+
   function render() {
     if (!stage) return;
     applyVisualSettings();
@@ -1195,6 +1254,7 @@
       setCaptionText(sourceElement, "");
       setCaptionText(translationElement, caption.source);
       translationElement.classList.remove("pending", "stale", "failed");
+      syncAwaitingDot(false);
     } else {
       setCaptionText(translationElement, caption.translation);
       // `pending` is the empty placeholder, `stale` the previous sentence held
@@ -1208,6 +1268,12 @@
         Boolean(caption.pending && caption.translation)
       );
       translationElement.classList.toggle("failed", Boolean(caption.failed));
+      // The corner dot only means "a translation is on its way while the last
+      // sentence is still on screen". An empty first slot keeps the small
+      // pending placeholder instead, which already reads as "not translated".
+      // A short wait shows nothing at all: most gaps are under a second and a
+      // dot that blinks on every sentence is worse than no feedback.
+      syncAwaitingDot(Boolean(caption.pending && caption.translation));
       setCaptionText(
         sourceElement,
         settings.displayMode === "bilingual" ? caption.source : ""
@@ -1319,6 +1385,9 @@
     }
     clearTimeout(idleTimer);
     idleTimer = null;
+    clearTimeout(awaitingDotTimer);
+    awaitingDotTimer = null;
+    awaitingSince = 0;
     try {
       chrome.runtime.onMessage.removeListener(handleRuntimeMessage);
     } catch {

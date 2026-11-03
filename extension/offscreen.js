@@ -23,6 +23,7 @@ let packetSamples = TARGET_SAMPLE_RATE / 10;
 let captureStartedAt = 0;
 let capturedAudioSamples = 0;
 let latestAudioStats = null;
+let windowPeak = 0;
 let epochId = null;
 let epochStartedAt = 0;
 let connectionToken = 0;
@@ -127,6 +128,13 @@ function resampleLinear(samples, sourceRate, targetRate) {
 function appendSamples(samples) {
   if (samples.length === 0) return;
   capturedAudioSamples += samples.length;
+  // Peak is the only honest silence signal: a muted tabCapture track still
+  // delivers a full-rate stream of zeroed frames, so deliveredRatio cannot
+  // tell "page went quiet" apart from "capture was interrupted".
+  for (let index = 0; index < samples.length; index += 1) {
+    const amplitude = samples[index] < 0 ? -samples[index] : samples[index];
+    if (amplitude > windowPeak) windowPeak = amplitude;
+  }
   pendingSamples.push(samples);
   pendingLength += samples.length;
   flushPackets(false);
@@ -186,13 +194,18 @@ function updateAudioStats() {
   if (!audioContext) return;
   const wallSeconds = (performance.now() - captureStartedAt) / 1000;
   const audioSeconds = capturedAudioSamples / audioContext.sampleRate;
+  const track = mediaStream?.getAudioTracks()[0] || null;
+  const peak = windowPeak;
+  windowPeak = 0;
   latestAudioStats = {
     audioSeconds,
     wallSeconds,
     deliveredRatio: wallSeconds > 0 ? audioSeconds / wallSeconds : null,
     sampleRate: audioContext.sampleRate,
     state: audioContext.state,
-    trackState: mediaStream?.getAudioTracks()[0]?.readyState || ""
+    trackState: track?.readyState || "",
+    trackMuted: Boolean(track?.muted),
+    peak: Number(peak.toFixed(4))
   };
   void sendToBackground("audio-stats", {
     sessionId,
@@ -406,6 +419,7 @@ async function startCapture(message) {
   reconnectAttempts = 0;
   capturedAudioSamples = 0;
   latestAudioStats = null;
+  windowPeak = 0;
   captureInfo = null;
   lastDataSignature = "";
   serverFinished = false;
@@ -432,8 +446,22 @@ async function startCapture(message) {
     };
     track.addEventListener("ended", () => {
       if (stopping) return;
+      console.info("[capture-diag] track ended", track.readyState);
       void publishStatus("error", "标签页音频已结束或页面已关闭");
       void stopCapture({ detail: "标签页音频已结束或页面已关闭" });
+    });
+    // Navigation can leave the track alive but muted (no active media in the
+    // tab at that moment), which looks identical to a working capture until
+    // the transcripts stop arriving. Report both edges for diagnosis.
+    track.addEventListener("muted", () => {
+      console.info("[capture-diag] track muted", track.readyState);
+      void publishStatus("capturing", "标签页音频暂时静音，等待页面恢复播放", {
+        trackMuted: true
+      });
+    });
+    track.addEventListener("unmuted", () => {
+      console.info("[capture-diag] track unmuted", track.readyState);
+      void publishStatus("capturing", "标签页音频已恢复", { trackMuted: false });
     });
 
     // Monitor at the device rate and resample only the ASR stream.

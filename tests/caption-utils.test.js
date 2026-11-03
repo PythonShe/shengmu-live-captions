@@ -548,3 +548,72 @@ test("applyOverlayFailure records and clears the overlay error idempotently", ()
   assert.equal(state.detail, "");
   assert.equal(applyOverlayFailure(null, "boom"), false);
 });
+
+test("mergeCaptionFragments joins a dangling fragment with the row that completes it", async () => {
+  const { mergeCaptionFragments } = await import("../extension/caption-utils.js");
+  const lines = [
+    { id: "a", source: "Pharaoh finally meets Danig, a real Kalgurin runesmith.", start: "0:00:01.00", end: "0:00:04.00" },
+    { id: "b", source: "with the ancient", start: "0:00:04.50", end: "0:00:05.20" },
+    { id: "c", source: "knowledge that he has found.", start: "0:00:05.40", end: "0:00:07.00" },
+    { id: "d", source: "From here on, Pharaoh joins the expedition.", start: "0:00:07.20", end: "0:00:10.00" }
+  ];
+  const merged = mergeCaptionFragments(lines);
+  // "with the ancient" continues the sentence before it and "knowledge that he
+  // has found." completes it, so all three rows become one subtitle line.
+  assert.deepEqual(merged.map((line) => line.id), ["a", "d"]);
+  assert.equal(
+    merged[0].source,
+    "Pharaoh finally meets Danig, a real Kalgurin runesmith. with the ancient knowledge that he has found."
+  );
+  assert.equal(merged[0].end, "0:00:07.00");
+  assert.equal(merged[0].fragmentLines, 3);
+  // A new sentence that merely starts with a preposition stays separate.
+  assert.equal(merged[1].source, lines[3].source);
+});
+
+test("mergeCaptionFragments stops after the sentence that completes the unit", async () => {
+  const { mergeCaptionFragments } = await import("../extension/caption-utils.js");
+  const lines = [
+    { id: "a", source: "so I think people will be experimenting.", start: "0:00:01.00", end: "0:00:03.00" },
+    { id: "b", source: "with these for a long time.", start: "0:00:03.20", end: "0:00:05.00" },
+    { id: "c", source: "Once you get to King's March in Act 4, Pharaoh finally meets Danig.", start: "0:00:05.20", end: "0:00:08.00" },
+    { id: "d", source: "a real Kalgurin runesmith.", start: "0:00:08.20", end: "0:00:09.00" }
+  ];
+  const merged = mergeCaptionFragments(lines);
+  // "a real Kalgurin runesmith." is an appositive of the previous sentence; no
+  // suffix rule can attach it backwards, so it stays its own line.
+  assert.deepEqual(merged.map((line) => line.id), ["a", "c", "d"]);
+  assert.equal(merged[0].source, "so I think people will be experimenting. with these for a long time.");
+  assert.equal(merged[1].source, lines[2].source);
+});
+
+test("mergeCaptionFragments respects the gap, size and line limits", async () => {
+  const { mergeCaptionFragments } = await import("../extension/caption-utils.js");
+  const far = [
+    { id: "a", source: "and then", start: "0:00:01.00", end: "0:00:02.00" },
+    { id: "b", source: "the map opens.", start: "0:00:09.00", end: "0:00:10.00" }
+  ];
+  assert.equal(mergeCaptionFragments(far).length, 2);
+
+  const many = Array.from({ length: 6 }, (_, index) => ({
+    id: `l${index}`,
+    source: `frag ${index}`,
+    start: `0:00:0${index}.00`,
+    end: `0:00:0${index}.50`
+  }));
+  const merged = mergeCaptionFragments(many, { maxLines: 3 });
+  assert.equal(merged.length, 2);
+  assert.equal(merged[0].fragmentLines, 3);
+});
+
+test("mergeCaptionFragments clears a translation that the merge invalidated", async () => {
+  const { mergeCaptionFragments } = await import("../extension/caption-utils.js");
+  const lines = [
+    { id: "a", source: "and riddled with excitement", translation: "而且充满兴奋", start: "0:00:01.00", end: "0:00:02.00" },
+    { id: "b", source: "he wants to learn.", start: "0:00:02.20", end: "0:00:03.50" }
+  ];
+  const merged = mergeCaptionFragments(lines);
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0].translation, "");
+  assert.equal(merged[0].translationPending, true);
+});
