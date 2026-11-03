@@ -48,7 +48,15 @@ export function createSettingsStore({ storage = chrome.storage.local } = {}) {
     const stored = values[SETTINGS_KEY];
     try {
       cache = migrateLegacySettings(stored);
-      if (stored && stored.translationMode === undefined) await write();
+      // Persist the migration so a later load never re-derives the defaults.
+      if (
+        stored &&
+        (stored.translationMode === undefined ||
+          stored.asrBackend === undefined ||
+          stored.translationProvider === undefined)
+      ) {
+        await write();
+      }
     } catch {
       // Keep API keys and other valid fields if only one setting (usually the
       // legacy wsUrl) is malformed.

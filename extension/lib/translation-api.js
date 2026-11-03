@@ -9,12 +9,28 @@
 import { buildGlossaryMap, matchGlossaryTerms } from "./glossary.js";
 
 export const DEFAULT_TRANSLATION_MODE = "api";
-export const DEFAULT_TRANSLATION_PROVIDER = "deepseek";
+// Fresh installs translate on-device with Chrome's built-in Translator, so
+// captions work before any key is entered (see migrateLegacySettings for
+// installs that predate it).
+export const DEFAULT_TRANSLATION_PROVIDER = "chrome";
 export const DEFAULT_TRANSLATION_TIMEOUT_MS = 12000;
 export const MIN_TRANSLATION_TIMEOUT_MS = 3000;
 export const MAX_TRANSLATION_TIMEOUT_MS = 30000;
 
 export const TRANSLATION_PROVIDERS = Object.freeze({
+  // Chrome's on-device Translator API. It exists only in documents, so the
+  // worker forwards these requests to the offscreen page; no key, no network,
+  // but literal quality and no context, so the popup suggests a key.
+  chrome: Object.freeze({
+    id: "chrome",
+    label: "Chrome 内置翻译（本机）",
+    baseUrl: "",
+    model: "builtin",
+    requiresApiKey: false,
+    builtin: true,
+    disableThinking: false,
+    keyUrl: ""
+  }),
   deepseek: Object.freeze({
     id: "deepseek",
     label: "DeepSeek",
@@ -32,6 +48,17 @@ export const TRANSLATION_PROVIDERS = Object.freeze({
     requiresApiKey: true,
     disableThinking: false,
     keyUrl: "https://platform.openai.com/api-keys"
+  }),
+  // Alibaba Cloud Bailian (Model Studio): the same key also drives the
+  // fun-asr-realtime speech backend, so one key covers both halves.
+  bailian: Object.freeze({
+    id: "bailian",
+    label: "阿里云百炼（通义千问）",
+    baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    model: "qwen-plus",
+    requiresApiKey: true,
+    disableThinking: false,
+    keyUrl: "https://bailian.console.aliyun.com/?tab=model#/api-key"
   }),
   custom: Object.freeze({
     id: "custom",
@@ -247,6 +274,7 @@ export function resolveTranslationConfig(settings = {}) {
     ...normalized,
     providerLabel: preset.label,
     requiresApiKey: preset.requiresApiKey,
+    builtin: Boolean(preset.builtin),
     disableThinking: preset.disableThinking || isDeepSeekEndpoint,
     keyUrl: preset.keyUrl,
     apiKey
