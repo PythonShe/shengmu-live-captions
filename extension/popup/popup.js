@@ -317,25 +317,51 @@ function renderTranslationSettings() {
   elements.translationUsage.textContent = usageText;
 }
 
-function updateGlossarySummaryText(draftSettings = settings) {
+// render() runs on every status broadcast, but the summary only depends on
+// these four inputs; resolving and parsing up to 32 KB of glossary text on
+// each broadcast is wasted work. The key uses the text itself, not a hash,
+// so a stale hit is impossible.
+let glossarySummaryCache = { key: "", summary: "", exportable: false };
+
+function glossarySummaryKey(draftSettings) {
+  return JSON.stringify([
+    draftSettings.glossaryEnabled !== false,
+    Array.isArray(draftSettings.glossaryPresetIds)
+      ? draftSettings.glossaryPresetIds
+      : [],
+    draftSettings.glossaryDomainHint || "",
+    draftSettings.customGlossary || ""
+  ]);
+}
+
+function computeGlossarySummary(draftSettings) {
   const effective = resolveEffectiveGlossary(draftSettings);
+  let summary;
   if (effective.enabled) {
-    let summary =
+    summary =
       `已生效 ${effective.entries.length} 条术语` +
       `（内置 ${effective.presetCount} · 自定义 ${effective.customCount}）`;
     if (effective.domainHint) {
       summary += ` · 领域：${effective.domainHint}`;
     }
-    elements.glossarySummaryHint.textContent = summary;
   } else {
-    elements.glossarySummaryHint.textContent =
+    summary =
       `术语库已关闭（已保存内置 ${effective.presetCount} · 自定义 ${effective.customCount}）`;
   }
-  const customEntries = parseGlossaryText(draftSettings.customGlossary);
-  const hasExportable =
-    effective.entries.length > 0 || customEntries.length > 0;
-  elements.exportGlossaryTextButton.disabled = !hasExportable;
-  elements.exportGlossaryCsvButton.disabled = !hasExportable;
+  const exportable =
+    effective.entries.length > 0 ||
+    parseGlossaryText(draftSettings.customGlossary).length > 0;
+  return { summary, exportable };
+}
+
+function updateGlossarySummaryText(draftSettings = settings) {
+  const key = glossarySummaryKey(draftSettings);
+  if (key !== glossarySummaryCache.key) {
+    glossarySummaryCache = { key, ...computeGlossarySummary(draftSettings) };
+  }
+  elements.glossarySummaryHint.textContent = glossarySummaryCache.summary;
+  elements.exportGlossaryTextButton.disabled = !glossarySummaryCache.exportable;
+  elements.exportGlossaryCsvButton.disabled = !glossarySummaryCache.exportable;
 }
 
 function renderGlossarySettings() {
