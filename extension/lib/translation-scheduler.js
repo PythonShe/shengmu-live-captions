@@ -11,6 +11,7 @@
 import { createBufferTranslation } from "./buffer-translation.js";
 import { cleanText, selectDisplayCaption } from "./caption-utils.js";
 import { polishTranslation, stripSpeechFillers } from "./speech-cleanup.js";
+import { lineSignature } from "./transcript-reducer.js";
 import { isAbortError, recentTranslationContext } from "./translation-api.js";
 import { planTranslationBatch } from "./utterance.js";
 
@@ -241,7 +242,7 @@ export function createTranslationScheduler(deps) {
       const updated = {
         ...line,
         ...patch,
-        signature: `${line.source}\u0000${text}`
+        signature: lineSignature(line.source, text)
       };
       knownLines.set(lineId, updated);
       enqueueHistory([updated]);

@@ -1,22 +1,15 @@
 import {
   DEFAULT_SETTINGS,
-  cleanText,
   EMPTY_RUNTIME_STATE,
   HISTORY_CHANGED_KEY,
   RUNTIME_STATE_KEY,
   SETTINGS_KEY,
   applyOverlayFailure,
-  getTranslationText,
-  lineChanged,
   lineNeedsTranslation,
-  mergeCaptionFragments,
-  mergeCaptionLines,
   migrateLegacySettings,
-  normalizeCaptionLines,
   normalizeSettings,
   normalizeWsUrl,
   sanitizeSettingsPatch,
-  selectDisplayCaption,
   settingsForBroadcast,
   settingsForCaptions
 } from "../lib/caption-utils.js";
@@ -41,7 +34,7 @@ import {
   upsertHistoryLines
 } from "../storage/history-db.js";
 import { HistoryWriteQueue } from "../lib/history-write-queue.js";
-import { polishTranslation } from "../lib/speech-cleanup.js";
+import { rememberLine, reduceTranscriptUpdate } from "../lib/transcript-reducer.js";
 import {
   TRANSLATION_STOP_TIMEOUT_MS,
   createTranslationScheduler
@@ -887,95 +880,22 @@ async function refreshSourceMetadata(tabId) {
 
 async function handleTranscriptUpdate(message) {
   if (!runtimeState.active || message.sessionId !== runtimeState.sessionId) return;
-  const updatedAt = Date.now();
-  const normalized = normalizeCaptionLines(message.data, {
-    sessionId: message.sessionId,
-    epochId: message.epochId,
-    epochStartedAt: message.epochStartedAt,
-    sessionStartedAt: runtimeState.startedAt,
-    updatedAt
-  });
-  // In API mode the extension translates the rows itself, so ASR fragments are
-  // joined first and the overlay, history and SRT all work on whole sentences.
-  // In server mode WhisperLiveKit already returned translations aligned to its
-  // own segments; merging the rows there would throw those translations away.
   const apiConfig = translationConfig();
   const useApi = apiConfig.mode === "api" && apiConfig.enabled;
-  if (useApi) {
-    normalized.lines = mergeCaptionFragments(normalized.lines);
-  }
-  const previousLines = new Map(
-    (runtimeState.current?.lines || []).map((line) => [line.id, line])
-  );
-  const lines = normalized.lines.map((rawLine) => {
-    const previous =
-      previousLines.get(rawLine.id) || knownLineSignatures.get(rawLine.id);
-    const serverTranslation = polishTranslation(getTranslationText(rawLine));
-    let translation = useApi ? "" : serverTranslation;
-    let fallbackTranslation = useApi ? serverTranslation : "";
-    if (
-      !translation &&
-      previous?.translation &&
-      previous.source === rawLine.source
-    ) {
-      translation = previous.translation;
-    }
-    if (
-      !fallbackTranslation &&
-      previous?.fallbackTranslation &&
-      previous.source === rawLine.source
-    ) {
-      fallbackTranslation = previous.fallbackTranslation;
-    }
-    return {
-      ...rawLine,
-      translation,
-      fallbackTranslation,
-      translationPending: Boolean(rawLine.source && !translation),
-      translationFailed: Boolean(
-        !translation &&
-        previous?.source === rawLine.source &&
-        previous?.translationFailed
-      )
-    };
+  const next = reduceTranscriptUpdate(runtimeState, message, {
+    knownLines: knownLineSignatures,
+    useApi,
+    apiError: scheduler.lastError,
+    now: Date.now()
   });
-
-  for (const line of lines) {
-    const previous = knownLineSignatures.get(line.id);
-    const signature = `${line.source}\u0000${line.translation}`;
-    if (lineChanged(previous, line) || previous?.signature !== signature) {
-      historyWriteQueue.enqueue([line]);
-      knownLineSignatures.set(line.id, { ...line, signature });
-    }
+  for (const line of next.historyLines) {
+    knownLineSignatures.set(line.id, rememberLine(line));
   }
-
-  runtimeState.status =
-    runtimeState.status === "reconnecting" ? "capturing" : runtimeState.status;
-  runtimeState.wsConnected = true;
-  runtimeState.updatedAt = updatedAt;
-  const previousBufferSource = cleanText(runtimeState.current?.bufferSource);
-  const bufferChanged = previousBufferSource !== normalized.bufferSource;
-  const bufferTranslation = useApi
-    ? bufferChanged
-      ? ""
-      : cleanText(runtimeState.current?.bufferTranslation)
-    : normalized.bufferTranslation;
-  const currentCaption = {
-    lines: mergeCaptionLines([], lines, 120),
-    bufferSource: normalized.bufferSource,
-    bufferTranslation,
-    translationError: useApi
-      ? scheduler.lastError
-      : normalized.translationError,
-    epochId: message.epochId || null
-  };
-  runtimeState.current = {
-    ...currentCaption,
-    displayCaption: selectDisplayCaption(currentCaption)
-  };
+  if (next.historyLines.length > 0) historyWriteQueue.enqueue(next.historyLines);
+  Object.assign(runtimeState, next.patch);
   scheduler.refreshSummary();
 
-  if (useApi && bufferChanged) scheduler.abortStaleBuffer();
+  if (useApi && next.bufferChanged) scheduler.abortStaleBuffer();
 
   await persistRuntimeState();
   await broadcastToExtension({
