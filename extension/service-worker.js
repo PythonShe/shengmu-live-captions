@@ -1058,7 +1058,9 @@ async function flushBufferTranslation() {
       await broadcastCaptionUpdate();
     }
   } finally {
-    if (generation === translationGeneration) {
+    // An external abort (new buffer text, cancel) already released the slot and
+    // a newer request may own it now; only the owner may clear the flags.
+    if (generation === translationGeneration && translationBufferAbort === controller) {
       translationBufferInFlight = false;
       translationBufferAbort = null;
       if (runtimeState.active) {
