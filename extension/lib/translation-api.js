@@ -70,12 +70,60 @@ const SYSTEM_PROMPT = [
 const PARTIAL_INSTRUCTION =
   "最后一个 segment 是实时字幕里尚未定稿的半句，翻译要自然、简短，只翻已有内容。";
 
+export const MAX_RETRY_AFTER_MS = 60000;
+
+/**
+ * Parse a Retry-After header (delta-seconds or HTTP date) into milliseconds,
+ * clamped to [0, MAX_RETRY_AFTER_MS] so a hostile or buggy server cannot park
+ * the scheduler for minutes. Returns null when absent or unparseable.
+ * @param {string | null | undefined} value
+ * @param {number} [now]
+ * @returns {number | null}
+ */
+export function parseRetryAfter(value, now = Date.now()) {
+  const text = String(value ?? "").trim();
+  if (!text) return null;
+  let ms;
+  if (/^\d+(?:\.\d+)?$/.test(text)) {
+    ms = Number(text) * 1000;
+  } else {
+    // Date.parse accepts bare numbers like "-5"; an HTTP date has letters.
+    if (!/[a-z]/i.test(text)) return null;
+    const date = Date.parse(text);
+    if (!Number.isFinite(date)) return null;
+    ms = date - now;
+  }
+  if (!Number.isFinite(ms)) return null;
+  return Math.round(Math.min(MAX_RETRY_AFTER_MS, Math.max(0, ms)));
+}
+
+/**
+ * Error codes (stable; the scheduler branches on them):
+ *  config, empty            caller or settings problem, never retry
+ *  auth, balance, bad_request  permanent for this config, surface to the user
+ *  rate_limit (429), server (>=500), http_error  transient; may carry retryAfterMs
+ *  network, timeout         transient transport failures
+ *  aborted                  caller cancelled, not an error to report
+ *  parse_error, count_mismatch, empty_response, empty_translation,
+ *  truncated, thinking_only  the model answered badly; splittable batches
+ *                           (see isSplittableTranslationError) may retry in halves
+ */
 export class TranslationApiError extends Error {
-  constructor(message, { code = "api_error", status = null, cause = null } = {}) {
+  /**
+   * @param {string} message
+   * @param {{code?: string, status?: number | null, cause?: unknown,
+   *   retryAfterMs?: number | null}} [details]
+   */
+  constructor(
+    message,
+    { code = "api_error", status = null, cause = null, retryAfterMs = null } = {}
+  ) {
     super(message);
     this.name = "TranslationApiError";
     this.code = code;
     this.status = status;
+    // Server-requested wait before retrying (429/503 Retry-After), or null.
+    this.retryAfterMs = retryAfterMs;
     if (cause) this.cause = cause;
   }
 }
@@ -483,7 +531,20 @@ function safeErrorMessage(status, bodyText) {
   }
 }
 
-export function mapHttpError(status, bodyText, providerLabel = "翻译 API") {
+/**
+ * @param {number} status
+ * @param {string} bodyText
+ * @param {string} [providerLabel]
+ * @param {string | null} [retryAfterHeader] Raw Retry-After header value.
+ */
+export function mapHttpError(
+  status,
+  bodyText,
+  providerLabel = "翻译 API",
+  retryAfterHeader = null
+) {
+  const retryAfterMs =
+    status === 429 || status === 503 ? parseRetryAfter(retryAfterHeader) : null;
   const detail = safeErrorMessage(status, bodyText);
   const suffix = detail ? `：${detail}` : "";
   if (status === 401 || status === 403) {
@@ -501,7 +562,8 @@ export function mapHttpError(status, bodyText, providerLabel = "翻译 API") {
   if (status === 429) {
     return new TranslationApiError(`${providerLabel} 请求过于频繁${suffix}`, {
       code: "rate_limit",
-      status
+      status,
+      retryAfterMs
     });
   }
   if (status === 400 || status === 422) {
@@ -513,7 +575,7 @@ export function mapHttpError(status, bodyText, providerLabel = "翻译 API") {
   if (status >= 500) {
     return new TranslationApiError(
       `${providerLabel} 服务暂时不可用（HTTP ${status}）${suffix}`,
-      { code: "server", status }
+      { code: "server", status, retryAfterMs }
     );
   }
   return new TranslationApiError(
@@ -732,7 +794,8 @@ export async function translateTexts({
     throw mapHttpError(
       attempt.response.status,
       attempt.bodyText,
-      resolved.providerLabel || "翻译 API"
+      resolved.providerLabel || "翻译 API",
+      attempt.response.headers?.get?.("retry-after") ?? null
     );
   }
   let data;

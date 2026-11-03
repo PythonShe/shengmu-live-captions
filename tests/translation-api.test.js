@@ -7,7 +7,9 @@ import {
   chatCompletionsUrl,
   mapHttpError,
   normalizeTranslationBaseUrl,
+  MAX_RETRY_AFTER_MS,
   normalizeTranslationSettings,
+  parseRetryAfter,
   parseTranslationOutput,
   recentTranslationContext,
   resetTranslationRequestShapeCache,
@@ -741,6 +743,49 @@ test("the learned request shape is per endpoint and model", async () => {
     assert.equal(server.requests.length, 4);
   } finally {
     resetTranslationRequestShapeCache();
+    await server.close();
+  }
+});
+
+test("parseRetryAfter reads seconds and HTTP dates and clamps the result", () => {
+  const now = Date.parse("2026-01-01T00:00:00Z");
+  assert.equal(parseRetryAfter("2", now), 2000);
+  assert.equal(parseRetryAfter(" 1.5 ", now), 1500);
+  assert.equal(parseRetryAfter("0", now), 0);
+  assert.equal(parseRetryAfter("Thu, 01 Jan 2026 00:00:05 GMT", now), 5000);
+  assert.equal(parseRetryAfter("Wed, 31 Dec 2025 23:59:00 GMT", now), 0);
+  assert.equal(parseRetryAfter("86400", now), MAX_RETRY_AFTER_MS);
+  assert.equal(parseRetryAfter("", now), null);
+  assert.equal(parseRetryAfter(null, now), null);
+  assert.equal(parseRetryAfter("soon", now), null);
+  assert.equal(parseRetryAfter("-5", now), null);
+});
+
+test("mapHttpError exposes retryAfterMs only for 429 and 503", () => {
+  assert.equal(mapHttpError(429, "{}", "X", "3").retryAfterMs, 3000);
+  assert.equal(mapHttpError(503, "{}", "X", "4").retryAfterMs, 4000);
+  assert.equal(mapHttpError(500, "{}", "X", "4").retryAfterMs, null);
+  assert.equal(mapHttpError(429, "{}", "X").retryAfterMs, null);
+});
+
+test("translateTexts surfaces the Retry-After header on a 429", async () => {
+  resetTranslationRequestShapeCache();
+  const server = await startServer(({ response }) => {
+    response.writeHead(429, {
+      "Content-Type": "application/json",
+      "Retry-After": "7"
+    });
+    response.end(JSON.stringify({ error: { message: "slow down" } }));
+  });
+  try {
+    await assert.rejects(
+      translateTexts({ texts: ["Hi."], config: customConfig(server.url) }),
+      (error) =>
+        error.code === "rate_limit" &&
+        error.status === 429 &&
+        error.retryAfterMs === 7000
+    );
+  } finally {
     await server.close();
   }
 });
