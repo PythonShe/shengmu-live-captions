@@ -6,26 +6,35 @@ Core design notes (Chinese, upstream-owned): `paseo/01-translation-api-design.md
 
 ## 0. Repo and branches
 
-- `origin` = `PythonShe/shengmu-live-captions` (our fork). `upstream` = `exilemoulei/shengmu-live-captions`, where we have read-only access (not a collaborator). Contributions go upstream as pull requests from the fork.
-- `dev` is our long-lived working branch. It carries fork-only scaffolding (this file, the `AGENTS.md` symlink) that must not land upstream.
-- Upstream PRs: branch from `upstream/master` (not `dev`), cherry-pick the relevant commits, open the PR against `exilemoulei:master`. Never push to the `upstream` remote.
+- `origin` = `PythonShe/shengmu-live-captions` (our fork). `upstream` = `exilemoulei/shengmu-live-captions`; we are a collaborator there (push + triage since 2026-11-03), invited by the maintainer to help finish the project. Changes still reach `upstream/master` only through pull requests.
+- `dev` is our long-lived working branch on `origin`. It carries fork-only scaffolding (this file, the `AGENTS.md` symlink) that never goes upstream, not even inside a PR.
+- Upstream PRs: branch from `upstream/master` (not `dev`), cherry-pick the relevant commits, open the PR against `exilemoulei:master`. Keep every code commit free of `CLAUDE.md` / `AGENTS.md` changes so it cherry-picks cleanly; docs in this file get their own commit. Never push `dev` to `upstream`.
 - Sync: `git fetch upstream && git merge upstream/master` into `dev`. Upstream still tracks its own Chinese `AGENTS.md`; on a conflict keep our symlink and port any new rules from it into this file in English.
 - Upstream commit style is Conventional Commits with a version scope (`feat(0.5.5): ...`, `docs(0.5.4): ...`) plus a `pit:` type for `.pit/` records. Use the same style.
 
 ## 1. Commands
 
 ```sh
-pnpm test                    # node:test, 113 tests, pure Node (same as `node --test tests/*.test.js`)
-find extension scripts/local-service tests \( -name '*.js' -o -name '*.mjs' \) -print0 | xargs -0 -n1 node --check
+npm ci                       # dev tooling only (ESLint, TypeScript); the extension has no runtime node_modules
+npm run verify               # gate: check + lint + typecheck + test, must pass before every commit
+npm run check                # node --check over every .js/.mjs (scripts/check-syntax.mjs)
+npm run lint                 # ESLint, per-layer globals (eslint.config.js)
+npm run typecheck            # tsc --checkJs over extension/lib only (tsconfig.json), no emit
+npm test                     # node:test, pure Node
+npm run smoke                # headless Chrome loads the unpacked extension over CDP (scripts/smoke-extension.mjs)
 node paseo/mock-openai-server.mjs   # OpenAI-compatible mock at http://127.0.0.1:8787/v1, no key needed
 ```
 
-- Both gates must pass on every change. `service-worker.js`, `popup.js`, `subtitle.js`, `content-overlay.js`, `offscreen.js` and `server.mjs` are not fully imported by unit tests; `node --check` is their only syntax net.
+- The repo uses npm, not pnpm: upstream documents npm and commits `package-lock.json`.
+- CI (`.github/workflows/ci.yml`) runs `verify` and `smoke` on every push and PR. Run `smoke` locally after touching paths, the manifest, page HTML or worker startup; it needs Chrome (`CHROME_PATH` overrides discovery).
+- Test coverage: `extension/lib/` is unit-tested; `background/service-worker.js` is imported by `tests/service-worker.integration.test.js` against a mocked `chrome` (settings, security, glossary paths only, not the caption pipeline). `popup.js`, `subtitle.js`, `content-overlay.js`, `offscreen.js`, `history-db.js` and `server.mjs` have no unit tests; lint, `check` and `smoke` are their net. `tests/extension-paths.test.js` resolves every manifest, HTML, import and `chrome.*` path.
+- Lint layering: `extension/lib/` sees only the web APIs Node also has (no `chrome`, `window`, `document`), so `no-undef` enforces purity; `storage/` adds IndexedDB only; `content/`, `offscreen/offscreen.js` and `pcm-worklet.js` are classic scripts. Intentional control-character regexes carry an `eslint-disable-next-line ... -- reason`.
+- Type checking covers `extension/lib/` only. Destructured option objects need a JSDoc `@param` / `@typedef`, or tsc infers `{}` and rejects callers.
 - Load the extension unpacked from `extension/` in `chrome://extensions` (developer mode); click Reload after edits.
 
 ### Windows-only tooling
 
-The service scripts are Windows-specific and do not run on macOS as-is: they shell out to `powershell.exe` (override with `SHENGMU_POWERSHELL`), expect `.research/wlk-venv/Scripts/*.exe`, look for `chrome.exe`, and the local models assume an NVIDIA GPU. On this Mac, test API mode against DeepSeek or the mock server, and run WhisperLiveKit by hand on `127.0.0.1:8010` if ASR is needed. The upstream reference invocations:
+The service scripts are Windows-specific and do not run on macOS as-is (a Node replacement is planned): they shell out to `powershell.exe` (override with `SHENGMU_POWERSHELL`), expect `.research/wlk-venv/Scripts/*.exe`, look for `chrome.exe`, and the local models assume an NVIDIA GPU. On this Mac, test API mode against DeepSeek or the mock server, and run WhisperLiveKit by hand on `127.0.0.1:8010` if ASR is needed. The upstream reference invocations:
 
 ```powershell
 .\scripts\Start-Services.ps1 [-AsrOnly] [-Restart] [-TranslationModel 9b-q4km|2b-iq4xs] [-AsrModel large-v3-turbo|medium]
@@ -50,8 +59,8 @@ The service scripts are Windows-specific and do not run on macOS as-is: they she
 
 ## 4. Code rules
 
-- Native ES modules (`"type": "module"`); only `overlay-history.js`, `content-overlay.js` and `pcm-worklet.js` are IIFE/worklet. No bundler, no TypeScript build, no runtime `node_modules`.
-- Overlay injection is fixed at `files: ["overlay-history.js", "content-overlay.js"]`. `content-overlay.js` must keep the null-fallback `HISTORY_API` shim for `globalThis.ShengmuOverlayHistory` and delegate dynamically in `syncHistoryLog`, so an old worker that injects a single file (extension not reloaded) does not throw `TypeError`.
+- Native ES modules (`"type": "module"`); the classic scripts are `content/overlay-history.js`, `content/content-overlay.js` (IIFE), `offscreen/offscreen.js` (loaded without `type="module"`) and `offscreen/pcm-worklet.js` (worklet). No bundler, no TypeScript build, no runtime `node_modules`.
+- Overlay injection is fixed at `files: ["content/overlay-history.js", "content/content-overlay.js"]` (paths are relative to the extension root). `content-overlay.js` must keep the null-fallback `HISTORY_API` shim for `globalThis.ShengmuOverlayHistory` and delegate dynamically in `syncHistoryLog`, so an old worker that injects a single file (extension not reloaded) does not throw `TypeError`.
 - No empty `catch {}` or `console.error`-only handlers across boundaries. The only exemptions are `appendJobLog` in `server.mjs` and the `.part` / `server.pid` cleanup.
   - Translation failures throw `TranslationApiError` (`code`, `status`, `message`) and are written to `runtimeState.current.translationError`.
   - Every translation passes `polishTranslation` (`speech-cleanup.js`) before display or storage, on both paths: API mode via `applyLineTranslations` / the buffer branch, server mode via `handleTranscriptUpdate`. Source text passes `stripSpeechFillers` before translation (only `entry.promptText`; the English shown in history stays verbatim). If `stripSpeechFillers` returns empty, fall back to the original text, otherwise the line is treated as failed and retried.
@@ -81,17 +90,17 @@ New files have a soft cap of 600 lines. The existing oversized files (`service-w
 
 | Path | Holds |
 |---|---|
-| `extension/service-worker.js` `popup.js` `subtitle.js` `content-overlay.js` `offscreen.js` | Entry points and coordination. Sibling page scripts never import each other; they talk only via `chrome.runtime` / `chrome.storage.local` |
-| `extension/caption-utils.js` `glossary.js` `glossary-poe.js` `overlay-history.js` `history-write-queue.js` `utterance.js` `speech-cleanup.js` | Pure domain functions and queues (shared by 2+ modules or needing their own tests). No `chrome.*`, no browser DOM APIs |
-| `extension/history-db.js` | IndexedDB `shengmu-caption-history` (v1: `sessions`, `lines`). The on-disk schema and the top-level `chrome.storage.local` keys (`settings`, `runtimeState`, `historyRevision`, `overlayPositions`) are frozen; new settings go through `normalizeSettings` / `migrateLegacySettings` |
-| `extension/translation-api.js` | Extension-free protocol layer (OpenAI-compatible `/chat/completions` batch translation, cleanup, retry). May use the equally pure `glossary.js`; no `chrome.*` |
+| `extension/background/` `offscreen/` `content/` `popup/` `subtitle/` | One folder per entry point (worker, offscreen capture page + worklet, injected overlay, popup, transcript page). Entry points never import each other; they talk only via `chrome.runtime` / `chrome.storage.local` |
+| `extension/lib/` (`caption-utils.js` `glossary.js` `glossary-poe.js` `history-write-queue.js` `utterance.js` `speech-cleanup.js` `translation-api.js`) | Pure domain functions and queues (shared by 2+ modules or needing their own tests). No `chrome.*`, no browser DOM APIs; enforced by lint and typecheck. `content/overlay-history.js` is pure too but stays beside the overlay because it is injected as a classic script |
+| `extension/storage/history-db.js` | IndexedDB `shengmu-caption-history` (v1: `sessions`, `lines`). The on-disk schema and the top-level `chrome.storage.local` keys (`settings`, `runtimeState`, `historyRevision`, `overlayPositions`) are frozen; new settings go through `normalizeSettings` / `migrateLegacySettings` |
+| `extension/lib/translation-api.js` | Extension-free protocol layer (OpenAI-compatible `/chat/completions` batch translation, cleanup, retry). May use the equally pure `glossary.js`; no `chrome.*` |
 | `scripts/` | PowerShell start/stop scripts and `local-service/server.mjs` (`127.0.0.1:8014`) |
 
 Broadcast boundary: `settingsForBroadcast` serves extension pages (includes `customGlossary`). Anything sent to tabs (`broadcastCaptionState`, the `injectOverlay` init) must use `settingsForCaptions`, which strips the 32 KB custom glossary.
 
 ### 6.1 Model sync and runtime cadences
 
-- Local model tiers (translation `9b-q4km | 2b-iq4xs`, ASR `large-v3-turbo | medium`) stay in lockstep across `extension/caption-utils.js`, `scripts/local-service/server.mjs` and `scripts/Start-Services.ps1`. For a one-off experiment pass `-TranslationModelPath`.
+- Local model tiers (translation `9b-q4km | 2b-iq4xs`, ASR `large-v3-turbo | medium`) stay in lockstep across `extension/lib/caption-utils.js`, `scripts/local-service/server.mjs` and `scripts/Start-Services.ps1`. For a one-off experiment pass `-TranslationModelPath`.
 - A WS reconnect starts a new epoch; `shiftTimecode` / `mergeCaptionLines` accumulate it into one continuous session timecode. `finalizeSession` locks once (waits for in-flight translations up to `TRANSLATION_STOP_TIMEOUT_MS = 15000 ms`) and clears `overlayError` and `tabId`.
 - Throttle budget: `pcm-worklet.js` sends frames in `100 ms` batches (`1600` frames at 16 kHz). Completed-line translation debounces `160 ms` (<= `6` lines per batch). The unfinalized buffer debounces `450 ms` (min interval `1200 ms`, and it yields only when the line queue backlog is > `2`, otherwise line translation starves the buffer). State persistence `350 ms`, history flush `700 ms`.
 - WLK flags (`Start-Services.ps1`; run a 120 s sample comparison before changing): `--asr-coalesce-min-s 0.5` (`0.3` turns 54% of captions into "The."-sized shards), `--localagreement-beam-size 3`, `--buffer_trimming_sec 10` (`4` cuts audio every 4 s and triggers `Resetting buffer`), `--confidence-validation`.
@@ -104,5 +113,5 @@ Broadcast boundary: `settingsForBroadcast` serves extension pages (includes `cus
 - Glossary data red lines: `glossary-poe.js` holds data only, no logic. The sole source of a translation is the `<title>` of the entry page on `poedb.tw/cn` or `poe2db.tw/cn` (PoE 2 wins on conflict; category pages use the same site's navigation; concept terms are backed by the body text of a skill/keyword page that uses the mechanic). A term without a retrievable Chinese title is not added, and never filled in from memory. Plain everyday single words (`Hit`, `Kill`, `Life`, `Mana`, `Spark`, `Arc`, ...) are banned. `sources[1..]` holds only homophone mishearings and variants a regex cannot derive, and never enters ASR hotwords. Order is budget: the first 35 entries' `sources[0]` must fit in 360 characters; the preset validation in the test suite catches overruns and duplicates.
 - Glossary matching constraints: word boundaries, English plural/possessive folding, and **longest-match-first with span masking** (with both `Orb` and `Orb of Augmentation`, only the longer one is injected); <= 24 entries per batch, each reported at most once per batch. `matched` keeps the ASR's misheard spelling so the model can correct it. `buildAsrContextPrompt` takes only ASCII English source terms, <= 360 chars (the WLK session `context` cap is 1000). `serializeWlkGlossary` must **expand** `|` aliases into separate `source -> target` pairs and **skip** sources containing `; : = ->` or newlines (WLK truncates/splits there, so a silent rewrite ships a term that never matches). Both the text and CSV paths of `exportGlossaryText` must quote sources that would parse as line syntax (`|`, full-width comma, full-width equals, `->`, tab, quotes, and a leading `#` or `//`), otherwise exporting `A=B` and re-importing it yields a different entry.
 - API keys and write protection: broadcasts always go through `settingsForBroadcast`, which strips plaintext `translationApiKeys` (only `translationApiKeyConfigured` is sent). Non-extension-page senders are caught by `isExtensionPageSender`, limited to display fields by `sanitizeSettingsPatch`, and denied `refresh-overlay`. Changing any provider's `baseUrl` clears its key. A public endpoint with a key must be `https://` (exempt: `http://127.0.0.1`, `localhost`, `[::1]`).
-- `8014` control service: binds `127.0.0.1` only; enforces `originAllowed` (empty Origin or `chrome-extension://` only) and returns 403 on `sec-fetch-site === "cross-site"`. `/stop` and shutdown first `kill` the in-flight `jobChild`. Starting WLK must set `HF_HUB_DISABLE_XET=1` (prevents the HF Xet deadlock behind a local proxy).
+- `8014` control service: binds `127.0.0.1` only; enforces `hostAllowed` (loopback `Host` only, against DNS rebinding), `originAllowed` (empty Origin or `chrome-extension://` only) and returns 403 on `sec-fetch-site === "cross-site"`. `/start` and `/download` hold `startPending` / `downloadPending` across their probes so concurrent requests get 409, and `/stop` bumps `stopGeneration` to cancel a start that is still probing. `/stop` and shutdown first `kill` the in-flight `jobChild`. Starting WLK must set `HF_HUB_DISABLE_XET=1` (prevents the HF Xet deadlock behind a local proxy).
 - Acceptance testing uses the fixed local audio `.research/quality-samples/*poe*.wav` (never an online YouTube video with random ads as the transcription source) and must meet: `0` missing translations, `deliveredRatio >= 0.999`, local latency `1-3 s` (`paseo/03-verification.md`).
