@@ -46,6 +46,42 @@ select {
   font: inherit;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
+/* The rail is dark green, so the default green ring would vanish there. */
+.rail :focus-visible {
+  outline-color: var(--gold);
+}
+
+.session-search:focus-within,
+.transcript-search:focus-within {
+  outline: 2px solid var(--green);
+  outline-offset: 1px;
+}
+
+.rail .session-search:focus-within {
+  outline-color: var(--gold);
+}
+
+.compact-select select:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 1px;
+}
+
 button {
   color: inherit;
 }

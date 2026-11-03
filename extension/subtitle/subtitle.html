@@ -42,7 +42,7 @@
           <input id="sessionSearch" type="search" placeholder="搜索场次">
         </label>
 
-        <div id="sessionList" class="session-list" role="list"></div>
+        <div id="sessionList" class="session-list" role="group" aria-label="场次列表"></div>
 
         <footer class="rail-footer">
           <p>音频只在当前标签页内采集，历史保存在本机。</p>
@@ -105,7 +105,7 @@
             </div>
           </div>
           <button id="loadEarlier" class="load-earlier" type="button" hidden>载入更早的字幕</button>
-          <div id="transcriptList" class="transcript-list" aria-live="polite"></div>
+          <div id="transcriptList" class="transcript-list"></div>
           <article id="interimCard" class="interim-card" hidden>
             <span class="interim-label">正在听</span>
             <p id="interimSource"></p>
@@ -128,6 +128,7 @@
       </main>
     </div>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <p id="announcer" class="sr-only" role="status" aria-live="polite"></p>
     <script type="module" src="subtitle.js"></script>
   </body>
 </html>

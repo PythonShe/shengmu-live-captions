@@ -252,9 +252,15 @@ h1 {
   box-shadow: 2px 2px 0 var(--gold);
 }
 
-.primary-button:disabled {
+.primary-button[aria-busy="true"] {
+  transform: none;
+  box-shadow: 5px 5px 0 var(--gold);
   cursor: wait;
   opacity: 0.65;
+}
+
+.primary-button.stop[aria-busy="true"] {
+  box-shadow: 5px 5px 0 #e6c88b;
 }
 
 .primary-button.stop {
@@ -459,6 +465,22 @@ textarea {
   line-height: 1.45;
   font-family: Consolas, "Microsoft YaHei UI", monospace;
   font-size: 10px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
+.primary-button:focus-visible {
+  outline-color: var(--signal);
+  outline-offset: 4px;
+}
+
+/* The checkbox is visually hidden; show its focus on the switch track. */
+.switch-row input:focus-visible + i {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
 }
 
 select:focus,
