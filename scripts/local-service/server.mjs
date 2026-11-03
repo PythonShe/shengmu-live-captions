@@ -102,6 +102,13 @@ let startedWlkMode = null;
 let startedGlossarySignature = null;
 let download = null;
 let downloadChild = null;
+// handleStart and startDownload await probes before they publish their busy
+// state, so these flags close the window in which a second request (double
+// click, two popups) would pass the 409 guard and spawn a second launcher.
+let startPending = false;
+let downloadPending = false;
+// Bumped by /stop so a start that is still probing knows it was cancelled.
+let stopGeneration = 0;
 
 function sanitizeWlkGlossary(value) {
   return String(value ?? "")
@@ -345,9 +352,21 @@ async function runStopServices() {
 }
 
 async function handleStart(payload) {
-  if (job.state === "starting" || job.state === "stopping") {
-    return { status: 409, body: { ok: false, error: `已有任务在进行：${job.state}` } };
+  if (startPending || job.state === "starting" || job.state === "stopping") {
+    return {
+      status: 409,
+      body: { ok: false, error: `已有任务在进行：${startPending ? "starting" : job.state}` }
+    };
   }
+  startPending = true;
+  try {
+    return await startServices(payload, stopGeneration);
+  } finally {
+    startPending = false;
+  }
+}
+
+async function startServices(payload, generation) {
   const asrModel = resolveAsrModel(payload.asrModel);
   if (!asrModel) {
     return { status: 400, body: { ok: false, error: "未知的 ASR 模型" } };
@@ -457,6 +476,10 @@ async function handleStart(payload) {
     startArgs.push("-Restart");
   }
 
+  if (generation !== stopGeneration) {
+    return { status: 409, body: { ok: false, error: "启动已被停止请求取消" } };
+  }
+
   job = {
     state: "starting",
     action: "start",
@@ -510,9 +533,10 @@ async function handleStop() {
   if (job.state === "stopping") {
     return { status: 409, body: { ok: false, error: "正在停止中" } };
   }
-  if (download?.state === "downloading") {
+  if (downloadPending || download?.state === "downloading") {
     return { status: 409, body: { ok: false, error: "模型下载中，请稍后再停止" } };
   }
+  stopGeneration += 1;
   // A start launcher that is still running would re-create the services after
   // Stop-Services finished, so terminate it first.
   if (jobChild) {
@@ -573,9 +597,21 @@ function runCurlHeadTotal(url) {
 }
 
 async function startDownload(payload) {
-  if (download?.state === "downloading") {
-    return { status: 409, body: { ok: false, error: `正在下载 ${download.modelId}` } };
+  if (downloadPending || download?.state === "downloading") {
+    return {
+      status: 409,
+      body: { ok: false, error: `正在下载 ${download?.modelId || ""}`.trim() }
+    };
   }
+  downloadPending = true;
+  try {
+    return await beginDownload(payload);
+  } finally {
+    downloadPending = false;
+  }
+}
+
+async function beginDownload(payload) {
   const model = resolveTranslationModel(payload.translationModel);
   if (!model) {
     return { status: 400, body: { ok: false, error: "未知的本地翻译模型" } };
