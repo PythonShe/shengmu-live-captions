@@ -39,7 +39,34 @@
 
       <p id="errorMessage" class="error-message" role="alert" hidden></p>
 
-      <section class="local-model" aria-label="本地模型">
+      <section class="controls" aria-label="语音识别">
+        <div class="control-row">
+          <label for="asrBackend">识别</label>
+          <select id="asrBackend">
+            <option value="chrome">Chrome 本机识别</option>
+            <option value="bailian">阿里云百炼（云端）</option>
+            <option value="wlk">本地 WhisperLiveKit</option>
+          </select>
+        </div>
+        <p id="builtinSupportHint" class="field-hint" hidden></p>
+        <div id="bailianFields" hidden>
+          <div class="control-row">
+            <label for="bailianRegion">地域</label>
+            <select id="bailianRegion">
+              <option value="cn">中国内地</option>
+              <option value="intl">国际</option>
+            </select>
+          </div>
+          <label for="bailianApiKey">百炼 API Key</label>
+          <input id="bailianApiKey" type="password" spellcheck="false" autocomplete="off" placeholder="留空则不修改已保存的 Key">
+          <p class="field-hint">
+            <span id="bailianKeyHint"></span>
+            <a id="bailianKeyLink" href="https://bailian.console.aliyun.com/?tab=model#/api-key" target="_blank" rel="noreferrer">获取 Key</a>
+          </p>
+        </div>
+      </section>
+
+      <section id="localModelSection" class="local-model" aria-label="本地模型">
         <div class="local-model-head">
           <p class="eyebrow">本地模型</p>
           <span id="localServiceBadge" class="local-badge">检测中</span>
@@ -128,7 +155,7 @@
 
       <details class="advanced">
         <summary>翻译引擎</summary>
-        <div class="control-row">
+        <div id="translationModeRow" class="control-row">
           <label for="translationMode">来源</label>
           <select id="translationMode">
             <option value="api">API 翻译</option>
@@ -139,19 +166,29 @@
           <div class="control-row">
             <label for="translationProvider">服务商</label>
             <select id="translationProvider">
+              <option value="chrome">Chrome 内置翻译</option>
               <option value="deepseek">DeepSeek</option>
+              <option value="bailian">阿里云百炼（通义千问）</option>
               <option value="openai">OpenAI</option>
               <option value="custom">自定义兼容 API</option>
             </select>
           </div>
-          <p class="field-hint">API 模式会把识别出的英文字幕和最近两条上下文发送给所选服务商。</p>
-          <label for="translationBaseUrl">API 地址</label>
-          <input id="translationBaseUrl" type="url" spellcheck="false">
-          <label for="translationModel">模型</label>
-          <input id="translationModel" type="text" spellcheck="false">
-          <label for="translationApiKey">API Key</label>
-          <input id="translationApiKey" type="password" spellcheck="false" autocomplete="off" placeholder="留空则不修改已保存的 Key">
-          <p id="translationKeyHint" class="field-hint"></p>
+          <p id="translationNudge" class="field-hint" hidden>
+            内置翻译偏直译。填一个 DeepSeek Key 译文会自然得多。
+            <button id="switchToDeepseek" class="text-button" type="button">改用 DeepSeek</button>
+          </p>
+          <div id="remoteTranslationFields">
+            <p class="field-hint">API 模式会把识别出的英文字幕和最近两条上下文发送给所选服务商。</p>
+            <div id="translationBaseUrlField">
+              <label for="translationBaseUrl">API 地址</label>
+              <input id="translationBaseUrl" type="url" spellcheck="false">
+            </div>
+            <label for="translationModel">模型</label>
+            <input id="translationModel" type="text" spellcheck="false">
+            <label for="translationApiKey">API Key</label>
+            <input id="translationApiKey" type="password" spellcheck="false" autocomplete="off" placeholder="留空则不修改已保存的 Key">
+            <p id="translationKeyHint" class="field-hint"></p>
+          </div>
           <label class="switch-row">
             <span>
               <strong>半句预翻译</strong>
@@ -201,7 +238,7 @@
         <p id="glossaryActionHint" class="field-hint" hidden></p>
       </details>
 
-      <details class="advanced">
+      <details id="connectionSettings" class="advanced">
         <summary>连接设置</summary>
         <label for="wsUrl">ASR WebSocket</label>
         <input id="wsUrl" type="url" spellcheck="false">

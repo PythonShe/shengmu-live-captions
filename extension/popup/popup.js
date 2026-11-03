@@ -95,8 +95,27 @@ const elements = {
   localServiceOffline: document.querySelector("#localServiceOffline"),
   localServiceCommand: document.querySelector("#localServiceCommand"),
   copyLocalServiceCommand: document.querySelector("#copyLocalServiceCommand"),
-  retryLocalService: document.querySelector("#retryLocalService")
+  retryLocalService: document.querySelector("#retryLocalService"),
+  asrBackend: document.querySelector("#asrBackend"),
+  builtinSupportHint: document.querySelector("#builtinSupportHint"),
+  bailianFields: document.querySelector("#bailianFields"),
+  bailianRegion: document.querySelector("#bailianRegion"),
+  bailianApiKey: document.querySelector("#bailianApiKey"),
+  bailianKeyHint: document.querySelector("#bailianKeyHint"),
+  localModelSection: document.querySelector("#localModelSection"),
+  connectionSettings: document.querySelector("#connectionSettings"),
+  translationModeRow: document.querySelector("#translationModeRow"),
+  translationNudge: document.querySelector("#translationNudge"),
+  switchToDeepseek: document.querySelector("#switchToDeepseek"),
+  remoteTranslationFields: document.querySelector("#remoteTranslationFields"),
+  translationBaseUrlField: document.querySelector("#translationBaseUrlField")
 };
+
+const BUILTIN_SPEECH = { langs: ["en-US"], processLocally: true };
+const BUILTIN_LANGUAGES = { sourceLanguage: "en", targetLanguage: "zh" };
+// What this Chrome reports for its on-device models: "available",
+// "downloadable", "downloading", "unavailable", or "missing" (no API at all).
+const builtinSupport = { speech: "", translator: "" };
 
 const LOCAL_SERVICE_URL = "http://127.0.0.1:8014";
 // Same on every OS since the Node service manager replaced the .ps1 scripts.
@@ -246,6 +265,7 @@ function render() {
   renderOverlayHint();
   elements.openPanelOnStart.checked = settings.openPanelOnStart;
   setFieldValue(elements.wsUrl, settings.wsUrl);
+  renderSpeechSettings();
   renderTranslationSettings();
   renderGlossarySettings();
 }
@@ -267,6 +287,71 @@ function renderOverlayHint() {
     : "";
 }
 
+async function checkBuiltinSupport() {
+  const Recognition = globalThis.SpeechRecognition || globalThis.webkitSpeechRecognition;
+  try {
+    builtinSupport.speech = Recognition?.available
+      ? await Recognition.available(BUILTIN_SPEECH)
+      : "missing";
+  } catch {
+    builtinSupport.speech = "missing";
+  }
+  try {
+    builtinSupport.translator = globalThis.Translator
+      ? await globalThis.Translator.availability(BUILTIN_LANGUAGES)
+      : "missing";
+  } catch {
+    builtinSupport.translator = "missing";
+  }
+  render();
+}
+
+function renderSpeechSettings() {
+  const backend = settings.asrBackend;
+  elements.asrBackend.value = backend;
+  const wlk = backend === "wlk";
+  elements.localModelSection.hidden = !wlk;
+  elements.connectionSettings.hidden = !wlk;
+  elements.translationModeRow.hidden = !wlk;
+  elements.bailianFields.hidden = backend !== "bailian";
+  elements.bailianRegion.value = settings.bailianRegion;
+  elements.bailianKeyHint.textContent = settings.translationApiKeyConfigured?.bailian
+    ? "Key 已保存，语音识别与通义千问翻译共用。"
+    : "按秒计费，Key 同时可用于通义千问翻译。";
+  const unsupported =
+    (backend === "chrome" && ["missing", "unavailable"].includes(builtinSupport.speech)) ||
+    (settings.translationProvider === "chrome" &&
+      settings.translationMode === "api" &&
+      ["missing", "unavailable"].includes(builtinSupport.translator));
+  elements.builtinSupportHint.hidden = !unsupported;
+  elements.builtinSupportHint.textContent = unsupported
+    ? "这个 Chrome 不支持本机识别或内置翻译（需要 Chrome 138 以上的桌面版），请改用阿里云百炼或填写 DeepSeek Key。"
+    : "";
+}
+
+/**
+ * Chrome downloads its translation model only from a user gesture, so the
+ * start click does it while the gesture is still live; the offscreen page
+ * can use the model from then on. About 20 s, once.
+ */
+async function ensureBuiltinTranslator() {
+  if (settings.translationMode !== "api" || settings.translationProvider !== "chrome") return;
+  if (!globalThis.Translator) return;
+  const availability = await globalThis.Translator.availability(BUILTIN_LANGUAGES);
+  if (availability === "available" || availability === "unavailable") return;
+  elements.statusLabel.textContent = "正在下载 Chrome 翻译模型";
+  const translator = await globalThis.Translator.create({
+    ...BUILTIN_LANGUAGES,
+    monitor(monitor) {
+      monitor.addEventListener("downloadprogress", (event) => {
+        elements.statusLabel.textContent = `正在下载 Chrome 翻译模型 ${Math.round(event.loaded * 100)}%`;
+      });
+    }
+  });
+  translator.destroy();
+  builtinSupport.translator = "available";
+}
+
 function renderTranslationSettings() {
   const provider =
     TRANSLATION_PROVIDERS[settings.translationProvider] ||
@@ -274,6 +359,11 @@ function renderTranslationSettings() {
   const configured = Boolean(
     settings.translationApiKeyConfigured?.[provider.id]
   );
+  const builtin = Boolean(provider.builtin);
+  elements.remoteTranslationFields.hidden = builtin;
+  elements.translationBaseUrlField.hidden = provider.id === "bailian";
+  elements.translationNudge.hidden = !builtin;
+  elements.testTranslationButton.textContent = builtin ? "测试内置翻译" : "测试翻译 API";
   elements.translationMode.value = settings.translationMode;
   elements.translationProvider.value = provider.id;
   setFieldValue(elements.translationBaseUrl, settings.translationBaseUrl);
@@ -293,6 +383,8 @@ function renderTranslationSettings() {
   let usageText;
   if (settings.translationMode === "server") {
     usageText = "本地服务端模式：译文由 WhisperLiveKit 生成。";
+  } else if (builtin) {
+    usageText = provider.label;
   } else if (usage?.requests > 0) {
     const tokens =
       (Number(usage.promptTokens) || 0) +
@@ -662,7 +754,8 @@ function renderLocal() {
 let localPolling = false;
 
 async function pollLocal() {
-  if (localPolling) return;
+  // The local control service only matters to the WhisperLiveKit backend.
+  if (localPolling || settings.asrBackend !== "wlk") return;
   localPolling = true;
   try {
     const modelsPayload = await localRequest("/models", { timeoutMs: 2500 });
@@ -800,21 +893,29 @@ async function startCapture() {
     translationTranslatePartial: elements.translationTranslatePartial.checked,
     ...collectGlossaryPatchFromInputs()
   };
-  if (patch.translationMode === "api") {
-    const provider = elements.translationProvider.value;
-    const baseUrl = normalizeTranslationBaseUrl(
-      elements.translationBaseUrl.value
-    );
-    if (!baseUrl) throw new Error("请填写翻译 API 地址");
+  if (settings.asrBackend !== "wlk") delete patch.translationMode;
+  const provider = elements.translationProvider.value;
+  const remote = !TRANSLATION_PROVIDERS[provider]?.builtin;
+  if ((patch.translationMode ?? settings.translationMode) === "api" && remote) {
     patch.translationProvider = provider;
-    patch.translationBaseUrl = baseUrl;
+    if (provider !== "bailian") {
+      const baseUrl = normalizeTranslationBaseUrl(elements.translationBaseUrl.value);
+      if (!baseUrl) throw new Error("请填写翻译 API 地址");
+      patch.translationBaseUrl = baseUrl;
+    }
     patch.translationModel = elements.translationModel.value.trim();
     if (!patch.translationModel) throw new Error("请填写翻译模型");
     const apiKey = elements.translationApiKey.value.trim();
     if (apiKey) patch.translationApiKeys = { [provider]: apiKey };
   }
+  const bailianKey = elements.bailianApiKey.value.trim();
+  if (bailianKey) {
+    patch.translationApiKeys = { ...patch.translationApiKeys, bailian: bailianKey };
+  }
+  await ensureBuiltinTranslator();
   await savePatch(patch);
   elements.translationApiKey.value = "";
+  elements.bailianApiKey.value = "";
   const streamId = await chrome.tabCapture.getMediaStreamId({
     targetTabId: activeTab.id
   });
@@ -939,6 +1040,36 @@ elements.translationMode.addEventListener("change", () => {
     .catch((error) => setError(error.message));
 });
 
+elements.asrBackend.addEventListener("change", () => {
+  void savePatch({ asrBackend: elements.asrBackend.value })
+    .then(() => {
+      if (runtimeState?.active) setError("识别引擎将在下次开始字幕时生效");
+      return pollLocal();
+    })
+    .catch((error) => setError(error.message));
+});
+
+elements.bailianRegion.addEventListener("change", () => {
+  void savePatch({ bailianRegion: elements.bailianRegion.value }).catch((error) =>
+    setError(error.message)
+  );
+});
+
+elements.bailianApiKey.addEventListener("change", () => {
+  const apiKey = elements.bailianApiKey.value.trim();
+  if (!apiKey) return;
+  void savePatch({ translationApiKeys: { bailian: apiKey } })
+    .then(() => {
+      elements.bailianApiKey.value = "";
+    })
+    .catch((error) => setError(error.message));
+});
+
+elements.switchToDeepseek.addEventListener("click", () => {
+  elements.translationProvider.value = "deepseek";
+  elements.translationProvider.dispatchEvent(new Event("change"));
+});
+
 elements.translationProvider.addEventListener("change", () => {
   const preset =
     TRANSLATION_PROVIDERS[elements.translationProvider.value] ||
@@ -1004,22 +1135,27 @@ elements.translationTranslatePartial.addEventListener("change", () => {
 elements.testTranslationButton.addEventListener("click", async () => {
   elements.testTranslationButton.disabled = true;
   elements.translationTestResult.hidden = false;
-  elements.translationTestResult.textContent = "正在请求翻译 API...";
+  elements.translationTestResult.textContent = "正在请求翻译...";
   setError();
   try {
     const provider = elements.translationProvider.value;
-    const baseUrl = normalizeTranslationBaseUrl(
-      elements.translationBaseUrl.value
-    );
-    if (!baseUrl) throw new Error("请填写翻译 API 地址");
+    const preset = TRANSLATION_PROVIDERS[provider];
     const patch = {
       translationMode: elements.translationMode.value,
       translationProvider: provider,
-      translationBaseUrl: baseUrl,
-      translationModel: elements.translationModel.value.trim(),
       ...collectGlossaryPatchFromInputs()
     };
-    if (!patch.translationModel) throw new Error("请填写翻译模型");
+    if (preset?.builtin) {
+      await ensureBuiltinTranslator();
+    } else {
+      if (provider !== "bailian") {
+        const baseUrl = normalizeTranslationBaseUrl(elements.translationBaseUrl.value);
+        if (!baseUrl) throw new Error("请填写翻译 API 地址");
+        patch.translationBaseUrl = baseUrl;
+      }
+      patch.translationModel = elements.translationModel.value.trim();
+      if (!patch.translationModel) throw new Error("请填写翻译模型");
+    }
     const pendingKey = elements.translationApiKey.value.trim();
     if (pendingKey) {
       patch.translationApiKeys = { [provider]: pendingKey };
@@ -1310,7 +1446,7 @@ window.addEventListener("unhandledrejection", (event) => {
 });
 
 void refresh()
-  .then(() => pollLocal())
+  .then(() => Promise.all([pollLocal(), checkBuiltinSupport()]))
   .catch((error) => setError(error.message));
 localPollTimer = setInterval(() => {
   void pollLocal();
