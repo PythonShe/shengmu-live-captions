@@ -5,7 +5,9 @@ import test from "node:test";
 import {
   buildTranslationRequestBody,
   chatCompletionsUrl,
+  isSplittableTranslationError,
   mapHttpError,
+  TranslationApiError,
   normalizeTranslationBaseUrl,
   MAX_RETRY_AFTER_MS,
   normalizeTranslationSettings,
@@ -788,4 +790,31 @@ test("translateTexts surfaces the Retry-After header on a 429", async () => {
   } finally {
     await server.close();
   }
+});
+
+test("isSplittableTranslationError flags only batch-shape failures", () => {
+  const codeOf = (code) => new TranslationApiError("x", { code });
+  assert.equal(isSplittableTranslationError(codeOf("count_mismatch"), 4), true);
+  assert.equal(isSplittableTranslationError(codeOf("parse_error"), 2), true);
+  assert.equal(isSplittableTranslationError(codeOf("truncated")), true);
+  assert.equal(isSplittableTranslationError(codeOf("count_mismatch"), 1), false);
+  for (const code of ["auth", "rate_limit", "timeout", "network", "aborted", "empty_response"]) {
+    assert.equal(isSplittableTranslationError(codeOf(code), 4), false, code);
+  }
+  assert.equal(isSplittableTranslationError(new Error("boom"), 4), false);
+});
+
+test("parseTranslationOutput keeps stable codes and the exact-count rule", () => {
+  const codeOf = (fn) => {
+    try {
+      fn();
+    } catch (error) {
+      return error.code;
+    }
+    return null;
+  };
+  assert.equal(codeOf(() => parseTranslationOutput('["a","b","c"]', 2)), "count_mismatch");
+  assert.equal(codeOf(() => parseTranslationOutput('["a"]', 2)), "count_mismatch");
+  assert.equal(codeOf(() => parseTranslationOutput('["a", ', 2)), "parse_error");
+  assert.deepEqual(parseTranslationOutput('["a","b",""]', 2), ["a", "b"]);
 });
