@@ -62,3 +62,30 @@ test("wait resolves when the cooldown ends and rejects on abort", async () => {
   await assert.rejects(waiting, { name: "AbortError" });
   await assert.rejects(cooldown.wait(controller.signal), { name: "AbortError" });
 });
+
+test("a waiting request honours a cooldown that was extended after it parked", async () => {
+  const { clock, cooldown } = setup();
+  cooldown.note({ code: "rate_limit", retryAfterMs: 1000 });
+  let done = false;
+  void cooldown.wait().then(() => {
+    done = true;
+  });
+  cooldown.note({ code: "rate_limit", retryAfterMs: 5000 });
+  await clock.advance(1000);
+  await settleAsync();
+  assert.equal(done, false, "the first deadline is no longer the deadline");
+  await clock.advance(4000);
+  await settleAsync();
+  assert.equal(done, true);
+});
+
+test("aborting after an extension cancels the rearmed wait", async () => {
+  const { clock, cooldown } = setup();
+  cooldown.note({ code: "rate_limit", retryAfterMs: 1000 });
+  const controller = new AbortController();
+  const waiting = cooldown.wait(controller.signal);
+  cooldown.note({ code: "rate_limit", retryAfterMs: 5000 });
+  await clock.advance(1000);
+  controller.abort();
+  await assert.rejects(waiting, { name: "AbortError" });
+});
