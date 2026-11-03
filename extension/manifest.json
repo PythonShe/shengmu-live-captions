@@ -15,6 +15,7 @@
     "tabCapture",
     "tabs"
   ],
+  "optional_permissions": ["nativeMessaging"],
   "host_permissions": [
     "<all_urls>",
     "http://127.0.0.1/*",

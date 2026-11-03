@@ -11,6 +11,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { findUnpackedExtensionIds } from "./native-host/protocol.mjs";
+
 const EXTENSION = fileURLToPath(new URL("../extension", import.meta.url));
 const TIMEOUT_MS = 15000;
 // A cold Chrome on a shared CI runner can take well over 15 s to listen.
@@ -71,6 +73,9 @@ const browser = spawn(
   ],
   { stdio: ["ignore", "ignore", "pipe"] }
 );
+const browserExit = new Promise((resolve) => {
+  browser.once("exit", resolve);
+});
 let browserStderr = "";
 browser.stderr.on("data", (chunk) => {
   browserStderr = (browserStderr + String(chunk)).slice(-2000);
@@ -209,6 +214,20 @@ try {
   await sleep(500);
   const workerErrors = exceptionsFor(workerSession);
   check("worker raises no exceptions", workerErrors.length === 0, JSON.stringify(workerErrors));
+
+  // The Windows native-host installer finds the unpacked id in the profile's
+  // preferences, which Chrome flushes on a clean shutdown.
+  await send("Browser.close");
+  await Promise.race([browserExit, sleep(10_000)]);
+  const preferences = ["Secure Preferences", "Preferences"].flatMap((name) => {
+    try {
+      return [JSON.parse(fs.readFileSync(path.join(profile, "Default", name), "utf8"))];
+    } catch {
+      return [];
+    }
+  });
+  const found = findUnpackedExtensionIds(preferences, EXTENSION);
+  check("native-host installer finds the extension id", found.includes(extensionId), JSON.stringify(found));
 } catch (error) {
   check("smoke run", false, `${error.message}${browserStderr ? `\n--- chrome stderr ---\n${browserStderr}` : ""}`);
 } finally {
