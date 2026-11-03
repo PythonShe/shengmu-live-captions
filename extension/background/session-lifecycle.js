@@ -1,6 +1,6 @@
 import { EMPTY_RUNTIME_STATE, normalizeWsUrl } from "../lib/caption-utils.js";
 import { translationConfigIssue } from "../lib/translation-api.js";
-import { reduceTranscriptUpdate } from "../lib/transcript-reducer.js";
+import { linesChangedSince, reduceTranscriptUpdate } from "../lib/transcript-reducer.js";
 import { TRANSLATION_STOP_TIMEOUT_MS } from "../lib/translation-scheduler.js";
 import { requireLocalTranslation } from "./diagnostics.js";
 import { safeClone } from "./runtime-store.js";
@@ -28,7 +28,6 @@ const ERROR_STOP_TIMEOUT_MS = 2500;
  */
 export function createSessionLifecycle({ store, settings, views, offscreen, history, scheduler, ready }) {
   let finalizingPromise = null;
-  let pendingStopDetail = "";
   // Two start requests (double click, popup plus shortcut) would both pass the
   // `active` check before either replaced the runtime state and leave an
   // orphaned session, so starts run one at a time and the later one wins.
@@ -98,7 +97,6 @@ export function createSessionLifecycle({ store, settings, views, offscreen, hist
     history.resetSession();
     scheduler.reset();
     await history.createSession(metadata);
-    pendingStopDetail = "";
 
     store.replace({
       active: true,
@@ -212,6 +210,7 @@ export function createSessionLifecycle({ store, settings, views, offscreen, hist
         store.state.wsConnected = false;
         store.state.lineCount = lineCount;
         store.state.translationMissing = translationMissing;
+        store.state.pendingStopDetail = "";
         store.state.updatedAt = Date.now();
         try {
           await store.persist(true);
@@ -229,7 +228,6 @@ export function createSessionLifecycle({ store, settings, views, offscreen, hist
         }
         if (sessionId) await views.notifyHistoryChanged(sessionId);
         scheduler.reset({ keepUsage: true });
-        pendingStopDetail = "";
       }
     })();
     try {
@@ -245,7 +243,11 @@ export function createSessionLifecycle({ store, settings, views, offscreen, hist
       return { ok: true, alreadyStopped: true };
     }
     if (store.state.active) {
-      pendingStopDetail = options.detail || "标签页音频采集已停止";
+      // Kept in runtime state: if the worker is recycled before the offscreen
+      // "stopped" report arrives, that report still ends the session with the
+      // reason the user saw (tab closed, fatal error) instead of a generic one.
+      store.state.pendingStopDetail = options.detail || "标签页音频采集已停止";
+      await store.persist(true);
     }
     await offscreen.stopCapture();
     // The offscreen document outlives its session, so a stale stop button can
@@ -256,7 +258,7 @@ export function createSessionLifecycle({ store, settings, views, offscreen, hist
     }
     await finalize(
       options.status || "stopped",
-      pendingStopDetail || options.detail || "标签页音频采集已停止",
+      store.state.pendingStopDetail || options.detail || "标签页音频采集已停止",
       { quiet: options.quiet === true }
     );
     return { ok: true };
@@ -287,7 +289,7 @@ export function createSessionLifecycle({ store, settings, views, offscreen, hist
       return;
     }
     if (status.state === "stopped" && store.state.active) {
-      await finalize("stopped", pendingStopDetail || status.detail || "采集已停止");
+      await finalize("stopped", store.state.pendingStopDetail || status.detail || "采集已停止");
     }
   }
 
@@ -352,15 +354,28 @@ export function createSessionLifecycle({ store, settings, views, offscreen, hist
   /**
    * The worker was (re)started with a persisted runtime state: end a session
    * whose capture document is gone, or resume translating one that survived.
+   * Safe to call more than once.
    */
   async function recover() {
     await views.updateBadge();
-    if (store.state.active && !(await offscreen.hasDocument())) {
+    if (!store.state.active) return;
+    // A recycled worker lost its history queue and its copy of every row it
+    // wrote. Re-record the persisted rows, so a translation that landed just
+    // before the restart still reaches IndexedDB and the final summary even
+    // if no further transcript update arrives. Rows go through knownLines, so
+    // a second recovery or the next identical transcript update writes
+    // nothing again; history upserts by line id, so a row that was already
+    // flushed is merely rewritten with the same content.
+    const restored = linesChangedSince(store.state.current?.lines || [], history.knownLines);
+    if (restored.length > 0) {
+      history.record(restored);
+      await history.flush(false);
+    }
+    if (!(await offscreen.hasDocument())) {
       await finalize("error", "浏览器后台采集页面已中断，请重新开始", { quiet: true });
-    } else if (store.state.active && settings.apiTranslationActive()) {
-      // The service worker can be recycled mid-session. Rebuild the pending
-      // queue from the restored runtime lines; none of the queue/timers are
-      // persisted in memory.
+    } else if (settings.apiTranslationActive()) {
+      // None of the translation queue or its timers survive a restart; the
+      // scheduler rebuilds them from the restored runtime rows.
       scheduler.resume();
     }
   }
