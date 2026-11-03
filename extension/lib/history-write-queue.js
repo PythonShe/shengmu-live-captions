@@ -1,6 +1,15 @@
 const DEFAULT_RETRY_DELAYS_MS = [700, 1500, 3000, 5000, 10000, 30000];
 
 export class HistoryWriteQueue {
+  /**
+   * @param {object} options
+   * @param {(batch: object[]) => unknown} options.writeBatch
+   * @param {number} [options.debounceMs]
+   * @param {number[]} [options.retryDelaysMs]
+   * @param {(error: unknown, batch: object[]) => void} [options.onError]
+   * @param {(callback: () => void, ms: number) => unknown} [options.setTimeoutFn]
+   * @param {(handle: unknown) => void} [options.clearTimeoutFn]
+   */
   constructor({
     writeBatch,
     debounceMs = 700,
