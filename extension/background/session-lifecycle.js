@@ -75,40 +75,8 @@ export function createSessionLifecycle({
     return run;
   }
 
-  async function startNow(message) {
-    await ready();
-    if (store.state.active) {
-      await stop({ quiet: true });
-    }
-
-    let wsUrl;
-    try {
-      wsUrl = normalizeWsUrl(message.wsUrl || settings.current.wsUrl);
-    } catch (error) {
-      throw new Error(error?.message || String(error), { cause: error });
-    }
-    await settings.update({ wsUrl });
-
-    const translation = settings.translationConfig();
-    if (translation.mode === "api") {
-      const issue = translationConfigIssue(translation);
-      if (issue) {
-        throw new Error(
-          `${issue}。请在扩展控制面板的“翻译引擎”中完成配置，或切换为本地服务端。`
-        );
-      }
-    } else {
-      await requireLocalTranslation();
-    }
-    const asr = settings.sessionAsr(wsUrl);
-    if (asr.backend === "bailian") {
-      const apiKey = settings.bailianApiKey();
-      if (!apiKey) {
-        throw new Error("尚未填写阿里云百炼 API Key（语音识别与通义千问翻译共用），请在扩展控制面板中填写。");
-      }
-      await asrAuth.grant(asr.url, apiKey);
-    }
-
+  /** Creates the history session and the runtime state for a new capture. */
+  async function recordSession(message, { wsUrl, translation, asr }) {
     const sessionId = crypto.randomUUID();
     const startedAt = Date.now();
     const metadata = {
@@ -147,6 +115,51 @@ export function createSessionLifecycle({
     await views.updateBadge();
     await views.broadcastToExtension({ type: "session-state", session: metadata });
     await views.notifyHistoryChanged(sessionId);
+    return sessionId;
+  }
+
+  async function startNow(message) {
+    await ready();
+    if (store.state.active) {
+      await stop({ quiet: true });
+    }
+
+    let wsUrl;
+    try {
+      wsUrl = normalizeWsUrl(message.wsUrl || settings.current.wsUrl);
+    } catch (error) {
+      throw new Error(error?.message || String(error), { cause: error });
+    }
+    await settings.update({ wsUrl });
+
+    const translation = settings.translationConfig();
+    if (translation.mode === "api") {
+      const issue = translationConfigIssue(translation);
+      if (issue) {
+        throw new Error(
+          `${issue}。请在扩展控制面板的“翻译引擎”中完成配置，或切换为本地服务端。`
+        );
+      }
+    } else {
+      await requireLocalTranslation();
+    }
+    const asr = settings.sessionAsr(wsUrl);
+    if (asr.backend === "bailian") {
+      const apiKey = settings.bailianApiKey();
+      if (!apiKey) {
+        throw new Error("尚未填写阿里云百炼 API Key（语音识别与通义千问翻译共用），请在扩展控制面板中填写。");
+      }
+      await asrAuth.grant(asr.url, apiKey);
+    }
+
+    let sessionId;
+    try {
+      sessionId = await recordSession(message, { wsUrl, translation, asr });
+    } catch (error) {
+      // A start that fails before the capture would leave the key on the rule.
+      await asrAuth.revoke();
+      throw error;
+    }
 
     try {
       const result = await offscreen.send({
