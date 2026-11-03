@@ -307,6 +307,14 @@ test("buildTranslationRequestBody injects only matched glossary terms and domain
   assert.match(matched.messages[0].content, /9\. 必须严格使用输入 glossary 中的术语译名/);
 });
 
+test("parseTranslationOutput rejects JSON with extra non-empty items", () => {
+  assert.throws(
+    () => parseTranslationOutput('["你好","世界","多余"]', 2),
+    (error) => error.code === "count_mismatch"
+  );
+  assert.deepEqual(parseTranslationOutput('["你好","世界",""]', 2), ["你好", "世界"]);
+});
+
 test("parseTranslationOutput handles JSON, code fences, objects and numbered lines", () => {
   assert.deepEqual(parseTranslationOutput('["你好","再见"]', 2), ["你好", "再见"]);
   assert.deepEqual(
