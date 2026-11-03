@@ -37,6 +37,7 @@
 - `05408db` `feat(0.5.5): de-grey stale translations, merge ASR fragments, strip fillers`（`master` → `origin/master`，GPG Good signature，15 文件 +924/−100）。
 - 提交前发现 3 个文件的行尾被 Python 改写转成 CRLF（`git diff --stat` 整文件重写），已按 HEAD 版本对齐回 LF 并复核。
 - 本机 `HTTP(S)_PROXY=127.0.0.1:7897` 无监听，push 需临时走实际端口 `7891`；已记 pit（`git-push-proxy-d37de8`）。
+- `82b3cb6` `docs: track AGENTS.md and the paseo design notes`：`.gitignore` 解除 `/AGENTS.md`、把 `/paseo/` 收窄为 `/paseo/evidence/`，AGENTS.md 与 16 篇 paseo 设计文档、mock server 一并入库（19 文件 +1966/−2）；`paseo/README.md` 由迁移期快照改写为文档索引页。`paseo.json` 仍留在 `.git/info/exclude`。
 
 
 ## 2026-10-31 · 0.5.4：术语库全链路 + 《流放之路》313 条国服词库定稿
