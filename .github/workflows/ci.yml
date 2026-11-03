@@ -1,0 +1,58 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    # Every free public-repo runner: the service manager has per-OS paths
+    # (Scripts\*.exe, taskkill /T and tasklist on Windows, process groups and
+    # ps elsewhere) and the end-user installer targets both CPU architectures.
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+          - windows-latest
+          - windows-11-arm
+          - macos-latest
+          - macos-15-intel
+    runs-on: ${{ matrix.os }}
+    steps:
+      # Test against the bytes in git, not a CRLF-converted checkout.
+      - if: runner.os == 'Windows'
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v7
+      # Installs the pnpm version pinned in package.json `packageManager`.
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          # The runner cache can hold an older 24.x; engines needs >= 24.22.2.
+          check-latest: true
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run verify
+
+  smoke:
+    # Loads the unpacked extension into the runner's preinstalled Chrome; the
+    # arm64 images ship no Chrome, so they run verify only.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          # The runner cache can hold an older 24.x; engines needs >= 24.22.2.
+          check-latest: true
+      - run: pnpm run smoke

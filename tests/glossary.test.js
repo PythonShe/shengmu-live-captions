@@ -11,9 +11,11 @@ import {
   exportGlossaryText,
   matchGlossaryTerms,
   parseGlossaryText,
+  protectGlossaryTerms,
   resolveEffectiveGlossary,
+  restoreGlossaryTerms,
   serializeWlkGlossary
-} from "../extension/glossary.js";
+} from "../extension/lib/glossary.js";
 
 // Fixture terms are the ones named in the Path of Exile transcripts under
 // .research/poe-041; the shipped preset dictionary itself is exercised in a
@@ -486,4 +488,42 @@ test("the PoE preset trades everyday polysemy for live coverage", () => {
     hits.map((hit) => `${hit.matched}=${hit.target}`),
     ["breach=裂隙"]
   );
+});
+
+const PLACEHOLDER_ENTRIES = [
+  { sources: ["The Searing Exarch", "Searing Exarch"], target: "焚界者" },
+  { sources: ["Divine Orb"], target: "神圣石" },
+  { source: "Maven|Mayven", target: "大师" }
+];
+
+test("protectGlossaryTerms swaps every term, alias and plural for one placeholder each", () => {
+  const { text, slots } = protectGlossaryTerms(
+    "Farm the Searing Exarch for Divine Orbs, then the Mayven, then Searing Exarch again.",
+    PLACEHOLDER_ENTRIES
+  );
+  assert.deepEqual(slots, [
+    { token: "Zorvex", target: "焚界者" },
+    { token: "Quellix", target: "神圣石" },
+    { token: "Tarvok", target: "大师" }
+  ]);
+  assert.equal(text, "Farm Zorvex for Quellix, then the Tarvok, then Zorvex again.", "the entry's own article goes too");
+  assert.deepEqual(protectGlossaryTerms("nothing here", PLACEHOLDER_ENTRIES).slots, []);
+});
+
+test("protectGlossaryTerms skips placeholders the text already contains and honours the cap", () => {
+  const { text, slots } = protectGlossaryTerms("Zorvex met the Maven near a Divine Orb", PLACEHOLDER_ENTRIES, 1);
+  assert.equal(slots.length, 1);
+  assert.notEqual(slots[0].token, "Zorvex");
+  assert.equal(slots[0].target, "神圣石", "the longest spelling claims the slot first");
+  assert.equal(text, `Zorvex met the Maven near a ${slots[0].token}`, "over the cap the term stays in English");
+});
+
+test("restoreGlossaryTerms is case-insensitive, trims CJK padding and reports a lost token", () => {
+  const slots = [
+    { token: "Zorvex", target: "焚界者" },
+    { token: "Quellix", target: "神圣石" }
+  ];
+  assert.equal(restoreGlossaryTerms("刷 zorvex 换 QUELLIX。", slots), "刷焚界者换神圣石。");
+  assert.equal(restoreGlossaryTerms("刷焚界者", slots), null);
+  assert.equal(restoreGlossaryTerms("原文", []), "原文");
 });

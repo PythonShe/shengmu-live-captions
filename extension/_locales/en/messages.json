@@ -1,0 +1,1251 @@
+{
+  "popup_open_history": {
+    "message": "History"
+  },
+  "popup_current_source": {
+    "message": "Current source"
+  },
+  "popup_reading_tab": {
+    "message": "Reading the tab"
+  },
+  "status_ready": {
+    "message": "Ready"
+  },
+  "popup_start": {
+    "message": "Start live translation"
+  },
+  "popup_speech_section": {
+    "message": "Speech recognition"
+  },
+  "popup_asr_backend": {
+    "message": "Speech"
+  },
+  "asr_backend_chrome": {
+    "message": "Chrome on-device"
+  },
+  "asr_backend_bailian": {
+    "message": "Alibaba Bailian (cloud)"
+  },
+  "asr_backend_wlk": {
+    "message": "Local WhisperLiveKit (self-hosted)"
+  },
+  "popup_bailian_region": {
+    "message": "Region"
+  },
+  "bailian_region_cn": {
+    "message": "Chinese mainland"
+  },
+  "bailian_region_intl": {
+    "message": "International"
+  },
+  "popup_bailian_key": {
+    "message": "Bailian API key"
+  },
+  "popup_key_placeholder": {
+    "message": "Leave empty to keep the saved key"
+  },
+  "popup_get_key": {
+    "message": "Get a key"
+  },
+  "popup_local_models": {
+    "message": "Local models"
+  },
+  "popup_checking": {
+    "message": "Checking"
+  },
+  "local_not_connected": {
+    "message": "Not connected"
+  },
+  "popup_translation": {
+    "message": "Translation"
+  },
+  "popup_translation_model": {
+    "message": "Translation model"
+  },
+  "popup_asr_model": {
+    "message": "ASR model"
+  },
+  "popup_download_page": {
+    "message": "Download page"
+  },
+  "popup_download_model": {
+    "message": "Download model"
+  },
+  "popup_local_start": {
+    "message": "Start all"
+  },
+  "popup_local_stop": {
+    "message": "Stop"
+  },
+  "popup_service_offline": {
+    "message": "The local control service is not running. Run this command in the project folder, then click Check again:"
+  },
+  "popup_start_control_service": {
+    "message": "Start control service"
+  },
+  "popup_copy_command": {
+    "message": "Copy command"
+  },
+  "popup_check_again": {
+    "message": "Check again"
+  },
+  "popup_display_section": {
+    "message": "Caption display"
+  },
+  "display_mode": {
+    "message": "Show"
+  },
+  "popup_font_size": {
+    "message": "Font size"
+  },
+  "popup_opacity": {
+    "message": "Opacity"
+  },
+  "popup_overlay": {
+    "message": "Page overlay"
+  },
+  "popup_overlay_hint": {
+    "message": "Shown over the video; scroll on it to look back"
+  },
+  "popup_overlay_retry": {
+    "message": "Inject again"
+  },
+  "popup_open_on_start": {
+    "message": "Open history on start"
+  },
+  "popup_open_on_start_hint": {
+    "message": "Shows the caption panel when captions start"
+  },
+  "popup_translation_engine": {
+    "message": "Translation engine"
+  },
+  "popup_translation_mode": {
+    "message": "Source"
+  },
+  "translation_mode_api": {
+    "message": "API translation"
+  },
+  "translation_mode_server": {
+    "message": "Local server"
+  },
+  "popup_provider": {
+    "message": "Provider"
+  },
+  "provider_chrome": {
+    "message": "Chrome built-in"
+  },
+  "provider_bailian": {
+    "message": "Alibaba Bailian (Qwen)"
+  },
+  "provider_custom": {
+    "message": "Custom compatible API"
+  },
+  "popup_switch_deepseek": {
+    "message": "Use DeepSeek"
+  },
+  "popup_api_privacy": {
+    "message": "API mode sends the recognized English captions and up to 4 recent lines of context (source and translation) to the selected provider."
+  },
+  "popup_base_url": {
+    "message": "API URL"
+  },
+  "popup_model": {
+    "message": "Model"
+  },
+  "popup_partial": {
+    "message": "Translate partial sentences"
+  },
+  "popup_partial_hint": {
+    "message": "Chinese appears sooner; uses more API calls"
+  },
+  "popup_test_api": {
+    "message": "Test translation API"
+  },
+  "popup_clear_key": {
+    "message": "Clear key"
+  },
+  "popup_glossary": {
+    "message": "Glossary"
+  },
+  "popup_glossary_enabled": {
+    "message": "Use glossary"
+  },
+  "popup_glossary_hint": {
+    "message": "Adds matching terms to each translation request and gives speech recognition English hotwords"
+  },
+  "popup_glossary_poe": {
+    "message": "Path of Exile 1/2"
+  },
+  "popup_glossary_poe_hint": {
+    "message": "313 official names from the Chinese client: 精魂, 节杖, 引路石, 符文结界, 焚界者, 异界图鉴, plus sound-alike fixes"
+  },
+  "popup_domain_hint": {
+    "message": "Topic hint"
+  },
+  "popup_domain_placeholder": {
+    "message": "For example: Path of Exile (流放之路) game stream"
+  },
+  "popup_import_glossary": {
+    "message": "Import TXT/CSV"
+  },
+  "popup_export_txt": {
+    "message": "Export TXT"
+  },
+  "popup_export_csv": {
+    "message": "Export CSV"
+  },
+  "popup_connection": {
+    "message": "Connection"
+  },
+  "popup_probe": {
+    "message": "Check local services"
+  },
+  "popup_view_all": {
+    "message": "View all history"
+  },
+  "subtitle_focus_live": {
+    "message": "Back to stream"
+  },
+  "subtitle_waiting_start": {
+    "message": "Waiting to start"
+  },
+  "subtitle_no_task": {
+    "message": "No captions running"
+  },
+  "subtitle_no_task_hint": {
+    "message": "Click the extension icon on a stream page to start."
+  },
+  "subtitle_sessions": {
+    "message": "Sessions"
+  },
+  "subtitle_clear": {
+    "message": "Clear"
+  },
+  "subtitle_search_sessions": {
+    "message": "Search sessions"
+  },
+  "subtitle_session_list": {
+    "message": "Session list"
+  },
+  "subtitle_privacy": {
+    "message": "Audio is captured from the current tab only; history stays on this device."
+  },
+  "subtitle_default_title": {
+    "message": "Live captions and translations"
+  },
+  "subtitle_default_meta": {
+    "message": "Pick a session on the left, or start captions on a new stream."
+  },
+  "subtitle_copy": {
+    "message": "Copy"
+  },
+  "subtitle_export_srt": {
+    "message": "Export SRT"
+  },
+  "subtitle_delete_session": {
+    "message": "Delete session"
+  },
+  "subtitle_controls": {
+    "message": "Caption controls"
+  },
+  "subtitle_not_started": {
+    "message": "Not started"
+  },
+  "status_waiting_audio": {
+    "message": "Waiting for tab audio"
+  },
+  "subtitle_search_transcript": {
+    "message": "Search this session"
+  },
+  "subtitle_overlay_on": {
+    "message": "Overlay: on"
+  },
+  "subtitle_stop_capture": {
+    "message": "Stop capture"
+  },
+  "subtitle_empty_title": {
+    "message": "Make the video speak Chinese"
+  },
+  "subtitle_empty_body": {
+    "message": "Open YouTube, Twitch or another English video, click Shengmu in the browser toolbar, then choose Start live translation. Captions float over the player and every finished sentence is saved here."
+  },
+  "subtitle_open_popup": {
+    "message": "Open control panel"
+  },
+  "subtitle_load_older": {
+    "message": "Load earlier captions"
+  },
+  "subtitle_listening": {
+    "message": "Listening"
+  },
+  "subtitle_no_lines": {
+    "message": "No captions yet"
+  },
+  "subtitle_no_lines_hint": {
+    "message": "No finished sentences in this session yet. Captions appear here once speech starts."
+  },
+  "subtitle_jump_latest": {
+    "message": "Back to latest ↓"
+  },
+  "subtitle_zero_lines": {
+    "message": "0 captions"
+  },
+  "subtitle_waiting_audio": {
+    "message": "Waiting for audio"
+  },
+  "display_mode_bilingual": {
+    "message": "English and Chinese"
+  },
+  "display_mode_dual": {
+    "message": "Two Chinese lines (previous + current)"
+  },
+  "display_mode_chinese": {
+    "message": "Chinese only"
+  },
+  "display_mode_english": {
+    "message": "English only"
+  },
+  "display_mode_short_bilingual": {
+    "message": "Both"
+  },
+  "display_mode_short_dual": {
+    "message": "2 lines"
+  },
+  "display_mode_short_chinese": {
+    "message": "ZH"
+  },
+  "display_mode_short_english": {
+    "message": "EN"
+  },
+  "status_error": {
+    "message": "Capture problem"
+  },
+  "status_incomplete": {
+    "message": "Stopped, some lines untranslated"
+  },
+  "status_starting": {
+    "message": "Starting audio capture"
+  },
+  "status_live": {
+    "message": "Translating live"
+  },
+  "status_waiting_service": {
+    "message": "Waiting for the caption service"
+  },
+  "status_reconnecting": {
+    "message": "Reconnecting to the caption service"
+  },
+  "status_finishing": {
+    "message": "Finishing"
+  },
+  "status_stopped": {
+    "message": "Stopped"
+  },
+  "status_detail_starting": {
+    "message": "Connecting to tab audio"
+  },
+  "status_detail_capturing": {
+    "message": "Capturing this tab only"
+  },
+  "status_detail_reconnecting": {
+    "message": "Reconnecting automatically"
+  },
+  "status_detail_error": {
+    "message": "Please start again"
+  },
+  "status_audio_ratio": {
+    "message": "Audio $1%"
+  },
+  "overlay_status_incomplete": {
+    "message": "Gaps"
+  },
+  "overlay_status_stopped": {
+    "message": "Stopped"
+  },
+  "overlay_status_reconnecting": {
+    "message": "Reconnecting"
+  },
+  "overlay_status_starting": {
+    "message": "Starting"
+  },
+  "overlay_status_error": {
+    "message": "Error"
+  },
+  "overlay_status_live": {
+    "message": "Live"
+  },
+  "overlay_status_waiting": {
+    "message": "Waiting"
+  },
+  "date_unknown": {
+    "message": "Unknown time"
+  },
+  "duration_hours_minutes": {
+    "message": "$1 h $2 min"
+  },
+  "duration_minutes_seconds": {
+    "message": "$1 min $2 s"
+  },
+  "duration_seconds": {
+    "message": "$1 s"
+  },
+  "popup_download_progress": {
+    "message": "$1 / $2 ($3%)"
+  },
+  "popup_no_tab": {
+    "message": "No usable tab"
+  },
+  "popup_open_stream_first": {
+    "message": "Open a stream or video page first"
+  },
+  "popup_stop": {
+    "message": "Stop captions"
+  },
+  "popup_overlay_failed": {
+    "message": "The page overlay did not load: $1 (if you just updated the extension, reload it in chrome://extensions and refresh the tab)"
+  },
+  "popup_bailian_key_saved": {
+    "message": "Key saved; shared by speech recognition and Qwen translation."
+  },
+  "popup_bailian_key_hint": {
+    "message": "Billed per second; the same key also works for Qwen translation."
+  },
+  "popup_downloading_translator": {
+    "message": "Downloading the Chrome translation model"
+  },
+  "popup_downloading_translator_progress": {
+    "message": "Downloading the Chrome translation model $1%"
+  },
+  "popup_test_builtin": {
+    "message": "Test built-in translation"
+  },
+  "popup_key_saved": {
+    "message": "$1 key is saved in this device's extension storage"
+  },
+  "popup_key_required": {
+    "message": "$1 needs an API key; it is stored in plain text in this device's extension storage and never synced"
+  },
+  "popup_key_optional": {
+    "message": "A custom service may not need a key"
+  },
+  "popup_usage_server": {
+    "message": "Local server mode: WhisperLiveKit produces the translations."
+  },
+  "popup_usage_requests": {
+    "message": "$1 requests / $2 tokens this session"
+  },
+  "popup_no_model": {
+    "message": "no model set"
+  },
+  "popup_glossary_active": {
+    "message": "$1 terms active (built-in $2 · custom $3)"
+  },
+  "popup_glossary_domain": {
+    "message": "topic: $1"
+  },
+  "popup_glossary_off": {
+    "message": "Glossary off (saved: built-in $1 · custom $2)"
+  },
+  "popup_local_http_error": {
+    "message": "The local control service returned HTTP $1"
+  },
+  "popup_no_models": {
+    "message": "No models available"
+  },
+  "popup_control_offline": {
+    "message": "Control service offline"
+  },
+  "popup_badge_starting": {
+    "message": "Starting"
+  },
+  "popup_badge_failed": {
+    "message": "Start failed"
+  },
+  "popup_badge_asr_online": {
+    "message": "ASR online"
+  },
+  "popup_badge_all_online": {
+    "message": "All online"
+  },
+  "popup_badge_connected": {
+    "message": "Control service connected"
+  },
+  "popup_online_at": {
+    "message": "Online · $1"
+  },
+  "popup_starting_ellipsis": {
+    "message": "Starting…"
+  },
+  "popup_translation_by_api": {
+    "message": "Translated by the extension; no local model needed"
+  },
+  "popup_ready": {
+    "message": "ready"
+  },
+  "popup_hint_service_offline": {
+    "message": "Once the local control service runs, you can start ASR and the local translation model from here."
+  },
+  "popup_hint_api_mode": {
+    "message": "This translation needs only local ASR, so all GPU memory and compute go to recognition."
+  },
+  "popup_hint_asr_cached": {
+    "message": "ASR $1 is cached"
+  },
+  "popup_hint_asr_download": {
+    "message": "ASR $1 downloads on first start ($2)"
+  },
+  "popup_hint_model_ready": {
+    "message": "Translation model ready: $1"
+  },
+  "popup_hint_model_missing": {
+    "message": "Translation model not downloaded: $1"
+  },
+  "popup_hint_model_switch": {
+    "message": "$1 is running; Start all switches to the selected model"
+  },
+  "popup_hint_local_fallback": {
+    "message": "The selected translation service is not ready; the local model translates instead"
+  },
+  "hint_separator": {
+    "message": "; "
+  },
+  "popup_model_missing": {
+    "message": "$1 ($2) is not on this machine. Click Download model to let the local service fetch it, or get it from the download page and put it in $3"
+  },
+  "popup_download_size": {
+    "message": "Download $1"
+  },
+  "popup_unknown_size": {
+    "message": "unknown size"
+  },
+  "popup_download_failed": {
+    "message": "Download failed: $1"
+  },
+  "popup_seconds_suffix": {
+    "message": " ($1 s)"
+  },
+  "popup_start_failed": {
+    "message": "Start failed: $1"
+  },
+  "popup_starting_control_service": {
+    "message": "Starting the local control service…"
+  },
+  "popup_native_permission_denied": {
+    "message": "Allow the extension to talk to native programs to start the local service from here"
+  },
+  "popup_control_service_not_started": {
+    "message": "The local control service did not start"
+  },
+  "popup_control_service_started": {
+    "message": "Local control service started"
+  },
+  "popup_native_host_missing": {
+    "message": "The local helper is not installed: double-click install-windows.cmd in the project folder (once), then click here again"
+  },
+  "popup_local_starting": {
+    "message": "Starting the local services"
+  },
+  "popup_local_stopped": {
+    "message": "Local services stopped"
+  },
+  "popup_stop_failed": {
+    "message": "Stop failed: $1"
+  },
+  "popup_download_started": {
+    "message": "Model download started"
+  },
+  "popup_command_copied": {
+    "message": "Command copied"
+  },
+  "popup_copy_failed": {
+    "message": "Copy failed: $1"
+  },
+  "popup_save_failed": {
+    "message": "Could not save settings"
+  },
+  "popup_tab_missing": {
+    "message": "Could not find the current tab"
+  },
+  "popup_tab_unsupported": {
+    "message": "This page cannot be captured; open a stream or video page"
+  },
+  "popup_base_url_required": {
+    "message": "Enter the translation API URL"
+  },
+  "popup_model_required": {
+    "message": "Enter the translation model"
+  },
+  "popup_untitled_stream": {
+    "message": "Untitled stream"
+  },
+  "popup_capture_failed": {
+    "message": "Capture did not start"
+  },
+  "popup_stop_capture_failed": {
+    "message": "Stop failed"
+  },
+  "popup_reinject_failed": {
+    "message": "Injecting again failed; see the extension service worker console"
+  },
+  "popup_switched_to_api": {
+    "message": "Switched to API translation: stop and restart captions so ASR runs without the local translation model"
+  },
+  "popup_switched_to_server": {
+    "message": "Switched to local server translation: stop and restart captions so ASR translates locally again"
+  },
+  "popup_backend_next_start": {
+    "message": "The speech engine changes the next time captions start"
+  },
+  "popup_requesting_translation": {
+    "message": "Requesting a translation..."
+  },
+  "popup_test_failed": {
+    "message": "Translation test failed"
+  },
+  "popup_test_ok": {
+    "message": "Connected: $1 · $2 ms · $3"
+  },
+  "popup_failed": {
+    "message": "Failed: $1"
+  },
+  "popup_checking_services": {
+    "message": "Checking..."
+  },
+  "popup_check_failed": {
+    "message": "Check failed"
+  },
+  "popup_rechecking": {
+    "message": "Checking the local control service again…"
+  },
+  "popup_glossary_reload_server": {
+    "message": "Local server translation reloads the glossary on Start all; ASR hotwords apply the next time captions start"
+  },
+  "popup_glossary_applied_api": {
+    "message": "API translation uses the new terms now; ASR hotwords apply the next time captions start"
+  },
+  "popup_glossary_file_too_large": {
+    "message": "The glossary file is over 512 KB; trim it and import again"
+  },
+  "popup_glossary_file_empty": {
+    "message": "No terms found in the file (format: English -> Chinese, or CSV source,target)"
+  },
+  "popup_glossary_full": {
+    "message": "Custom terms are at the 32 KB limit; trim them before importing more"
+  },
+  "popup_glossary_imported_truncated": {
+    "message": "Found $2 terms in $1; the 32 KB limit kept the first $3 ($4 dropped, existing terms first)"
+  },
+  "popup_glossary_imported": {
+    "message": "Imported $2 terms from $1; $3 custom terms in total"
+  },
+  "popup_glossary_nothing_to_export": {
+    "message": "No terms to export"
+  },
+  "popup_glossary_exported": {
+    "message": "Exported $1 terms ($2)"
+  },
+  "provider_deepseek": {
+    "message": "DeepSeek"
+  },
+  "provider_openai": {
+    "message": "OpenAI"
+  },
+  "subtitle_page_title": {
+    "message": "Shengmu - captions and history"
+  },
+  "subtitle_current_stream": {
+    "message": "Current stream"
+  },
+  "subtitle_start_hint": {
+    "message": "Click the extension icon on a stream page to start captions."
+  },
+  "subtitle_overlay_state": {
+    "message": "Overlay: $1"
+  },
+  "subtitle_on": {
+    "message": "on"
+  },
+  "subtitle_off": {
+    "message": "off"
+  },
+  "subtitle_audio_health": {
+    "message": "Audio capture $1% complete"
+  },
+  "subtitle_waiting_audio_stats": {
+    "message": "Waiting for audio stats"
+  },
+  "subtitle_local_page": {
+    "message": "Local page"
+  },
+  "subtitle_line_count": {
+    "message": "$1 captions"
+  },
+  "subtitle_missing_count": {
+    "message": "$1 untranslated"
+  },
+  "subtitle_no_matching_sessions": {
+    "message": "No matching sessions."
+  },
+  "subtitle_no_sessions": {
+    "message": "No captions yet. Sessions are saved here once you start live translation."
+  },
+  "subtitle_no_preview": {
+    "message": "No finished captions yet"
+  },
+  "subtitle_session_count": {
+    "message": "$1"
+  },
+  "subtitle_local": {
+    "message": "Local"
+  },
+  "subtitle_session_missing": {
+    "message": "$1 untranslated"
+  },
+  "subtitle_load_older_count": {
+    "message": "Load earlier captions ($1 more)"
+  },
+  "subtitle_waiting_next": {
+    "message": "Waiting for the next sentence…"
+  },
+  "subtitle_no_matches": {
+    "message": "No matching captions"
+  },
+  "subtitle_no_matches_hint": {
+    "message": "Try another word, or clear the search to see the whole session."
+  },
+  "subtitle_search_limited": {
+    "message": "Showing the latest $1 of $2 matches"
+  },
+  "subtitle_opened_session": {
+    "message": "Opened session: $1, $2 captions"
+  },
+  "subtitle_stopped": {
+    "message": "Caption capture stopped."
+  },
+  "subtitle_tab_gone": {
+    "message": "The stream tab is closed or unreachable."
+  },
+  "subtitle_overlay_toggle_failed": {
+    "message": "Could not switch the page overlay."
+  },
+  "subtitle_overlay_shown": {
+    "message": "Page overlay on."
+  },
+  "subtitle_overlay_hidden": {
+    "message": "Page overlay hidden."
+  },
+  "subtitle_nothing_to_copy": {
+    "message": "This session has no captions to copy."
+  },
+  "subtitle_copied": {
+    "message": "Captions copied to the clipboard."
+  },
+  "subtitle_nothing_to_export": {
+    "message": "This session has no captions to export."
+  },
+  "subtitle_export_empty": {
+    "message": "The captions are empty; nothing to export."
+  },
+  "subtitle_srt_saved": {
+    "message": "SRT saved to your downloads folder."
+  },
+  "subtitle_srt_exported": {
+    "message": "SRT exported."
+  },
+  "subtitle_this_session": {
+    "message": "this session"
+  },
+  "subtitle_confirm_delete": {
+    "message": "Delete \"$1\" and all its captions? This cannot be undone."
+  },
+  "subtitle_session_deleted": {
+    "message": "Session deleted."
+  },
+  "subtitle_stop_before_clear": {
+    "message": "Stop the current captions before clearing history."
+  },
+  "subtitle_confirm_clear": {
+    "message": "Clear all caption sessions? This cannot be undone."
+  },
+  "subtitle_history_cleared": {
+    "message": "All caption history cleared."
+  },
+  "subtitle_found_matches": {
+    "message": "Found $1 matching captions"
+  },
+  "subtitle_capture_ended": {
+    "message": "Caption capture ended."
+  },
+  "subtitle_state_read_failed": {
+    "message": "Could not read the caption state: $1"
+  },
+  "server_forbidden_origin": {
+    "message": "Only extension pages may call this service"
+  },
+  "server_unknown_route": {
+    "message": "Unknown endpoint: $1"
+  },
+  "server_body_too_large": {
+    "message": "Request body is too large"
+  },
+  "server_body_invalid_json": {
+    "message": "Request body is not valid JSON"
+  },
+  "server_unknown_asr_model": {
+    "message": "Unknown ASR model"
+  },
+  "server_unknown_translation_model": {
+    "message": "Unknown local translation model"
+  },
+  "server_translation_model_missing": {
+    "message": "Local translation model not downloaded yet: $1"
+  },
+  "server_job_busy": {
+    "message": "A task is already running: $1"
+  },
+  "server_stop_old_failed": {
+    "message": "Could not stop the old services: $1"
+  },
+  "server_start_cancelled": {
+    "message": "Start was cancelled by a stop request"
+  },
+  "server_stop_in_progress": {
+    "message": "Already stopping"
+  },
+  "server_stop_blocked_by_download": {
+    "message": "A model is downloading; stop again after it finishes"
+  },
+  "server_download_busy": {
+    "message": "Already downloading"
+  },
+  "server_download_busy_model": {
+    "message": "Already downloading $1"
+  },
+  "server_download_size_mismatch": {
+    "message": "Downloaded size does not match (expected $1, got $2)"
+  },
+  "server_download_save_failed": {
+    "message": "Could not save the file: $1"
+  },
+  "server_job_starting_asr_only": {
+    "message": "Starting ASR $1 (API translation, no local translation model)"
+  },
+  "server_job_starting": {
+    "message": "Starting $1 + $2"
+  },
+  "server_job_ready": {
+    "message": "Local services are ready"
+  },
+  "server_job_start_failed": {
+    "message": "Start failed: $1"
+  },
+  "server_job_stopping": {
+    "message": "Stopping local services"
+  },
+  "server_job_stopped": {
+    "message": "Stopped"
+  },
+  "server_job_stop_failed": {
+    "message": "Stop failed: $1"
+  },
+  "server_model_note_best_quality": {
+    "message": "$1 - Best quality"
+  },
+  "server_model_note_low_vram": {
+    "message": "$1 - Uses less VRAM"
+  },
+  "server_asr_note_default": {
+    "message": "Most accurate (default)"
+  },
+  "server_asr_note_faster": {
+    "message": "Faster and uses less VRAM, slightly less accurate"
+  },
+  "server_approx_size": {
+    "message": "about $1"
+  },
+  "popup_translation_nudge": {
+    "message": "Built-in translation is quite literal. A DeepSeek key gives far more natural translations."
+  },
+  "popup_custom_glossary": {
+    "message": "Custom terms (one per line: English | sound-alike -> Chinese)"
+  },
+  "ext_name": {
+    "message": "Shengmu - Live Caption Translation"
+  },
+  "ext_description": {
+    "message": "Captures the current tab's English audio and shows live Chinese captions, using Chrome's on-device speech and translation, Alibaba Bailian, translation APIs such as DeepSeek or OpenAI, or a local translation service."
+  },
+  "command_open_popup": {
+    "message": "Open the Shengmu panel"
+  },
+  "command_open_caption_window": {
+    "message": "Open the captions and history window"
+  },
+  "action_title": {
+    "message": "Shengmu - Live Caption Translation"
+  },
+  "action_title_capturing": {
+    "message": "Shengmu is capturing tab audio"
+  },
+  "provider_generic": {
+    "message": "Translation API"
+  },
+  "detail_suffix": {
+    "message": ": $1"
+  },
+  "translation_url_invalid": {
+    "message": "The translation API address is not valid"
+  },
+  "translation_url_protocol": {
+    "message": "The translation API address must start with http:// or https://"
+  },
+  "translation_url_credentials": {
+    "message": "Do not put a user name or password in the translation API address; use an API key"
+  },
+  "translation_url_empty": {
+    "message": "The translation API address is empty"
+  },
+  "translation_model_missing": {
+    "message": "No translation model is set"
+  },
+  "translation_key_missing": {
+    "message": "No API key is set for $1"
+  },
+  "translation_http_with_key": {
+    "message": "With an API key set, a non-local address must use https://, not http://"
+  },
+  "translation_nothing_to_translate": {
+    "message": "Nothing to translate"
+  },
+  "translation_empty_segment": {
+    "message": "A segment to translate is empty"
+  },
+  "translation_empty_response": {
+    "message": "The translation API returned nothing"
+  },
+  "translation_json_incomplete": {
+    "message": "The translation API returned incomplete or malformed JSON"
+  },
+  "translation_unparsable": {
+    "message": "Could not parse the translation API response"
+  },
+  "translation_count_mismatch": {
+    "message": "The translation API returned the wrong number of lines (expected $1, got $2)"
+  },
+  "translation_no_usable": {
+    "message": "The translation API returned no usable translation"
+  },
+  "translation_error_auth": {
+    "message": "$1 rejected the API key or it lacks permission$2"
+  },
+  "translation_error_balance": {
+    "message": "$1 account balance is too low$2"
+  },
+  "translation_error_rate_limit": {
+    "message": "$1 is rate limiting requests$2"
+  },
+  "translation_error_bad_request": {
+    "message": "$1 rejected the translation request$2"
+  },
+  "translation_error_server": {
+    "message": "$1 is temporarily unavailable (HTTP $2)$3"
+  },
+  "translation_error_http": {
+    "message": "$1 request failed (HTTP $2)$3"
+  },
+  "translation_timeout": {
+    "message": "$1 translation request timed out ($2 s)"
+  },
+  "translation_aborted": {
+    "message": "Translation request canceled"
+  },
+  "translation_network": {
+    "message": "Cannot reach $1 (network or proxy error)"
+  },
+  "translation_builtin_unavailable": {
+    "message": "Chrome's built-in translation is not available here"
+  },
+  "translation_builtin_count": {
+    "message": "Chrome's built-in translation returned the wrong number of lines"
+  },
+  "translation_builtin_failed": {
+    "message": "Chrome's built-in translation failed"
+  },
+  "translation_not_configured": {
+    "message": "No translation API is configured"
+  },
+  "translation_disabled": {
+    "message": "The translation API is off"
+  },
+  "translation_no_fetch": {
+    "message": "fetch is not available here"
+  },
+  "translation_bad_json": {
+    "message": "The translation API returned JSON that cannot be parsed"
+  },
+  "translation_truncated": {
+    "message": "The translation API output was cut off; send smaller batches or raise max_tokens"
+  },
+  "translation_thinking_only": {
+    "message": "The model returned only its reasoning; turn off thinking mode or pick another model"
+  },
+  "translation_empty_translation": {
+    "message": "The translation API returned an empty translation"
+  },
+  "translation_missing_line": {
+    "message": "The translation API returned no translation for this line"
+  },
+  "ws_url_invalid": {
+    "message": "The WebSocket address is not valid"
+  },
+  "ws_url_protocol": {
+    "message": "The WebSocket address must start with ws:// or wss://"
+  },
+  "overlay_unavailable_detail": {
+    "message": "The page overlay is unavailable; keep watching in the captions window"
+  },
+  "bailian_unparsable": {
+    "message": "Could not parse a Bailian speech recognition message"
+  },
+  "bailian_task_failed": {
+    "message": "The Bailian speech recognition task failed"
+  },
+  "bailian_error_auth": {
+    "message": "The Bailian API key is invalid or cannot use speech recognition; check the key and the selected region"
+  },
+  "bailian_error_quota": {
+    "message": "Bailian speech recognition is rate limited or out of credit: $1"
+  },
+  "bailian_error_failed": {
+    "message": "Bailian speech recognition failed ($1): $2"
+  },
+  "bailian_url_not_wss": {
+    "message": "The Bailian speech recognition address must be wss://"
+  },
+  "session_translation_config_issue": {
+    "message": "$1. Finish the setup under Translation in the extension panel, or switch to the local server."
+  },
+  "session_bailian_key_missing": {
+    "message": "No Alibaba Bailian API key is set (shared by speech recognition and Qwen translation). Add it in the extension panel."
+  },
+  "session_capture_start_failed": {
+    "message": "Audio capture failed to start"
+  },
+  "session_monitor_open_failed": {
+    "message": "The captions window did not open: $1"
+  },
+  "session_history_write_failed": {
+    "message": "Saving caption history failed: $1"
+  },
+  "session_detail_missing_translations": {
+    "message": "$1; $2 captions have no translation"
+  },
+  "session_history_finish_failed": {
+    "message": "Finishing caption history failed: $1"
+  },
+  "session_capture_stopped": {
+    "message": "Tab audio capture stopped"
+  },
+  "session_capture_stopped_short": {
+    "message": "Capture stopped"
+  },
+  "session_fatal_error": {
+    "message": "The caption service hit a fatal error"
+  },
+  "session_offscreen_lost": {
+    "message": "The browser's background capture page stopped; please start again"
+  },
+  "session_tab_closed": {
+    "message": "The stream tab was closed"
+  },
+  "offscreen_unreachable": {
+    "message": "Cannot reach the audio capture page: $1"
+  },
+  "history_write_recovered": {
+    "message": "Caption history is saving again"
+  },
+  "history_write_retrying": {
+    "message": "Saving caption history failed, retrying: $1"
+  },
+  "diag_local_mode_no_api_test": {
+    "message": "Translation runs on the local server; there is no API to test"
+  },
+  "diag_asr_online": {
+    "message": "ASR service online"
+  },
+  "diag_not_connected": {
+    "message": "Not connected"
+  },
+  "diag_translation_online": {
+    "message": "Local translation service online"
+  },
+  "diag_api_configured": {
+    "message": "$1 is set up (click Test translation API to check)"
+  },
+  "diag_local_translation_unavailable": {
+    "message": "Local server translation is unavailable (127.0.0.1:8013). To run speech recognition only, switch the translation engine to an API."
+  },
+  "error_extension_only": {
+    "message": "This action is only allowed from the Shengmu extension pages"
+  },
+  "error_unknown_message": {
+    "message": "Unknown message: $1"
+  },
+  "overlay_init_rejected": {
+    "message": "The overlay refused to initialize"
+  },
+  "overlay_no_capture_tab": {
+    "message": "No tab is being captured"
+  },
+  "overlay_no_response": {
+    "message": "The page overlay is not responding"
+  },
+  "offscreen_retry_in": {
+    "message": "Retrying the caption service in $1 s"
+  },
+  "offscreen_unparsable_message": {
+    "message": "Could not parse a caption service message: $1"
+  },
+  "offscreen_model_connected": {
+    "message": "Caption model connected"
+  },
+  "offscreen_server_error": {
+    "message": "The caption service returned an error"
+  },
+  "offscreen_server_finished": {
+    "message": "The caption service finished the current audio"
+  },
+  "offscreen_bailian_connected": {
+    "message": "Bailian speech recognition connected"
+  },
+  "offscreen_bailian_finished": {
+    "message": "Bailian speech recognition finished the current audio"
+  },
+  "offscreen_ws_url_invalid": {
+    "message": "Invalid WebSocket address: $1"
+  },
+  "offscreen_bailian_starting": {
+    "message": "Starting Bailian speech recognition"
+  },
+  "offscreen_receiving": {
+    "message": "Receiving live transcription"
+  },
+  "offscreen_message_failed": {
+    "message": "Handling a caption service message failed: $1"
+  },
+  "offscreen_connection_problem": {
+    "message": "Caption service connection problem"
+  },
+  "offscreen_reading_audio": {
+    "message": "Reading tab audio"
+  },
+  "offscreen_no_audio_track": {
+    "message": "The tab has no audio track"
+  },
+  "offscreen_track_ended": {
+    "message": "Tab audio ended or the page was closed"
+  },
+  "offscreen_track_muted": {
+    "message": "Tab audio is muted for now; waiting for playback to resume"
+  },
+  "offscreen_track_unmuted": {
+    "message": "Tab audio is back"
+  },
+  "offscreen_captured_connecting": {
+    "message": "Captured $1, connecting to the caption service"
+  },
+  "offscreen_this_tab": {
+    "message": "this tab"
+  },
+  "offscreen_using_chrome_speech": {
+    "message": "Using Chrome on-device speech recognition"
+  },
+  "offscreen_no_translator": {
+    "message": "This Chrome has no built-in translation; update Chrome or use a translation API"
+  },
+  "offscreen_translator_not_downloaded": {
+    "message": "Chrome's translation model is not downloaded yet; click Download on-device model in the extension popup"
+  },
+  "offscreen_capture_started": {
+    "message": "Audio capture started"
+  },
+  "speech_language_not_supported": {
+    "message": "Chrome on-device speech recognition has no English model; pick another speech engine"
+  },
+  "speech_not_allowed": {
+    "message": "Chrome denied speech recognition permission"
+  },
+  "speech_service_not_allowed": {
+    "message": "Chrome does not allow speech recognition here; pick another speech engine"
+  },
+  "speech_audio_capture": {
+    "message": "Speech recognition cannot read the tab audio"
+  },
+  "speech_unsupported": {
+    "message": "This Chrome has no on-device speech recognition; update Chrome or pick another speech engine"
+  },
+  "speech_unavailable": {
+    "message": "This device cannot run Chrome on-device English speech recognition; pick another speech engine"
+  },
+  "speech_downloading": {
+    "message": "Downloading the Chrome on-device speech model; the first time takes about 20 s"
+  },
+  "speech_download_failed": {
+    "message": "Downloading the Chrome speech model failed; check the network and try again"
+  },
+  "speech_start_failed": {
+    "message": "Speech recognition failed to start: $1"
+  },
+  "overlay_drag": {
+    "message": "Drag to move captions"
+  },
+  "overlay_toolbar": {
+    "message": "Caption controls"
+  },
+  "overlay_mode_title": {
+    "message": "Switch caption display mode"
+  },
+  "overlay_smaller": {
+    "message": "Smaller captions"
+  },
+  "overlay_larger": {
+    "message": "Larger captions"
+  },
+  "overlay_monitor_title": {
+    "message": "Open the captions and history window"
+  },
+  "overlay_monitor": {
+    "message": "History"
+  },
+  "overlay_close_title": {
+    "message": "Hide the page overlay"
+  },
+  "overlay_history_more": {
+    "message": "$1 in history · scroll up for more"
+  },
+  "overlay_history_back": {
+    "message": "$1 in history · scroll down to go live"
+  },
+  "html_lang": {
+    "message": "en",
+    "description": "BCP 47 tag of this catalog, for the lang attribute"
+  },
+  "popup_speech_unsupported": {
+    "message": "This browser has no on-device speech recognition; only desktop Chrome 138 or later does. Alibaba Bailian needs no install, just an API key."
+  },
+  "popup_translator_unsupported": {
+    "message": "This browser has no built-in translation (it needs desktop Chrome 138 or later). Add a DeepSeek key or pick another translation engine."
+  },
+  "popup_downloading_speech": {
+    "message": "Downloading the Chrome speech model"
+  },
+  "speech_model_not_downloaded": {
+    "message": "Chrome's speech model is not downloaded yet; start again from the extension panel"
+  },
+  "asr_backend_chrome_unavailable": {
+    "message": "Chrome on-device (not in this browser)"
+  },
+  "popup_switch_bailian": {
+    "message": "Use Alibaba Bailian"
+  }
+}

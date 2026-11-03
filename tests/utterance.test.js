@@ -6,7 +6,7 @@ import {
   UTTERANCE_MAX_CHARS,
   isSpeechShard,
   planTranslationBatch
-} from "../extension/utterance.js";
+} from "../extension/lib/utterance.js";
 
 function entry(source, queuedAt = 0) {
   return { source, queuedAt };

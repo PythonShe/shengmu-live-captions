@@ -1,0 +1,1251 @@
+{
+  "popup_open_history": {
+    "message": "字幕記錄"
+  },
+  "popup_current_source": {
+    "message": "當前聲源"
+  },
+  "popup_reading_tab": {
+    "message": "正在讀取標籤頁"
+  },
+  "status_ready": {
+    "message": "準備就緒"
+  },
+  "popup_start": {
+    "message": "開始即時翻譯"
+  },
+  "popup_speech_section": {
+    "message": "語音識別"
+  },
+  "popup_asr_backend": {
+    "message": "識別"
+  },
+  "asr_backend_chrome": {
+    "message": "Chrome 本機識別"
+  },
+  "asr_backend_bailian": {
+    "message": "阿里雲百煉（雲端）"
+  },
+  "asr_backend_wlk": {
+    "message": "本地 WhisperLiveKit（需自行部署）"
+  },
+  "popup_bailian_region": {
+    "message": "地域"
+  },
+  "bailian_region_cn": {
+    "message": "中國內地"
+  },
+  "bailian_region_intl": {
+    "message": "國際"
+  },
+  "popup_bailian_key": {
+    "message": "百煉 API Key"
+  },
+  "popup_key_placeholder": {
+    "message": "留空則不修改已儲存的 Key"
+  },
+  "popup_get_key": {
+    "message": "獲取 Key"
+  },
+  "popup_local_models": {
+    "message": "本地模型"
+  },
+  "popup_checking": {
+    "message": "檢測中"
+  },
+  "local_not_connected": {
+    "message": "未連線"
+  },
+  "popup_translation": {
+    "message": "翻譯"
+  },
+  "popup_translation_model": {
+    "message": "翻譯模型"
+  },
+  "popup_asr_model": {
+    "message": "ASR 模型"
+  },
+  "popup_download_page": {
+    "message": "下載頁"
+  },
+  "popup_download_model": {
+    "message": "下載模型"
+  },
+  "popup_local_start": {
+    "message": "一鍵啟動"
+  },
+  "popup_local_stop": {
+    "message": "停止"
+  },
+  "popup_service_offline": {
+    "message": "本地控制服務未執行，在專案目錄執行下面命令後點「重新檢測」："
+  },
+  "popup_start_control_service": {
+    "message": "啟動控制服務"
+  },
+  "popup_copy_command": {
+    "message": "複製命令"
+  },
+  "popup_check_again": {
+    "message": "重新檢測"
+  },
+  "popup_display_section": {
+    "message": "字幕顯示設定"
+  },
+  "display_mode": {
+    "message": "顯示"
+  },
+  "popup_font_size": {
+    "message": "字號"
+  },
+  "popup_opacity": {
+    "message": "不透明度"
+  },
+  "popup_overlay": {
+    "message": "頁面浮層"
+  },
+  "popup_overlay_hint": {
+    "message": "覆蓋在直播畫面上；浮層上滾動滾輪可回看歷史"
+  },
+  "popup_overlay_retry": {
+    "message": "重新注入"
+  },
+  "popup_open_on_start": {
+    "message": "自動開啟記錄"
+  },
+  "popup_open_on_start_hint": {
+    "message": "開始後顯示字幕面板"
+  },
+  "popup_translation_engine": {
+    "message": "翻譯引擎"
+  },
+  "popup_translation_mode": {
+    "message": "來源"
+  },
+  "translation_mode_api": {
+    "message": "API 翻譯"
+  },
+  "translation_mode_server": {
+    "message": "本地服務端"
+  },
+  "popup_provider": {
+    "message": "服務商"
+  },
+  "provider_chrome": {
+    "message": "Chrome 內建翻譯"
+  },
+  "provider_bailian": {
+    "message": "阿里雲百煉（通義千問）"
+  },
+  "provider_custom": {
+    "message": "自定義相容 API"
+  },
+  "popup_switch_deepseek": {
+    "message": "改用 DeepSeek"
+  },
+  "popup_api_privacy": {
+    "message": "API 模式會把識別出的英文字幕和最近至多 4 條上下文（原文與譯文）傳送給所選服務商。"
+  },
+  "popup_base_url": {
+    "message": "API 地址"
+  },
+  "popup_model": {
+    "message": "模型"
+  },
+  "popup_partial": {
+    "message": "半句預翻譯"
+  },
+  "popup_partial_hint": {
+    "message": "中文更早出現，API 用量更高"
+  },
+  "popup_test_api": {
+    "message": "測試翻譯 API"
+  },
+  "popup_clear_key": {
+    "message": "清除 Key"
+  },
+  "popup_glossary": {
+    "message": "術語庫"
+  },
+  "popup_glossary_enabled": {
+    "message": "啟用術語庫"
+  },
+  "popup_glossary_hint": {
+    "message": "按句匹配專名注入翻譯提示詞，併為本地識別提供英文熱詞"
+  },
+  "popup_glossary_poe": {
+    "message": "流放之路 (Path of Exile 1/2)"
+  },
+  "popup_glossary_poe_hint": {
+    "message": "內建 313 條國服解包官譯：精魂、節杖、引路石、符文結界、焚界者、異界圖鑑與同音糾錯"
+  },
+  "popup_domain_hint": {
+    "message": "領域背景提示"
+  },
+  "popup_domain_placeholder": {
+    "message": "例如：Path of Exile (流放之路) 遊戲直播"
+  },
+  "popup_import_glossary": {
+    "message": "匯入 TXT/CSV"
+  },
+  "popup_export_txt": {
+    "message": "匯出 TXT"
+  },
+  "popup_export_csv": {
+    "message": "匯出 CSV"
+  },
+  "popup_connection": {
+    "message": "連線設定"
+  },
+  "popup_probe": {
+    "message": "檢查本地服務"
+  },
+  "popup_view_all": {
+    "message": "檢視全部記錄"
+  },
+  "subtitle_focus_live": {
+    "message": "回到直播"
+  },
+  "subtitle_waiting_start": {
+    "message": "等待開始"
+  },
+  "subtitle_no_task": {
+    "message": "當前沒有字幕任務"
+  },
+  "subtitle_no_task_hint": {
+    "message": "在直播頁面點選擴充功能圖示開始。"
+  },
+  "subtitle_sessions": {
+    "message": "字幕場次"
+  },
+  "subtitle_clear": {
+    "message": "清空"
+  },
+  "subtitle_search_sessions": {
+    "message": "搜尋場次"
+  },
+  "subtitle_session_list": {
+    "message": "場次列表"
+  },
+  "subtitle_privacy": {
+    "message": "音訊只在當前標籤頁內採集，歷史儲存在本機。"
+  },
+  "subtitle_default_title": {
+    "message": "即時字幕與翻譯記錄"
+  },
+  "subtitle_default_meta": {
+    "message": "選擇左側場次檢視歷史，或開始一個新的直播字幕任務。"
+  },
+  "subtitle_copy": {
+    "message": "複製"
+  },
+  "subtitle_export_srt": {
+    "message": "匯出 SRT"
+  },
+  "subtitle_delete_session": {
+    "message": "刪除場次"
+  },
+  "subtitle_controls": {
+    "message": "字幕控制"
+  },
+  "subtitle_not_started": {
+    "message": "未開始"
+  },
+  "status_waiting_audio": {
+    "message": "等待標籤頁音訊"
+  },
+  "subtitle_search_transcript": {
+    "message": "在本場字幕中搜尋"
+  },
+  "subtitle_overlay_on": {
+    "message": "浮層：開"
+  },
+  "subtitle_stop_capture": {
+    "message": "停止採集"
+  },
+  "subtitle_empty_title": {
+    "message": "讓畫面開口說中文"
+  },
+  "subtitle_empty_body": {
+    "message": "開啟 YouTube、Twitch 或其他英文影片頁面，點選瀏覽器工具欄中的「声幕」，再選擇「開始即時翻譯」。字幕會浮在播放器上，所有已完成句子會儲存在這裡。"
+  },
+  "subtitle_open_popup": {
+    "message": "開啟控制面板"
+  },
+  "subtitle_load_older": {
+    "message": "載入更早的字幕"
+  },
+  "subtitle_listening": {
+    "message": "正在聽"
+  },
+  "subtitle_no_lines": {
+    "message": "暫無字幕"
+  },
+  "subtitle_no_lines_hint": {
+    "message": "當前場次還沒有穩定句子。語音開始後，字幕會自動出現在這裡。"
+  },
+  "subtitle_jump_latest": {
+    "message": "回到最新 ↓"
+  },
+  "subtitle_zero_lines": {
+    "message": "0 條字幕"
+  },
+  "subtitle_waiting_audio": {
+    "message": "等待音訊"
+  },
+  "display_mode_bilingual": {
+    "message": "中英雙語"
+  },
+  "display_mode_dual": {
+    "message": "雙行譯文（上句+當前句）"
+  },
+  "display_mode_chinese": {
+    "message": "僅中文"
+  },
+  "display_mode_english": {
+    "message": "僅英文"
+  },
+  "display_mode_short_bilingual": {
+    "message": "雙語"
+  },
+  "display_mode_short_dual": {
+    "message": "雙行"
+  },
+  "display_mode_short_chinese": {
+    "message": "中文"
+  },
+  "display_mode_short_english": {
+    "message": "英文"
+  },
+  "status_error": {
+    "message": "採集異常"
+  },
+  "status_incomplete": {
+    "message": "已停止，存在缺譯"
+  },
+  "status_starting": {
+    "message": "正在建立音訊採集"
+  },
+  "status_live": {
+    "message": "即時翻譯中"
+  },
+  "status_waiting_service": {
+    "message": "等待字幕服務"
+  },
+  "status_reconnecting": {
+    "message": "字幕服務重連中"
+  },
+  "status_finishing": {
+    "message": "正在收尾"
+  },
+  "status_stopped": {
+    "message": "已停止"
+  },
+  "status_detail_starting": {
+    "message": "正在連線標籤頁音訊"
+  },
+  "status_detail_capturing": {
+    "message": "僅採集當前標籤頁"
+  },
+  "status_detail_reconnecting": {
+    "message": "正在自動重連"
+  },
+  "status_detail_error": {
+    "message": "請重新開始"
+  },
+  "status_audio_ratio": {
+    "message": "音訊 $1%"
+  },
+  "overlay_status_incomplete": {
+    "message": "有缺譯"
+  },
+  "overlay_status_stopped": {
+    "message": "已停止"
+  },
+  "overlay_status_reconnecting": {
+    "message": "重連中"
+  },
+  "overlay_status_starting": {
+    "message": "準備中"
+  },
+  "overlay_status_error": {
+    "message": "異常"
+  },
+  "overlay_status_live": {
+    "message": "即時"
+  },
+  "overlay_status_waiting": {
+    "message": "等待服務"
+  },
+  "date_unknown": {
+    "message": "未知時間"
+  },
+  "duration_hours_minutes": {
+    "message": "$1 小時 $2 分"
+  },
+  "duration_minutes_seconds": {
+    "message": "$1 分 $2 秒"
+  },
+  "duration_seconds": {
+    "message": "$1 秒"
+  },
+  "popup_download_progress": {
+    "message": "$1 / $2（$3%）"
+  },
+  "popup_no_tab": {
+    "message": "沒有可用的標籤頁"
+  },
+  "popup_open_stream_first": {
+    "message": "請先開啟直播或影片頁面"
+  },
+  "popup_stop": {
+    "message": "停止當前字幕"
+  },
+  "popup_overlay_failed": {
+    "message": "頁面浮層沒有生效：$1（若剛更新過擴充功能，請在 chrome://extensions 重新載入並重新整理標籤頁）"
+  },
+  "popup_bailian_key_saved": {
+    "message": "Key 已儲存，語音識別與通義千問翻譯共用。"
+  },
+  "popup_bailian_key_hint": {
+    "message": "按秒計費，Key 同時可用於通義千問翻譯。"
+  },
+  "popup_downloading_translator": {
+    "message": "正在下載 Chrome 翻譯模型"
+  },
+  "popup_downloading_translator_progress": {
+    "message": "正在下載 Chrome 翻譯模型 $1%"
+  },
+  "popup_test_builtin": {
+    "message": "測試內建翻譯"
+  },
+  "popup_key_saved": {
+    "message": "$1 Key 已儲存在本機擴充功能儲存中"
+  },
+  "popup_key_required": {
+    "message": "$1 需要 API Key；以明文儲存在本機擴充功能儲存，不會同步到雲端"
+  },
+  "popup_key_optional": {
+    "message": "自定義服務可以不填 Key"
+  },
+  "popup_usage_server": {
+    "message": "本地服務端模式：譯文由 WhisperLiveKit 生成。"
+  },
+  "popup_usage_requests": {
+    "message": "本次 $1 次請求 / $2 tokens"
+  },
+  "popup_no_model": {
+    "message": "未填模型"
+  },
+  "popup_glossary_active": {
+    "message": "已生效 $1 條術語（內建 $2 · 自定義 $3）"
+  },
+  "popup_glossary_domain": {
+    "message": "領域：$1"
+  },
+  "popup_glossary_off": {
+    "message": "術語庫已關閉（已儲存內建 $1 · 自定義 $2）"
+  },
+  "popup_local_http_error": {
+    "message": "本地控制服務返回 HTTP $1"
+  },
+  "popup_no_models": {
+    "message": "沒有可用模型"
+  },
+  "popup_control_offline": {
+    "message": "控制服務未連線"
+  },
+  "popup_badge_starting": {
+    "message": "啟動中"
+  },
+  "popup_badge_failed": {
+    "message": "啟動失敗"
+  },
+  "popup_badge_asr_online": {
+    "message": "ASR 線上"
+  },
+  "popup_badge_all_online": {
+    "message": "全部線上"
+  },
+  "popup_badge_connected": {
+    "message": "控制服務已連線"
+  },
+  "popup_online_at": {
+    "message": "線上 · $1"
+  },
+  "popup_starting_ellipsis": {
+    "message": "啟動中…"
+  },
+  "popup_translation_by_api": {
+    "message": "由擴充功能翻譯，不啟動本地模型"
+  },
+  "popup_ready": {
+    "message": "已就緒"
+  },
+  "popup_hint_service_offline": {
+    "message": "啟動本地控制服務後，可以在這裡一鍵拉起 ASR 與本地翻譯模型。"
+  },
+  "popup_hint_api_mode": {
+    "message": "當前翻譯不用本地模型，只需本地 ASR：啟動後不佔用顯示記憶體跑翻譯模型，顯示記憶體與算力全部留給識別。"
+  },
+  "popup_hint_asr_cached": {
+    "message": "ASR $1 已快取"
+  },
+  "popup_hint_asr_download": {
+    "message": "ASR $1 首次啟動會自動下載（$2）"
+  },
+  "popup_hint_model_ready": {
+    "message": "翻譯模型已就緒：$1"
+  },
+  "popup_hint_model_missing": {
+    "message": "翻譯模型未下載：$1"
+  },
+  "popup_hint_model_switch": {
+    "message": "當前執行 $1，點「一鍵啟動」會切換到所選模型"
+  },
+  "popup_hint_local_fallback": {
+    "message": "所選翻譯服務還不可用，本地模型將作為兜底翻譯"
+  },
+  "hint_separator": {
+    "message": "；"
+  },
+  "popup_model_missing": {
+    "message": "本地未找到 $1（$2）。可以點「下載模型」由本地服務代下，或從下載頁手動獲取後放到 $3"
+  },
+  "popup_download_size": {
+    "message": "下載 $1"
+  },
+  "popup_unknown_size": {
+    "message": "未知大小"
+  },
+  "popup_download_failed": {
+    "message": "下載失敗：$1"
+  },
+  "popup_seconds_suffix": {
+    "message": "（$1 秒）"
+  },
+  "popup_start_failed": {
+    "message": "啟動失敗：$1"
+  },
+  "popup_starting_control_service": {
+    "message": "正在啟動本地控制服務…"
+  },
+  "popup_native_permission_denied": {
+    "message": "需要允許擴充功能與本機程式通訊，才能從這裡啟動本地服務"
+  },
+  "popup_control_service_not_started": {
+    "message": "本地控制服務沒有啟動"
+  },
+  "popup_control_service_started": {
+    "message": "本地控制服務已啟動"
+  },
+  "popup_native_host_missing": {
+    "message": "還沒裝本地助手：在專案目錄雙擊 install-windows.cmd（只需一次），然後再點這裡"
+  },
+  "popup_local_starting": {
+    "message": "已開始啟動本地服務"
+  },
+  "popup_local_stopped": {
+    "message": "已停止本地服務"
+  },
+  "popup_stop_failed": {
+    "message": "停止失敗：$1"
+  },
+  "popup_download_started": {
+    "message": "已開始下載模型"
+  },
+  "popup_command_copied": {
+    "message": "啟動命令已複製"
+  },
+  "popup_copy_failed": {
+    "message": "複製失敗：$1"
+  },
+  "popup_save_failed": {
+    "message": "儲存設定失敗"
+  },
+  "popup_tab_missing": {
+    "message": "沒有找到當前標籤頁"
+  },
+  "popup_tab_unsupported": {
+    "message": "此頁面不支援標籤頁音訊採集，請開啟直播或影片網頁"
+  },
+  "popup_base_url_required": {
+    "message": "請填寫翻譯 API 地址"
+  },
+  "popup_model_required": {
+    "message": "請填寫翻譯模型"
+  },
+  "popup_untitled_stream": {
+    "message": "未命名直播"
+  },
+  "popup_capture_failed": {
+    "message": "採集啟動失敗"
+  },
+  "popup_stop_capture_failed": {
+    "message": "停止失敗"
+  },
+  "popup_reinject_failed": {
+    "message": "重新注入失敗，請檢視擴充功能 Service Worker 的主控台"
+  },
+  "popup_switched_to_api": {
+    "message": "已切到 API 翻譯：請停止並重新開始字幕，ASR 才會按新模式（不載入本地翻譯模型）執行"
+  },
+  "popup_switched_to_server": {
+    "message": "已切到本地服務端翻譯：請停止並重新開始字幕，ASR 才會恢復本地翻譯"
+  },
+  "popup_backend_next_start": {
+    "message": "識別引擎將在下次開始字幕時生效"
+  },
+  "popup_requesting_translation": {
+    "message": "正在請求翻譯..."
+  },
+  "popup_test_failed": {
+    "message": "翻譯 API 測試失敗"
+  },
+  "popup_test_ok": {
+    "message": "連線成功：$1 · $2 ms · $3"
+  },
+  "popup_failed": {
+    "message": "失敗：$1"
+  },
+  "popup_checking_services": {
+    "message": "正在檢查..."
+  },
+  "popup_check_failed": {
+    "message": "檢查失敗"
+  },
+  "popup_rechecking": {
+    "message": "正在重新檢測本地控制服務…"
+  },
+  "popup_glossary_reload_server": {
+    "message": "本地服務端翻譯需點上方「一鍵啟動」過載術語表；ASR 熱詞在下次開始字幕時生效"
+  },
+  "popup_glossary_applied_api": {
+    "message": "API 翻譯已即時應用新術語；ASR 識別熱詞將在下次開始字幕時生效"
+  },
+  "popup_glossary_file_too_large": {
+    "message": "術語檔案過大（超過 512 KB），請精簡後再匯入"
+  },
+  "popup_glossary_file_empty": {
+    "message": "未在檔案中識別到有效術語（格式：英文 -> 中文 或 CSV source,target）"
+  },
+  "popup_glossary_full": {
+    "message": "自定義術語已達 32 KB 上限，無法再匯入，請先精簡現有詞條後重試"
+  },
+  "popup_glossary_imported_truncated": {
+    "message": "已從 $1 識別 $2 條；受 32 KB 上限限制僅保留前 $3 條（丟棄 $4 條，原有詞條優先）"
+  },
+  "popup_glossary_imported": {
+    "message": "已從 $1 匯入 $2 條，自定義術語共 $3 條"
+  },
+  "popup_glossary_nothing_to_export": {
+    "message": "當前沒有可匯出的術語詞條"
+  },
+  "popup_glossary_exported": {
+    "message": "已匯出 $1 條術語（$2）"
+  },
+  "provider_deepseek": {
+    "message": "DeepSeek"
+  },
+  "provider_openai": {
+    "message": "OpenAI"
+  },
+  "subtitle_page_title": {
+    "message": "声幕 - 字幕與歷史"
+  },
+  "subtitle_current_stream": {
+    "message": "當前直播"
+  },
+  "subtitle_start_hint": {
+    "message": "在直播頁面點選擴充功能圖示開始字幕。"
+  },
+  "subtitle_overlay_state": {
+    "message": "浮層：$1"
+  },
+  "subtitle_on": {
+    "message": "開"
+  },
+  "subtitle_off": {
+    "message": "關"
+  },
+  "subtitle_audio_health": {
+    "message": "音訊採集完整度 $1%"
+  },
+  "subtitle_waiting_audio_stats": {
+    "message": "等待音訊統計"
+  },
+  "subtitle_local_page": {
+    "message": "本地頁面"
+  },
+  "subtitle_line_count": {
+    "message": "$1 條字幕"
+  },
+  "subtitle_missing_count": {
+    "message": "$1 條缺譯"
+  },
+  "subtitle_no_matching_sessions": {
+    "message": "沒有匹配的場次。"
+  },
+  "subtitle_no_sessions": {
+    "message": "還沒有字幕記錄。開始一次即時翻譯後，場次會自動儲存在這裡。"
+  },
+  "subtitle_no_preview": {
+    "message": "尚無穩定字幕"
+  },
+  "subtitle_session_count": {
+    "message": "$1 條"
+  },
+  "subtitle_local": {
+    "message": "本地"
+  },
+  "subtitle_session_missing": {
+    "message": "缺譯 $1"
+  },
+  "subtitle_load_older_count": {
+    "message": "載入更早的字幕（還有 $1 條）"
+  },
+  "subtitle_waiting_next": {
+    "message": "等待下一句…"
+  },
+  "subtitle_no_matches": {
+    "message": "沒有匹配字幕"
+  },
+  "subtitle_no_matches_hint": {
+    "message": "換一個關鍵詞，或清空搜尋檢視整場記錄。"
+  },
+  "subtitle_search_limited": {
+    "message": "顯示最近 $1 / $2 條匹配"
+  },
+  "subtitle_opened_session": {
+    "message": "已開啟場次：$1，$2 條字幕"
+  },
+  "subtitle_stopped": {
+    "message": "已停止當前字幕採集。"
+  },
+  "subtitle_tab_gone": {
+    "message": "直播標籤頁已關閉或無法訪問。"
+  },
+  "subtitle_overlay_toggle_failed": {
+    "message": "無法切換頁面浮層。"
+  },
+  "subtitle_overlay_shown": {
+    "message": "頁面浮層已開啟。"
+  },
+  "subtitle_overlay_hidden": {
+    "message": "頁面浮層已隱藏。"
+  },
+  "subtitle_nothing_to_copy": {
+    "message": "當前場次沒有可複製的字幕。"
+  },
+  "subtitle_copied": {
+    "message": "字幕已複製到剪貼簿。"
+  },
+  "subtitle_nothing_to_export": {
+    "message": "當前場次沒有可匯出的字幕。"
+  },
+  "subtitle_export_empty": {
+    "message": "字幕內容為空，無法匯出。"
+  },
+  "subtitle_srt_saved": {
+    "message": "SRT 字幕已儲存到下載目錄。"
+  },
+  "subtitle_srt_exported": {
+    "message": "SRT 字幕已匯出。"
+  },
+  "subtitle_this_session": {
+    "message": "這個場次"
+  },
+  "subtitle_confirm_delete": {
+    "message": "刪除「$1」及其全部字幕記錄？此操作不可撤銷。"
+  },
+  "subtitle_session_deleted": {
+    "message": "場次已刪除。"
+  },
+  "subtitle_stop_before_clear": {
+    "message": "請先停止當前字幕，再清空歷史。"
+  },
+  "subtitle_confirm_clear": {
+    "message": "清空全部字幕場次？此操作不可撤銷。"
+  },
+  "subtitle_history_cleared": {
+    "message": "全部字幕歷史已清空。"
+  },
+  "subtitle_found_matches": {
+    "message": "找到 $1 條匹配字幕"
+  },
+  "subtitle_capture_ended": {
+    "message": "字幕採集已結束。"
+  },
+  "subtitle_state_read_failed": {
+    "message": "無法讀取字幕狀態：$1"
+  },
+  "server_forbidden_origin": {
+    "message": "只接受擴充功能頁面呼叫"
+  },
+  "server_unknown_route": {
+    "message": "未知介面：$1"
+  },
+  "server_body_too_large": {
+    "message": "請求體過大"
+  },
+  "server_body_invalid_json": {
+    "message": "請求體不是合法 JSON"
+  },
+  "server_unknown_asr_model": {
+    "message": "未知的 ASR 模型"
+  },
+  "server_unknown_translation_model": {
+    "message": "未知的本地翻譯模型"
+  },
+  "server_translation_model_missing": {
+    "message": "本地翻譯模型尚未下載：$1"
+  },
+  "server_job_busy": {
+    "message": "已有任務在進行：$1"
+  },
+  "server_stop_old_failed": {
+    "message": "停止舊服務失敗：$1"
+  },
+  "server_start_cancelled": {
+    "message": "啟動已被停止請求取消"
+  },
+  "server_stop_in_progress": {
+    "message": "正在停止中"
+  },
+  "server_stop_blocked_by_download": {
+    "message": "模型下載中，請稍後再停止"
+  },
+  "server_download_busy": {
+    "message": "正在下載"
+  },
+  "server_download_busy_model": {
+    "message": "正在下載 $1"
+  },
+  "server_download_size_mismatch": {
+    "message": "下載大小不符（期望 $1，實際 $2）"
+  },
+  "server_download_save_failed": {
+    "message": "儲存失敗：$1"
+  },
+  "server_job_starting_asr_only": {
+    "message": "正在啟動 ASR $1（API 翻譯，不啟動本地翻譯模型）"
+  },
+  "server_job_starting": {
+    "message": "正在啟動 $1 + $2"
+  },
+  "server_job_ready": {
+    "message": "本地服務已就緒"
+  },
+  "server_job_start_failed": {
+    "message": "啟動失敗：$1"
+  },
+  "server_job_stopping": {
+    "message": "正在停止本地服務"
+  },
+  "server_job_stopped": {
+    "message": "已停止"
+  },
+  "server_job_stop_failed": {
+    "message": "停止失敗：$1"
+  },
+  "server_model_note_best_quality": {
+    "message": "$1 · 質量最好"
+  },
+  "server_model_note_low_vram": {
+    "message": "$1 · 省顯示記憶體"
+  },
+  "server_asr_note_default": {
+    "message": "精度最好（預設）"
+  },
+  "server_asr_note_faster": {
+    "message": "更快更省顯示記憶體，精度略降"
+  },
+  "server_approx_size": {
+    "message": "約 $1"
+  },
+  "popup_translation_nudge": {
+    "message": "內建翻譯偏直譯。填一個 DeepSeek Key 譯文會自然得多。"
+  },
+  "popup_custom_glossary": {
+    "message": "自定義術語（每行一條：英文 | 同音別名 -> 中文）"
+  },
+  "ext_name": {
+    "message": "声幕 - 即時字幕翻譯"
+  },
+  "ext_description": {
+    "message": "捕獲當前標籤頁的英文音訊，即時生成中文字幕；支援 Chrome 本機識別與翻譯、阿里雲百煉、DeepSeek/OpenAI 等翻譯 API 與本地翻譯服務。"
+  },
+  "command_open_popup": {
+    "message": "開啟声幕控制面板"
+  },
+  "command_open_caption_window": {
+    "message": "開啟字幕與歷史視窗"
+  },
+  "action_title": {
+    "message": "声幕 - 即時字幕翻譯"
+  },
+  "action_title_capturing": {
+    "message": "声幕正在採集標籤頁音訊"
+  },
+  "provider_generic": {
+    "message": "翻譯 API"
+  },
+  "detail_suffix": {
+    "message": "：$1"
+  },
+  "translation_url_invalid": {
+    "message": "翻譯 API 地址格式不正確"
+  },
+  "translation_url_protocol": {
+    "message": "翻譯 API 地址必須以 http:// 或 https:// 開頭"
+  },
+  "translation_url_credentials": {
+    "message": "翻譯 API 地址不要包含使用者名稱或密碼，請使用 API Key"
+  },
+  "translation_url_empty": {
+    "message": "翻譯 API 地址為空"
+  },
+  "translation_model_missing": {
+    "message": "尚未填寫翻譯模型"
+  },
+  "translation_key_missing": {
+    "message": "尚未填寫 $1 的 API Key"
+  },
+  "translation_http_with_key": {
+    "message": "配置了 API Key 時不能使用非本機 http:// 地址，請改用 https://"
+  },
+  "translation_nothing_to_translate": {
+    "message": "沒有需要翻譯的文字"
+  },
+  "translation_empty_segment": {
+    "message": "存在空的翻譯片段"
+  },
+  "translation_empty_response": {
+    "message": "翻譯 API 返回了空內容"
+  },
+  "translation_json_incomplete": {
+    "message": "翻譯 API 返回的 JSON 不完整或格式錯誤"
+  },
+  "translation_unparsable": {
+    "message": "無法解析翻譯 API 返回的內容"
+  },
+  "translation_count_mismatch": {
+    "message": "翻譯 API 返回的條數不匹配（期望 $1，實際 $2）"
+  },
+  "translation_no_usable": {
+    "message": "翻譯 API 沒有返回可用譯文"
+  },
+  "translation_error_auth": {
+    "message": "$1 API Key 無效或沒有權限$2"
+  },
+  "translation_error_balance": {
+    "message": "$1 賬戶餘額不足$2"
+  },
+  "translation_error_rate_limit": {
+    "message": "$1 請求過於頻繁$2"
+  },
+  "translation_error_bad_request": {
+    "message": "$1 拒絕了翻譯請求$2"
+  },
+  "translation_error_server": {
+    "message": "$1 服務暫時不可用（HTTP $2）$3"
+  },
+  "translation_error_http": {
+    "message": "$1 請求失敗（HTTP $2）$3"
+  },
+  "translation_timeout": {
+    "message": "$1 翻譯請求超時（$2 秒）"
+  },
+  "translation_aborted": {
+    "message": "翻譯請求已取消"
+  },
+  "translation_network": {
+    "message": "無法連線 $1（網路或代理錯誤）"
+  },
+  "translation_builtin_unavailable": {
+    "message": "當前環境無法使用 Chrome 內建翻譯"
+  },
+  "translation_builtin_count": {
+    "message": "Chrome 內建翻譯返回的條數不對"
+  },
+  "translation_builtin_failed": {
+    "message": "Chrome 內建翻譯失敗"
+  },
+  "translation_not_configured": {
+    "message": "尚未配置翻譯 API"
+  },
+  "translation_disabled": {
+    "message": "翻譯 API 未啟用"
+  },
+  "translation_no_fetch": {
+    "message": "當前環境不支援 fetch"
+  },
+  "translation_bad_json": {
+    "message": "翻譯 API 返回了無法解析的 JSON"
+  },
+  "translation_truncated": {
+    "message": "翻譯 API 輸出被截斷，請減少批次或調大 max_tokens"
+  },
+  "translation_thinking_only": {
+    "message": "翻譯模型只返回了思考內容，請關閉 thinking 模式或更換模型"
+  },
+  "translation_empty_translation": {
+    "message": "翻譯 API 返回了空譯文"
+  },
+  "translation_missing_line": {
+    "message": "翻譯 API 沒有返回對應譯文"
+  },
+  "ws_url_invalid": {
+    "message": "WebSocket 地址格式不正確"
+  },
+  "ws_url_protocol": {
+    "message": "WebSocket 地址必須以 ws:// 或 wss:// 開頭"
+  },
+  "overlay_unavailable_detail": {
+    "message": "頁面浮層不可用，可在字幕視窗中繼續觀看"
+  },
+  "bailian_unparsable": {
+    "message": "無法解析百煉語音識別訊息"
+  },
+  "bailian_task_failed": {
+    "message": "百煉語音識別任務失敗"
+  },
+  "bailian_error_auth": {
+    "message": "百煉 API Key 無效或沒有語音識別權限，請檢查 Key 和所選地域"
+  },
+  "bailian_error_quota": {
+    "message": "百煉語音識別被限流或欠費：$1"
+  },
+  "bailian_error_failed": {
+    "message": "百煉語音識別失敗（$1）：$2"
+  },
+  "bailian_url_not_wss": {
+    "message": "百煉語音識別地址必須是 wss://"
+  },
+  "session_translation_config_issue": {
+    "message": "$1。請在擴充功能控制面板的「翻譯引擎」中完成配置，或切換為本地服務端。"
+  },
+  "session_bailian_key_missing": {
+    "message": "尚未填寫阿里雲百煉 API Key（語音識別與通義千問翻譯共用），請在擴充功能控制面板中填寫。"
+  },
+  "session_capture_start_failed": {
+    "message": "音訊採集啟動失敗"
+  },
+  "session_monitor_open_failed": {
+    "message": "字幕視窗未能自動開啟：$1"
+  },
+  "session_history_write_failed": {
+    "message": "字幕歷史寫入失敗：$1"
+  },
+  "session_detail_missing_translations": {
+    "message": "$1；$2 條字幕缺少譯文"
+  },
+  "session_history_finish_failed": {
+    "message": "字幕歷史收尾失敗：$1"
+  },
+  "session_capture_stopped": {
+    "message": "標籤頁音訊採集已停止"
+  },
+  "session_capture_stopped_short": {
+    "message": "採集已停止"
+  },
+  "session_fatal_error": {
+    "message": "字幕服務發生致命錯誤"
+  },
+  "session_offscreen_lost": {
+    "message": "瀏覽器後臺採集頁面已中斷，請重新開始"
+  },
+  "session_tab_closed": {
+    "message": "直播標籤頁已關閉"
+  },
+  "offscreen_unreachable": {
+    "message": "無法聯絡音訊採集頁面：$1"
+  },
+  "history_write_recovered": {
+    "message": "字幕歷史已恢復寫入"
+  },
+  "history_write_retrying": {
+    "message": "字幕歷史寫入失敗，正在重試：$1"
+  },
+  "diag_local_mode_no_api_test": {
+    "message": "當前翻譯引擎是本地服務端，不需要測試 API"
+  },
+  "diag_asr_online": {
+    "message": "ASR 服務線上"
+  },
+  "diag_not_connected": {
+    "message": "未連線"
+  },
+  "diag_translation_online": {
+    "message": "本地翻譯服務線上"
+  },
+  "diag_api_configured": {
+    "message": "$1 已配置（點「測試翻譯 API」驗證）"
+  },
+  "diag_local_translation_unavailable": {
+    "message": "本地服務端翻譯不可用（127.0.0.1:8013）。如果只想跑 ASR，請把翻譯引擎切換為 API。"
+  },
+  "error_extension_only": {
+    "message": "此操作只能從声幕擴充功能介面發起"
+  },
+  "error_unknown_message": {
+    "message": "未知訊息：$1"
+  },
+  "overlay_init_rejected": {
+    "message": "浮層初始化被拒絕"
+  },
+  "overlay_no_capture_tab": {
+    "message": "當前沒有正在採集的標籤頁"
+  },
+  "overlay_no_response": {
+    "message": "頁面浮層沒有響應"
+  },
+  "offscreen_retry_in": {
+    "message": "$1 秒後重試字幕服務"
+  },
+  "offscreen_unparsable_message": {
+    "message": "無法解析字幕服務訊息：$1"
+  },
+  "offscreen_model_connected": {
+    "message": "字幕模型已連線"
+  },
+  "offscreen_server_error": {
+    "message": "字幕服務返回錯誤"
+  },
+  "offscreen_server_finished": {
+    "message": "字幕服務已完成當前音訊"
+  },
+  "offscreen_bailian_connected": {
+    "message": "百煉語音識別已連線"
+  },
+  "offscreen_bailian_finished": {
+    "message": "百煉語音識別已完成當前音訊"
+  },
+  "offscreen_ws_url_invalid": {
+    "message": "WebSocket 地址無效：$1"
+  },
+  "offscreen_bailian_starting": {
+    "message": "正在啟動百煉語音識別"
+  },
+  "offscreen_receiving": {
+    "message": "正在接收即時轉寫"
+  },
+  "offscreen_message_failed": {
+    "message": "處理字幕服務訊息失敗：$1"
+  },
+  "offscreen_connection_problem": {
+    "message": "字幕服務連線異常"
+  },
+  "offscreen_reading_audio": {
+    "message": "正在讀取標籤頁音訊"
+  },
+  "offscreen_no_audio_track": {
+    "message": "標籤頁沒有可用的音訊軌道"
+  },
+  "offscreen_track_ended": {
+    "message": "標籤頁音訊已結束或頁面已關閉"
+  },
+  "offscreen_track_muted": {
+    "message": "標籤頁音訊暫時靜音，等待頁面恢復播放"
+  },
+  "offscreen_track_unmuted": {
+    "message": "標籤頁音訊已恢復"
+  },
+  "offscreen_captured_connecting": {
+    "message": "已捕獲 $1，正在連線字幕服務"
+  },
+  "offscreen_this_tab": {
+    "message": "當前標籤頁"
+  },
+  "offscreen_using_chrome_speech": {
+    "message": "正在使用 Chrome 本機語音識別"
+  },
+  "offscreen_no_translator": {
+    "message": "當前 Chrome 沒有內建翻譯，請升級 Chrome 或改用翻譯 API"
+  },
+  "offscreen_translator_not_downloaded": {
+    "message": "Chrome 內建翻譯模型尚未下載，請在擴充功能彈窗中點選「下載本機模型」"
+  },
+  "offscreen_capture_started": {
+    "message": "音訊採集已啟動"
+  },
+  "speech_language_not_supported": {
+    "message": "Chrome 本機語音識別不支援英語模型，請改用其他識別引擎"
+  },
+  "speech_not_allowed": {
+    "message": "Chrome 拒絕了語音識別權限"
+  },
+  "speech_service_not_allowed": {
+    "message": "Chrome 不允許在此使用語音識別，請改用其他識別引擎"
+  },
+  "speech_audio_capture": {
+    "message": "語音識別讀不到標籤頁音訊"
+  },
+  "speech_unsupported": {
+    "message": "當前 Chrome 不支援本機語音識別，請升級 Chrome 或改用其他識別引擎"
+  },
+  "speech_unavailable": {
+    "message": "此裝置不支援 Chrome 本機英語語音識別，請改用其他識別引擎"
+  },
+  "speech_downloading": {
+    "message": "正在下載 Chrome 本機語音模型，首次約需 20 秒"
+  },
+  "speech_download_failed": {
+    "message": "Chrome 本機語音模型下載失敗，請檢查網路後重試"
+  },
+  "speech_start_failed": {
+    "message": "語音識別啟動失敗：$1"
+  },
+  "overlay_drag": {
+    "message": "拖動字幕位置"
+  },
+  "overlay_toolbar": {
+    "message": "字幕控制"
+  },
+  "overlay_mode_title": {
+    "message": "切換字幕顯示模式"
+  },
+  "overlay_smaller": {
+    "message": "縮小字幕"
+  },
+  "overlay_larger": {
+    "message": "放大字幕"
+  },
+  "overlay_monitor_title": {
+    "message": "開啟字幕與歷史視窗"
+  },
+  "overlay_monitor": {
+    "message": "記錄"
+  },
+  "overlay_close_title": {
+    "message": "隱藏頁面浮層"
+  },
+  "overlay_history_more": {
+    "message": "歷史 $1 條 · 向上檢視更多"
+  },
+  "overlay_history_back": {
+    "message": "歷史 $1 條 · 向下滾回即時"
+  },
+  "html_lang": {
+    "message": "zh-TW",
+    "description": "BCP 47 tag of this catalog, for the lang attribute"
+  },
+  "popup_speech_unsupported": {
+    "message": "這個瀏覽器沒有本機語音識別，只有桌面版 Chrome 138 以上才有。阿里雲百煉不用安裝，填一個 Key 就能用。"
+  },
+  "popup_translator_unsupported": {
+    "message": "這個瀏覽器沒有內建翻譯（需要 Chrome 138 以上的桌面版），請填寫 DeepSeek Key 或改用其他翻譯引擎。"
+  },
+  "popup_downloading_speech": {
+    "message": "正在下載 Chrome 本機語音模型"
+  },
+  "speech_model_not_downloaded": {
+    "message": "Chrome 本機語音模型尚未下載，請在擴充功能面板中點「開始即時翻譯」重新開始"
+  },
+  "asr_backend_chrome_unavailable": {
+    "message": "Chrome 本機識別（此瀏覽器不支援）"
+  },
+  "popup_switch_bailian": {
+    "message": "改用阿里雲百煉"
+  }
+}

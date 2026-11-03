@@ -20,21 +20,47 @@ import {
   settingsForCaptions,
   shiftTimecode,
   transcriptDuration
-} from "../extension/caption-utils.js";
-import { MAX_CUSTOM_GLOSSARY_CHARS } from "../extension/glossary.js";
+} from "../extension/lib/caption-utils.js";
+import { MAX_CUSTOM_GLOSSARY_CHARS } from "../extension/lib/glossary.js";
 
-test("normalizeSettings defaults to DeepSeek API and validates its fields", () => {
+test("a fresh install needs no setup: Chrome speech and the built-in translator", () => {
   const settings = normalizeSettings({});
+  assert.equal(settings.asrBackend, "chrome");
   assert.equal(settings.translationMode, "api");
-  assert.equal(settings.translationProvider, "deepseek");
-  assert.equal(settings.translationModel, "deepseek-chat");
-  assert.equal(settings.translationBaseUrl, "https://api.deepseek.com/v1");
+  assert.equal(settings.translationProvider, "chrome");
+  assert.equal(settings.translationModel, "builtin");
+  assert.equal(settings.translationBaseUrl, "");
   assert.equal(settings.translationTranslatePartial, true);
   assert.deepEqual(settings.translationApiKeys, {
+    chrome: "",
     deepseek: "",
     openai: "",
+    bailian: "",
     custom: ""
   });
+});
+
+test("an existing install keeps WhisperLiveKit and DeepSeek after the upgrade", () => {
+  const migrated = migrateLegacySettings({
+    translationMode: "api",
+    translationApiKeys: { deepseek: "dk" },
+    fontSize: 30
+  });
+  assert.equal(migrated.asrBackend, "wlk");
+  assert.equal(migrated.translationProvider, "deepseek");
+  assert.equal(migrated.translationModel, "deepseek-chat");
+  assert.equal(migrated.translationBaseUrl, "https://api.deepseek.com/v1");
+  assert.equal(migrated.translationApiKeys.deepseek, "dk");
+  assert.equal(migrateLegacySettings({}).asrBackend, "chrome");
+  assert.equal(migrateLegacySettings(undefined).translationProvider, "chrome");
+});
+
+test("server translation needs WhisperLiveKit; other backends fall back to api mode", () => {
+  assert.equal(normalizeSettings({ asrBackend: "wlk", translationMode: "server" }).translationMode, "server");
+  assert.equal(normalizeSettings({ asrBackend: "chrome", translationMode: "server" }).translationMode, "api");
+  assert.equal(normalizeSettings({ asrBackend: "nope" }).asrBackend, "chrome");
+  assert.equal(normalizeSettings({ bailianRegion: "intl" }).bailianRegion, "intl");
+  assert.equal(normalizeSettings({ bailianRegion: "moon" }).bailianRegion, "cn");
 });
 
 test("local model selection defaults to 9B/large-v3-turbo and rejects unknown ids", () => {
@@ -221,8 +247,10 @@ test("settingsForBroadcast never exposes API keys", () => {
   });
   assert.equal("translationApiKeys" in publicSettings, false);
   assert.deepEqual(publicSettings.translationApiKeyConfigured, {
+    chrome: false,
     deepseek: true,
     openai: true,
+    bailian: false,
     custom: false
   });
   assert.equal(JSON.stringify(publicSettings).includes("secret-key"), false);
@@ -550,7 +578,7 @@ test("applyOverlayFailure records and clears the overlay error idempotently", ()
 });
 
 test("mergeCaptionFragments joins a dangling fragment with the row that completes it", async () => {
-  const { mergeCaptionFragments } = await import("../extension/caption-utils.js");
+  const { mergeCaptionFragments } = await import("../extension/lib/caption-utils.js");
   const lines = [
     { id: "a", source: "Pharaoh finally meets Danig, a real Kalgurin runesmith.", start: "0:00:01.00", end: "0:00:04.00" },
     { id: "b", source: "with the ancient", start: "0:00:04.50", end: "0:00:05.20" },
@@ -572,7 +600,7 @@ test("mergeCaptionFragments joins a dangling fragment with the row that complete
 });
 
 test("mergeCaptionFragments stops after the sentence that completes the unit", async () => {
-  const { mergeCaptionFragments } = await import("../extension/caption-utils.js");
+  const { mergeCaptionFragments } = await import("../extension/lib/caption-utils.js");
   const lines = [
     { id: "a", source: "so I think people will be experimenting.", start: "0:00:01.00", end: "0:00:03.00" },
     { id: "b", source: "with these for a long time.", start: "0:00:03.20", end: "0:00:05.00" },
@@ -588,7 +616,7 @@ test("mergeCaptionFragments stops after the sentence that completes the unit", a
 });
 
 test("mergeCaptionFragments respects the gap, size and line limits", async () => {
-  const { mergeCaptionFragments } = await import("../extension/caption-utils.js");
+  const { mergeCaptionFragments } = await import("../extension/lib/caption-utils.js");
   const far = [
     { id: "a", source: "and then", start: "0:00:01.00", end: "0:00:02.00" },
     { id: "b", source: "the map opens.", start: "0:00:09.00", end: "0:00:10.00" }
@@ -607,7 +635,7 @@ test("mergeCaptionFragments respects the gap, size and line limits", async () =>
 });
 
 test("mergeCaptionFragments clears a translation that the merge invalidated", async () => {
-  const { mergeCaptionFragments } = await import("../extension/caption-utils.js");
+  const { mergeCaptionFragments } = await import("../extension/lib/caption-utils.js");
   const lines = [
     { id: "a", source: "and riddled with excitement", translation: "而且充满兴奋", start: "0:00:01.00", end: "0:00:02.00" },
     { id: "b", source: "he wants to learn.", start: "0:00:02.20", end: "0:00:03.50" }

@@ -5,16 +5,28 @@ import test from "node:test";
 import {
   buildTranslationRequestBody,
   chatCompletionsUrl,
+  isSplittableTranslationError,
   mapHttpError,
+  TranslationApiError,
   normalizeTranslationBaseUrl,
+  MAX_RETRY_AFTER_MS,
   normalizeTranslationSettings,
+  parseRetryAfter,
   parseTranslationOutput,
   recentTranslationContext,
+  resetTranslationRequestShapeCache,
   resolveTranslationConfig,
+  MANAGED_TRANSLATION_PORT,
+  translatesInExtension,
+  usesManagedTranslator,
   testTranslationConnection,
   translateTexts,
   translationConfigIssue
-} from "../extension/translation-api.js";
+} from "../extension/lib/translation-api.js";
+import { renderZh } from "./helpers/i18n.js";
+
+// lib errors carry a message key; match against the zh_CN text users see.
+const zhError = (pattern) => (error) => pattern.test(renderZh(error));
 
 function startServer(handler) {
   const requests = [];
@@ -22,7 +34,7 @@ function startServer(handler) {
     const chunks = [];
     for await (const chunk of request) chunks.push(chunk);
     const bodyText = Buffer.concat(chunks).toString("utf8");
-    let body = null;
+    let body;
     try {
       body = JSON.parse(bodyText);
     } catch {
@@ -129,17 +141,23 @@ test("normalizeTranslationBaseUrl adds a protocol and strips trailing slashes", 
   assert.throws(() => normalizeTranslationBaseUrl("ftp://example.com"));
   assert.throws(
     () => normalizeTranslationBaseUrl("https://user:pass@example.com/v1"),
-    /用户名或密码/
+    zhError(/用户名或密码/)
   );
 });
 
-test("translation settings default to DeepSeek and keep per-provider keys", () => {
+test("translation settings default to the built-in translator and keep per-provider keys", () => {
   const defaults = normalizeTranslationSettings({});
   assert.equal(defaults.mode, "api");
-  assert.equal(defaults.provider, "deepseek");
-  assert.equal(defaults.model, "deepseek-chat");
-  assert.equal(defaults.baseUrl, "https://api.deepseek.com/v1");
+  assert.equal(defaults.provider, "chrome");
+  assert.equal(defaults.model, "builtin");
+  assert.equal(defaults.baseUrl, "");
   assert.equal(defaults.translatePartial, true);
+  const builtin = resolveTranslationConfig({});
+  assert.equal(builtin.enabled, true, "no key needed");
+  assert.equal(builtin.builtin, true);
+  const deepseek = normalizeTranslationSettings({ translationProvider: "deepseek" });
+  assert.equal(deepseek.model, "deepseek-chat");
+  assert.equal(deepseek.baseUrl, "https://api.deepseek.com/v1");
 
   const withKeys = normalizeTranslationSettings({
     translationApiKeys: {
@@ -148,7 +166,7 @@ test("translation settings default to DeepSeek and keep per-provider keys", () =
       unknown: "ignored"
     }
   });
-  assert.deepEqual(withKeys.apiKeys, { deepseek: "dk", openai: "ok", custom: "" });
+  assert.deepEqual(withKeys.apiKeys, { chrome: "", deepseek: "dk", openai: "ok", bailian: "", custom: "" });
 });
 
 test("translationConfigIssue requires a key only for providers that need one", () => {
@@ -157,7 +175,7 @@ test("translationConfigIssue requires a key only for providers that need one", (
     translationProvider: "deepseek"
   });
   assert.equal(deepseek.enabled, false);
-  assert.match(translationConfigIssue(deepseek), /API Key/);
+  assert.match(renderZh(translationConfigIssue(deepseek)), /API Key/);
 
   const custom = resolveTranslationConfig({
     translationMode: "api",
@@ -181,7 +199,7 @@ test("translationConfigIssue requires a key only for providers that need one", (
     translationApiKeys: { deepseek: "secret" }
   });
   assert.equal(insecure.enabled, false);
-  assert.match(insecure.issue, /http:/);
+  assert.match(renderZh(insecure.issue), /http:/);
 
   const localHttp = resolveTranslationConfig({
     translationMode: "api",
@@ -232,6 +250,24 @@ test("system prompt tells the model that segments are one continuous utterance",
   assert.match(system, /相邻的片段来自同一段连续语音/);
   assert.match(system, /不要把上一片段的意思再译一遍/);
   assert.match(system, /context 是紧邻的前文/);
+  assert.match(system, /7\. 输入中若有 partial 字段/);
+  assert.match(system, /8\. 输入中若有 domain 字段/);
+  assert.match(system, /9\. 输入中若有 glossary 字段/);
+});
+
+test("the system message is identical whatever partial, domain and glossary are", () => {
+  const config = deepseekConfig("https://api.deepseek.com/v1");
+  const glossaryEntries = [{ sources: ["Spirit"], target: "精魂" }];
+  const a = buildTranslationRequestBody({ texts: ["Hi."], config });
+  const b = buildTranslationRequestBody({
+    texts: ["Your spirit is low."],
+    config,
+    partial: true,
+    glossaryEntries,
+    domainHint: "Path of Exile"
+  });
+  assert.equal(a.messages[0].content, b.messages[0].content);
+  assert.notEqual(a.messages[1].content, b.messages[1].content);
 });
 
 test("custom provider pointed at DeepSeek also disables thinking", () => {
@@ -243,6 +279,90 @@ test("custom provider pointed at DeepSeek also disables thinking", () => {
   assert.equal(config.disableThinking, true);
   const body = buildTranslationRequestBody({ texts: ["Hi"], config });
   assert.deepEqual(body.thinking, { type: "disabled" });
+});
+
+test("translatesInExtension tells when the local translation model is not needed", () => {
+  const decide = (settings, builtinSupport = "available") =>
+    translatesInExtension(
+      { translationMode: "api", translationApiKeyConfigured: {}, ...settings },
+      builtinSupport
+    );
+  assert.equal(decide({ translationProvider: "chrome", translationModel: "builtin" }), true);
+  assert.equal(decide({ translationProvider: "chrome" }, "downloadable"), true);
+  assert.equal(decide({ translationProvider: "chrome" }, ""), true, "still being checked");
+  assert.equal(decide({ translationProvider: "chrome" }, "unavailable"), false);
+  assert.equal(decide({ translationProvider: "chrome" }, "missing"), false);
+  assert.equal(decide({ translationProvider: "deepseek" }), false);
+  assert.equal(
+    decide({ translationProvider: "deepseek", translationApiKeyConfigured: { deepseek: true } }),
+    true
+  );
+  assert.equal(decide({ translationProvider: "custom", translationModel: "qwen3" }), true);
+  assert.equal(decide({ translationProvider: "custom", translationModel: " " }), false);
+  assert.equal(
+    decide({ translationMode: "server", translationProvider: "chrome" }),
+    false,
+    "server mode always translates locally"
+  );
+});
+
+test("an endpoint served by the managed llama-server still needs the local translator", async () => {
+  const { DEFAULT_PORTS } = await import("../scripts/local-service/config.mjs");
+  assert.equal(MANAGED_TRANSLATION_PORT, DEFAULT_PORTS.translation);
+  const custom = (translationBaseUrl, extra = {}) => ({
+    translationMode: "api",
+    translationProvider: "custom",
+    translationModel: "Index-Translate-9B",
+    translationBaseUrl,
+    translationApiKeyConfigured: {},
+    ...extra
+  });
+  for (const url of [
+    "http://127.0.0.1:8013/v1",
+    "http://localhost:8013/v1",
+    "http://[::1]:8013/v1",
+    "http://127.0.0.2:8013"
+  ]) {
+    assert.equal(usesManagedTranslator(custom(url)), true, url);
+    assert.equal(translatesInExtension(custom(url)), false, url);
+  }
+  assert.equal(
+    translatesInExtension(custom("http://127.0.0.1:8013/v1", { translationApiKeyConfigured: { custom: true } })),
+    false,
+    "a key does not change who serves the endpoint"
+  );
+  assert.equal(translatesInExtension(custom("http://127.0.0.1:11434/v1")), true, "another local server");
+  assert.equal(translatesInExtension(custom("https://example.com:8013/v1")), true, "a remote host");
+  assert.equal(usesManagedTranslator(custom("http://127.0.0.1:9000/v1"), 9000), true, "a configured port");
+  assert.equal(translatesInExtension(custom("http://127.0.0.1:8013/v1"), "", 9000), true, "8013 is not it then");
+  assert.equal(usesManagedTranslator(custom("not a url")), false);
+  assert.equal(
+    usesManagedTranslator({ translationProvider: "chrome", translationBaseUrl: "http://127.0.0.1:8013/v1" }),
+    false,
+    "the built-in translator has no endpoint"
+  );
+});
+
+test("each provider switches reasoning off in its own dialect", () => {
+  const body = (settings) =>
+    buildTranslationRequestBody({ texts: ["Hi"], config: resolveTranslationConfig({ translationMode: "api", ...settings }) });
+  const luna = body({ translationProvider: "openai" });
+  assert.equal(luna.model, "gpt-6-luna");
+  assert.equal(luna.reasoning_effort, "none");
+  assert.equal(luna.max_completion_tokens > 0, true);
+  assert.equal("max_tokens" in luna, false);
+  assert.equal("temperature" in luna, false);
+  assert.equal("thinking" in luna, false);
+
+  const legacy = body({ translationProvider: "openai", translationModel: "gpt-4o-mini" });
+  assert.equal("reasoning_effort" in legacy, false, "models without effort levels get no effort field");
+
+  const qwen = body({ translationProvider: "bailian" });
+  assert.equal(qwen.enable_thinking, false);
+  assert.equal("thinking" in qwen, false);
+
+  const local = body({ translationProvider: "custom", translationModel: "qwen3" });
+  assert.equal("thinking" in local || "enable_thinking" in local || "reasoning_effort" in local, false);
 });
 
 test("buildTranslationRequestBody includes DeepSeek thinking-off and segments", () => {
@@ -285,10 +405,11 @@ test("buildTranslationRequestBody injects only matched glossary terms and domain
   });
   const plainPayload = JSON.parse(plain.messages[1].content);
   assert.equal("glossary" in plainPayload, false);
-  assert.doesNotMatch(plain.messages[0].content, /glossary|当前直播领域/);
+  assert.equal("domain" in plainPayload, false);
+  assert.equal("partial" in plainPayload, false);
 
   // Matched segments inject only the hit entries (keyed by the ASR spelling)
-  // and append the domain/glossary rules to the system prompt.
+  // and add the partial/domain fields to the user payload.
   const matched = buildTranslationRequestBody({
     texts: ["Welcome to path of excel, your spirit is low."],
     config,
@@ -302,9 +423,17 @@ test("buildTranslationRequestBody injects only matched glossary terms and domain
     spirit: "精魂"
   });
   assert.equal("Chaos Orb" in matchedPayload.glossary, false);
-  assert.match(matched.messages[0].content, /7\. 当前输入是实时字幕里尚未定稿的半句/);
-  assert.match(matched.messages[0].content, /8\. 当前直播领域：Path of Exile \(流放之路\) 游戏直播/);
-  assert.match(matched.messages[0].content, /9\. 必须严格使用输入 glossary 中的术语译名/);
+  assert.match(matchedPayload.partial, /尚未定稿的半句/);
+  assert.equal(matchedPayload.domain, "Path of Exile (流放之路) 游戏直播");
+  assert.equal(matched.messages[0].content, plain.messages[0].content);
+});
+
+test("parseTranslationOutput rejects JSON with extra non-empty items", () => {
+  assert.throws(
+    () => parseTranslationOutput('["你好","世界","多余"]', 2),
+    (error) => error.code === "count_mismatch"
+  );
+  assert.deepEqual(parseTranslationOutput('["你好","世界",""]', 2), ["你好", "世界"]);
 });
 
 test("parseTranslationOutput handles JSON, code fences, objects and numbered lines", () => {
@@ -332,29 +461,29 @@ test("parseTranslationOutput handles JSON, code fences, objects and numbered lin
   );
   assert.throws(
     () => parseTranslationOutput("1. 你好\n2. 再见\n注意：这是解释", 2),
-    /条数不匹配/
+    zhError(/条数不匹配/)
   );
   assert.throws(
     () => parseTranslationOutput('["只有一条"]', 2),
-    /条数不匹配/
+    zhError(/条数不匹配/)
   );
   assert.throws(
     () => parseTranslationOutput('["译A","译C"]', 3),
-    /条数不匹配/
+    zhError(/条数不匹配/)
   );
   assert.throws(
     () => parseTranslationOutput('[ "你好", "今天', 2),
-    /JSON 不完整/
+    zhError(/JSON 不完整/)
   );
   assert.deepEqual(parseTranslationOutput("not a translation", 1), [
     "not a translation"
   ]);
-  assert.throws(() => parseTranslationOutput("", 1), /空内容/);
-  assert.throws(() => parseTranslationOutput("   ", 1), /空内容/);
+  assert.throws(() => parseTranslationOutput("", 1), zhError(/空内容/));
+  assert.throws(() => parseTranslationOutput("   ", 1), zhError(/空内容/));
 });
 
 test("mapHttpError produces actionable Chinese messages", () => {
-  assert.match(mapHttpError(401, "{}", "DeepSeek").message, /Key 无效/);
+  assert.match(renderZh(mapHttpError(401, "{}", "DeepSeek")), /DeepSeek API Key 无效/);
   assert.equal(mapHttpError(402, "{}", "DeepSeek").code, "balance");
   assert.equal(mapHttpError(429, "{}", "DeepSeek").code, "rate_limit");
   assert.equal(mapHttpError(400, "{}", "DeepSeek").code, "bad_request");
@@ -538,7 +667,7 @@ test("translateTexts reports auth and malformed responses", async () => {
       }),
       (error) => {
         assert.equal(error.code, "auth");
-        assert.match(error.message, /Key 无效/);
+        assert.match(renderZh(error), /Key 无效/);
         return true;
       }
     );
@@ -556,7 +685,7 @@ test("translateTexts reports auth and malformed responses", async () => {
         texts: ["Hello."],
         config: customConfig(badServer.url)
       }),
-      /空内容/
+      zhError(/空内容/)
     );
   } finally {
     await badServer.close();
@@ -641,4 +770,208 @@ test("testTranslationConnection performs a real round trip", async () => {
   } finally {
     await server.close();
   }
+});
+
+test("translateTexts learns the request shape and skips failed round trips next time", async () => {
+  resetTranslationRequestShapeCache();
+  // Rejects thinking, then temperature, then max_tokens, one field per call.
+  const server = await startServer(({ response, body }) => {
+    const reject = (message) => {
+      response.writeHead(400, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({ error: { message } }));
+    };
+    if ("thinking" in body) return reject("unknown parameter: thinking");
+    if ("temperature" in body) return reject("temperature is not supported");
+    if ("max_tokens" in body) return reject("use max_completion_tokens instead of max_tokens");
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(successBody(["你好。"]));
+  });
+  try {
+    const first = await translateTexts({
+      texts: ["Hello."],
+      config: deepseekConfig(server.url)
+    });
+    assert.deepEqual(first.translations, ["你好。"]);
+    assert.equal(server.requests.length, 4);
+
+    // Same endpoint and model with a different key still reuses the shape.
+    await translateTexts({
+      texts: ["Hello."],
+      config: deepseekConfig(server.url, {
+        translationApiKeys: { deepseek: "another-key" }
+      })
+    });
+    assert.equal(server.requests.length, 5);
+    const last = server.requests.at(-1).body;
+    assert.equal("thinking" in last, false);
+    assert.equal("max_tokens" in last, false);
+    assert.equal("temperature" in last, false);
+    assert.ok(last.max_completion_tokens);
+
+    resetTranslationRequestShapeCache();
+    await translateTexts({
+      texts: ["Hello."],
+      config: deepseekConfig(server.url)
+    });
+    assert.equal(server.requests.length, 9);
+  } finally {
+    resetTranslationRequestShapeCache();
+    await server.close();
+  }
+});
+
+test("the learned request shape is per endpoint and model", async () => {
+  resetTranslationRequestShapeCache();
+  const server = await startServer(({ response, body }) => {
+    if ("thinking" in body) {
+      response.writeHead(400, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({ error: { message: "unknown parameter: thinking" } }));
+      return;
+    }
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(successBody(["你好。"]));
+  });
+  try {
+    await translateTexts({ texts: ["Hi."], config: deepseekConfig(server.url) });
+    assert.equal(server.requests.length, 2);
+    // A different model on the same endpoint starts from the defaults again.
+    await translateTexts({
+      texts: ["Hi."],
+      config: deepseekConfig(server.url, { translationModel: "other-model" })
+    });
+    assert.equal(server.requests.length, 4);
+  } finally {
+    resetTranslationRequestShapeCache();
+    await server.close();
+  }
+});
+
+test("parseRetryAfter reads seconds and HTTP dates and clamps the result", () => {
+  const now = Date.parse("2026-01-01T00:00:00Z");
+  assert.equal(parseRetryAfter("2", now), 2000);
+  assert.equal(parseRetryAfter(" 1.5 ", now), 1500);
+  assert.equal(parseRetryAfter("0", now), 0);
+  assert.equal(parseRetryAfter("Thu, 01 Jan 2026 00:00:05 GMT", now), 5000);
+  assert.equal(parseRetryAfter("Wed, 31 Dec 2025 23:59:00 GMT", now), 0);
+  assert.equal(parseRetryAfter("86400", now), MAX_RETRY_AFTER_MS);
+  assert.equal(parseRetryAfter("", now), null);
+  assert.equal(parseRetryAfter(null, now), null);
+  assert.equal(parseRetryAfter("soon", now), null);
+  assert.equal(parseRetryAfter("-5", now), null);
+});
+
+test("mapHttpError exposes retryAfterMs only for 429 and 503", () => {
+  assert.equal(mapHttpError(429, "{}", "X", "3").retryAfterMs, 3000);
+  assert.equal(mapHttpError(503, "{}", "X", "4").retryAfterMs, 4000);
+  assert.equal(mapHttpError(500, "{}", "X", "4").retryAfterMs, null);
+  assert.equal(mapHttpError(429, "{}", "X").retryAfterMs, null);
+});
+
+test("translateTexts surfaces the Retry-After header on a 429", async () => {
+  resetTranslationRequestShapeCache();
+  const server = await startServer(({ response }) => {
+    response.writeHead(429, {
+      "Content-Type": "application/json",
+      "Retry-After": "7"
+    });
+    response.end(JSON.stringify({ error: { message: "slow down" } }));
+  });
+  try {
+    await assert.rejects(
+      translateTexts({ texts: ["Hi."], config: customConfig(server.url) }),
+      (error) =>
+        error.code === "rate_limit" &&
+        error.status === 429 &&
+        error.retryAfterMs === 7000
+    );
+  } finally {
+    await server.close();
+  }
+});
+
+test("isSplittableTranslationError flags only batch-shape failures", () => {
+  const codeOf = (code) => new TranslationApiError("x", { code });
+  assert.equal(isSplittableTranslationError(codeOf("count_mismatch"), 4), true);
+  assert.equal(isSplittableTranslationError(codeOf("parse_error"), 2), true);
+  assert.equal(isSplittableTranslationError(codeOf("truncated")), true);
+  assert.equal(isSplittableTranslationError(codeOf("count_mismatch"), 1), false);
+  for (const code of ["auth", "rate_limit", "timeout", "network", "aborted", "empty_response"]) {
+    assert.equal(isSplittableTranslationError(codeOf(code), 4), false, code);
+  }
+  assert.equal(isSplittableTranslationError(new Error("boom"), 4), false);
+});
+
+test("parseTranslationOutput keeps stable codes and the exact-count rule", () => {
+  const codeOf = (fn) => {
+    try {
+      fn();
+    } catch (error) {
+      return error.code;
+    }
+    return null;
+  };
+  assert.equal(codeOf(() => parseTranslationOutput('["a","b","c"]', 2)), "count_mismatch");
+  assert.equal(codeOf(() => parseTranslationOutput('["a"]', 2)), "count_mismatch");
+  assert.equal(codeOf(() => parseTranslationOutput('["a", ', 2)), "parse_error");
+  assert.deepEqual(parseTranslationOutput('["a","b",""]', 2), ["a", "b"]);
+});
+
+test("the built-in provider translates through the injected translator with glossary placeholders", async () => {
+  const config = resolveTranslationConfig({ translationProvider: "chrome" });
+  const seen = [];
+  const builtinTranslate = async (texts) => {
+    seen.push(texts);
+    return texts.map((text) =>
+      text.includes("Zorvex") ? text.replace("Zorvex", "zorvex").replace("Kill the", "击杀") : `译:${text}`
+    );
+  };
+  const result = await translateTexts({
+    texts: ["Kill the Searing Exarch", "hello"],
+    config,
+    glossaryEntries: [{ sources: ["Searing Exarch"], target: "焚界者" }],
+    builtinTranslate,
+    fetchImpl: () => {
+      throw new Error("the built-in path must not fetch");
+    }
+  });
+  assert.deepEqual(seen, [["Kill the Zorvex", "hello"]]);
+  assert.deepEqual(result.translations, ["击杀焚界者", "译:hello"]);
+  assert.equal(result.model, "chrome-builtin");
+});
+
+test("a dropped placeholder retranslates that line without the glossary", async () => {
+  const config = resolveTranslationConfig({ translationProvider: "chrome" });
+  const calls = [];
+  const result = await translateTexts({
+    texts: ["Kill the Searing Exarch"],
+    config,
+    glossaryEntries: [{ sources: ["Searing Exarch"], target: "焚界者" }],
+    builtinTranslate: async (texts) => {
+      calls.push(texts);
+      return texts.map(() => (calls.length === 1 ? "杀死佐维克斯" : "杀死灼热总督"));
+    }
+  });
+  assert.deepEqual(calls, [["Kill the Zorvex"], ["Kill the Searing Exarch"]]);
+  assert.deepEqual(result.translations, ["杀死灼热总督"]);
+});
+
+test("the built-in provider without a translator fails with a stable code", async () => {
+  await assert.rejects(
+    translateTexts({ texts: ["hi"], config: resolveTranslationConfig({}) }),
+    (error) => error.code === "builtin_unavailable"
+  );
+});
+
+test("the bailian translation endpoint follows the speech region and keeps the shared key", () => {
+  const cn = resolveTranslationConfig({ translationProvider: "bailian", translationApiKeys: { bailian: "sk" } });
+  assert.equal(cn.baseUrl, "https://dashscope.aliyuncs.com/compatible-mode/v1");
+  assert.equal(cn.enabled, true);
+  const intl = resolveTranslationConfig({
+    translationProvider: "bailian",
+    translationBaseUrl: "https://attacker.example/v1",
+    bailianRegion: "intl",
+    translationApiKeys: { bailian: "sk" }
+  });
+  assert.equal(intl.baseUrl, "https://dashscope-intl.aliyuncs.com/compatible-mode/v1");
+  assert.equal(intl.model, "qwen-plus");
 });

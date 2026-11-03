@@ -8,80 +8,56 @@
  *   GET  /models    本地模型档位（是否已下载、下载链接）
  *   POST /start     一键拉起 WhisperLiveKit + llama.cpp（可选翻译模型与 ASR 尺寸）
  *   POST /stop      停止本项目自己的两个服务
- *   POST /download  下载所选翻译模型的 GGUF（curl 断点续传，带进度）
+ *   POST /download  下载所选翻译模型的 GGUF（fetch 断点续传，带进度）
  *
  * 只绑定回环地址，并且只接受来自 chrome-extension:// 页面的跨域请求。
- * 启动逻辑不在这里重复实现，统一调用 scripts/Start-Services.ps1。
+ * 启停逻辑不在这里重复实现，统一交给同进程的 service-manager.mjs
+ * （也是 scripts/services.mjs 命令行用的那一份）。
  */
 import http from "node:http";
-import { spawn } from "node:child_process";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  ASR_MODELS,
+  DEFAULT_PORTS,
+  TRANSLATION_MODELS,
+  resolveConfig,
+  resolveAsrModel,
+  resolveTranslationModel,
+  translationModelPath,
+  translationModelUrls,
+  whisperCppModel
+} from "./config.mjs";
+import {
+  DownloadError,
+  configureProxyFromEnv,
+  discardStalePart,
+  downloadToFile,
+  fileSize,
+  probeTotalBytes
+} from "./download.mjs";
+import { createServiceManager } from "./service-manager.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(HERE, "..", "..");
-const SCRIPTS = path.join(ROOT, "scripts");
-const RESEARCH = path.join(ROOT, ".research");
-const LOGS = path.join(ROOT, "logs");
-const START_SCRIPT = path.join(SCRIPTS, "Start-Services.ps1");
-const STOP_SCRIPT = path.join(SCRIPTS, "Stop-Services.ps1");
 
 const HOST = process.env.SHENGMU_LOCAL_SERVICE_HOST || "127.0.0.1";
-const PORT = Number(process.env.SHENGMU_LOCAL_SERVICE_PORT || 8014);
-const TRANSLATION_PORT = Number(process.env.SHENGMU_TRANSLATION_PORT || 8013);
-const ASR_PORT = Number(process.env.SHENGMU_ASR_PORT || 8010);
-const SERVICE_VERSION = "1.0.0";
+const REQUESTED_PORT = process.env.SHENGMU_LOCAL_SERVICE_PORT
+  ? Number(process.env.SHENGMU_LOCAL_SERVICE_PORT)
+  : DEFAULT_PORTS.control;
+// Tests listen on port 0, so hostAllowed compares against the bound port.
+let PORT = REQUESTED_PORT;
+const PID_FILE = process.env.SHENGMU_LOCAL_SERVICE_PID_FILE || path.join(HERE, "server.pid");
+const SERVICE_VERSION = "1.1.0";
 
-const POWERSHELL = process.env.SHENGMU_POWERSHELL || "powershell.exe";
-const CURL = process.env.SHENGMU_CURL || "C:\\Windows\\System32\\curl.exe";
-const HF_CACHE = path.join(os.homedir(), ".cache", "huggingface", "hub");
-
-const TRANSLATION_MODELS = [
-  {
-    id: "9b-q4km",
-    label: "Index-Translate-9B Q4_K_M",
-    alias: "Index-Translate-9B",
-    file: "Index-Translate-9B.Q4_K_M.gguf",
-    dir: path.join(RESEARCH, "models", "index-translate-9b"),
-    pageUrl: "https://huggingface.co/IndexTeam/Index-Translate-9B-GGUF",
-    downloadUrl:
-      "https://huggingface.co/IndexTeam/Index-Translate-9B-GGUF/resolve/main/Index-Translate-9B.Q4_K_M.gguf",
-    approxBytes: 5780090304,
-    note: "5.4 GiB · 质量最好"
-  },
-  {
-    id: "2b-iq4xs",
-    label: "Index-Translate-2B IQ4_XS",
-    alias: "Index-Translate-2B",
-    file: "Index-Translate-2B.IQ4_XS.gguf",
-    dir: path.join(RESEARCH, "models", "index-translate-2b"),
-    pageUrl: "https://huggingface.co/IndexTeam/Index-Translate-2B-GGUF",
-    downloadUrl:
-      "https://huggingface.co/IndexTeam/Index-Translate-2B-GGUF/resolve/main/Index-Translate-2B.IQ4_XS.gguf",
-    approxBytes: 1234377216,
-    note: "1.15 GiB · 省显存"
-  }
-];
-
-const ASR_MODELS = [
-  {
-    id: "large-v3-turbo",
-    label: "large-v3-turbo",
-    repo: "models--mobiuslabsgmbh--faster-whisper-large-v3-turbo",
-    sizeLabel: "约 1.6 GB",
-    note: "精度最好（默认）"
-  },
-  {
-    id: "medium",
-    label: "medium",
-    repo: "models--Systran--faster-whisper-medium",
-    sizeLabel: "约 1.5 GB",
-    note: "更快更省显存，精度略降"
-  }
-];
+// Must run before the first request: fetch only honors HTTP(S)_PROXY once the
+// global dispatcher is configured.
+const proxySetup = configureProxyFromEnv();
+const CONFIG = resolveConfig();
+const LOGS = CONFIG.logsDir;
+const TRANSLATION_PORT = CONFIG.ports.translation;
+const ASR_PORT = CONFIG.ports.asr;
 
 const DOWNLOAD_POLL_MS = 700;
 const MAX_WLK_GLOSSARY_CHARS = 4000;
@@ -89,26 +65,59 @@ const logTail = [];
 let job = {
   state: "idle",
   action: "",
-  message: "",
+  ...jobText("", ""),
   startedAt: null,
   finishedAt: null,
   exitCode: null
 };
-let jobChild = null;
+// The in-flight start: its AbortController, and a promise that settles (never
+// rejects) once the job state reflects the outcome.
+let jobAbort = null;
+let jobSettled = null;
 // WhisperLiveKit has no endpoint that reports whether it translates or which
 // glossary it was started with, so what we last started it with is the only
 // reliable hint. null means unknown.
 let startedWlkMode = null;
 let startedGlossarySignature = null;
 let download = null;
-let downloadChild = null;
+let downloadAbort = null;
+// handleStart and startDownload await probes before they publish their busy
+// state, so these flags close the window in which a second request (double
+// click, two popups) would pass the 409 guard and spawn a second launcher.
+let startPending = false;
+let downloadPending = false;
+// Bumped by /stop so a start that is still probing knows it was cancelled.
+let stopGeneration = 0;
 
 function sanitizeWlkGlossary(value) {
   return String(value ?? "")
+    // eslint-disable-next-line no-control-regex -- strip control characters before they reach a CLI argument
     .replace(/[\0-\x1F\x7F]+/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, MAX_WLK_GLOSSARY_CHARS);
+}
+
+// The popup renders errorCode / messageKey through chrome.i18n. `error` and
+// `message` stay Chinese for scripts/services.mjs and extension builds that
+// predate the keys. An empty code means the text is not ours to translate.
+function errorFields(error, errorCode = "", ...errorParams) {
+  return { error, errorCode, errorParams: errorParams.map(String) };
+}
+
+function failure(error, errorCode, ...errorParams) {
+  return { ok: false, ...errorFields(error, errorCode, ...errorParams) };
+}
+
+function jobText(message, messageKey, ...messageParams) {
+  return { message, messageKey, messageParams: messageParams.map(String) };
+}
+
+class RequestError extends Error {
+  constructor(message, errorCode) {
+    super(message);
+    this.errorCode = errorCode;
+  }
 }
 
 function pushLog(line) {
@@ -149,7 +158,7 @@ async function readJsonBody(req, limitBytes = 16 * 1024) {
   let size = 0;
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > limitBytes) throw new Error("请求体过大");
+    if (size > limitBytes) throw new RequestError("请求体过大", "server_body_too_large");
     chunks.push(chunk);
   }
   if (!chunks.length) return {};
@@ -157,7 +166,7 @@ async function readJsonBody(req, limitBytes = 16 * 1024) {
     const parsed = JSON.parse(Buffer.concat(chunks).toString("utf8"));
     return parsed && typeof parsed === "object" ? parsed : {};
   } catch {
-    throw new Error("请求体不是合法 JSON");
+    throw new RequestError("请求体不是合法 JSON", "server_body_invalid_json");
   }
 }
 
@@ -240,16 +249,20 @@ function fileExists(filePath) {
   }
 }
 
-function fileSize(filePath) {
-  try {
-    return fs.statSync(filePath).size;
-  } catch {
-    return 0;
-  }
-}
+// The weight file each backend leaves in a Hugging Face snapshot.
+const HF_WEIGHT_FILES = {
+  "faster-whisper": ["model.bin"],
+  "mlx-whisper": ["weights.safetensors", "weights.npz"]
+};
 
-function asrCacheInfo(repo) {
-  const repoDir = path.join(HF_CACHE, repo);
+function asrCacheInfo(model) {
+  if (CONFIG.asrBackend === "whisper-cpp") {
+    return fileExists(whisperCppModel(CONFIG, model.id).path);
+  }
+  const repo = model.hfRepo[CONFIG.asrBackend];
+  const weights = HF_WEIGHT_FILES[CONFIG.asrBackend] || [];
+  if (!repo) return false;
+  const repoDir = path.join(CONFIG.hfCacheDir, `models--${repo.replace("/", "--")}`);
   try {
     const snapshots = path.join(repoDir, "snapshots");
     const entries = fs.readdirSync(snapshots, { withFileTypes: true });
@@ -257,7 +270,7 @@ function asrCacheInfo(repo) {
       if (!entry.isDirectory()) continue;
       const snapshotDir = path.join(snapshots, entry.name);
       const files = fs.readdirSync(snapshotDir);
-      if (files.includes("model.bin")) return true;
+      if (weights.some((name) => files.includes(name))) return true;
     }
   } catch {
     return false;
@@ -268,7 +281,7 @@ function asrCacheInfo(repo) {
 function listModels() {
   return {
     translation: TRANSLATION_MODELS.map((model) => {
-      const filePath = path.join(model.dir, model.file);
+      const filePath = translationModelPath(CONFIG, model);
       const exists = fileExists(filePath);
       const bytes = exists ? fileSize(filePath) : model.approxBytes;
       return {
@@ -280,15 +293,17 @@ function listModels() {
         exists,
         bytes,
         note: model.note,
-        pageUrl: model.pageUrl,
+        pageUrl: translationModelUrls(CONFIG, model).pageUrl,
         downloading: download?.modelId === model.id ? download.state : null
       };
     }),
     asr: ASR_MODELS.map((model) => ({
       id: model.id,
       label: model.label,
-      cached: asrCacheInfo(model.repo),
-      sizeLabel: model.sizeLabel,
+      cached: asrCacheInfo(model),
+      // sizeLabel is the pre-i18n Chinese text; sizeNote is its message.
+      sizeLabel: `约 ${model.approxSize}`,
+      sizeNote: { key: "server_approx_size", params: [model.approxSize] },
       note: model.note
     }))
   };
@@ -304,32 +319,13 @@ function activeModels(models, services) {
   };
 }
 
-function spawnPowerShell(scriptPath, args) {
-  const child = spawn(
-    POWERSHELL,
-    ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath, ...args],
-    { cwd: ROOT, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] }
-  );
-  child.stdout.on("data", (chunk) => {
-    const lines = String(chunk).split(/\r?\n/).filter(Boolean);
-    lines.forEach(pushLog);
-    appendJobLog(lines);
-  });
-  child.stderr.on("data", (chunk) => {
-    const lines = String(chunk).split(/\r?\n/).filter(Boolean);
-    lines.forEach(pushLog);
-    appendJobLog(lines);
-  });
-  return child;
-}
-
-function resolveTranslationModel(id) {
-  return TRANSLATION_MODELS.find((model) => model.id === id) || null;
-}
-
-function resolveAsrModel(id) {
-  return ASR_MODELS.find((model) => model.id === id) || null;
-}
+const manager = createServiceManager({
+  config: CONFIG,
+  log: (line) => {
+    pushLog(line);
+    appendJobLog([line]);
+  }
+});
 
 async function hasPortListener(port) {
   const health = await probeHealth(port);
@@ -337,42 +333,60 @@ async function hasPortListener(port) {
 }
 
 async function runStopServices() {
-  return new Promise((resolve) => {
-    const child = spawnPowerShell(STOP_SCRIPT, []);
-    child.on("error", (error) => resolve({ ok: false, error: error.message }));
-    child.on("exit", (code) => resolve({ ok: code === 0, code }));
-  });
+  try {
+    await manager.stop();
+    return { ok: true, code: 0 };
+  } catch (error) {
+    pushLog(error.message);
+    appendJobLog([error.message]);
+    return { ok: false, error: error.message, code: 1 };
+  }
 }
 
 async function handleStart(payload) {
-  if (job.state === "starting" || job.state === "stopping") {
-    return { status: 409, body: { ok: false, error: `已有任务在进行：${job.state}` } };
+  if (startPending || job.state === "starting" || job.state === "stopping") {
+    const busyState = startPending ? "starting" : job.state;
+    return {
+      status: 409,
+      body: failure(`已有任务在进行：${busyState}`, "server_job_busy", busyState)
+    };
   }
+  startPending = true;
+  try {
+    return await startServices(payload, stopGeneration);
+  } finally {
+    startPending = false;
+  }
+}
+
+async function startServices(payload, generation) {
   const asrModel = resolveAsrModel(payload.asrModel);
   if (!asrModel) {
-    return { status: 400, body: { ok: false, error: "未知的 ASR 模型" } };
+    return { status: 400, body: failure("未知的 ASR 模型", "server_unknown_asr_model") };
   }
-  // In "api" mode with a working key the extension translates with its own
-  // provider, so the local llama.cpp server would only burn the VRAM the ASR
+  // In "api" mode with a ready provider the extension translates by itself, so the local llama.cpp server would only burn the VRAM the ASR
   // needs and hand WhisperLiveKit a translation the extension discards. Start
-  // ASR only. Without an explicit `true` (old popup, no key, `server` mode) the
-  // local model is still the one producing Chinese, so it starts as usual.
+  // ASR only. Without an explicit `true` (old popup, provider not ready, `server`
+  // mode) the local model is still the one producing Chinese, so it starts as usual.
   const asrOnly =
     payload.translationMode === "api" && payload.apiTranslationConfigured === true;
   const translationModel = resolveTranslationModel(payload.translationModel);
   if (!asrOnly) {
     if (!translationModel) {
-      return { status: 400, body: { ok: false, error: "未知的本地翻译模型" } };
+      return { status: 400, body: failure("未知的本地翻译模型", "server_unknown_translation_model") };
     }
-    const modelPath = path.join(translationModel.dir, translationModel.file);
+    const modelPath = translationModelPath(CONFIG, translationModel);
     if (!fileExists(modelPath)) {
       return {
         status: 409,
         body: {
-          ok: false,
-          error: `本地翻译模型尚未下载：${translationModel.file}`,
+          ...failure(
+            `本地翻译模型尚未下载：${translationModel.file}`,
+            "server_translation_model_missing",
+            translationModel.file
+          ),
           needsDownload: translationModel.id,
-          downloadUrl: translationModel.downloadUrl
+          downloadUrl: translationModelUrls(CONFIG, translationModel).downloadUrl
         }
       };
     }
@@ -397,13 +411,13 @@ async function handleStart(payload) {
 
   if (asrOnly) {
     if (translationOnline) {
-      const failure = await stopServicesOrFail(
+      const stopFailure = await stopServicesOrFail(
         "API 翻译模式：停止本地翻译服务，把显存让给 ASR"
       );
-      if (failure) {
+      if (stopFailure) {
         return {
           status: 500,
-          body: { ok: false, error: `停止旧服务失败：${failure}` }
+          body: failure(`停止旧服务失败：${stopFailure}`, "server_stop_old_failed", stopFailure)
         };
       }
     }
@@ -411,27 +425,23 @@ async function handleStart(payload) {
     const modelMismatch =
       status.translation.online && status.translation.model !== translationModel.alias;
     if (modelMismatch || (!status.translation.online && translationOnline)) {
-      const failure = await stopServicesOrFail(
+      const stopFailure = await stopServicesOrFail(
         `停止旧翻译服务（当前 ${status.translation.model || "未知"}）`
       );
-      if (failure) {
+      if (stopFailure) {
         return {
           status: 500,
-          body: { ok: false, error: `停止旧服务失败：${failure}` }
+          body: failure(`停止旧服务失败：${stopFailure}`, "server_stop_old_failed", stopFailure)
         };
       }
     }
   }
 
   const desiredGlossary = asrOnly ? "" : sanitizeWlkGlossary(payload.glossary);
-  const startArgs = ["-AsrModel", asrModel.id];
-  if (asrOnly) {
-    startArgs.push("-AsrOnly");
-  } else {
-    startArgs.push("-TranslationModel", translationModel.id);
-    if (desiredGlossary) {
-      startArgs.push("-Glossary", desiredGlossary);
-    }
+  const request = { asrModel: asrModel.id, asrOnly, restart: false };
+  if (!asrOnly) {
+    request.translationModel = translationModel.id;
+    request.glossary = desiredGlossary;
   }
 
   // WhisperLiveKit does not expose its translation mode or glossary over HTTP,
@@ -454,7 +464,11 @@ async function handleStart(payload) {
           : "WhisperLiveKit 可能仍运行在 ASR-only，重启以恢复翻译"
         : "术语库已变更，重启 WhisperLiveKit 以加载新术语表"
     );
-    startArgs.push("-Restart");
+    request.restart = true;
+  }
+
+  if (generation !== stopGeneration) {
+    return { status: 409, body: failure("启动已被停止请求取消", "server_start_cancelled") };
   }
 
   job = {
@@ -462,240 +476,231 @@ async function handleStart(payload) {
     action: "start",
     translationMode: asrOnly ? "asr-only" : "translation",
     glossarySignature: desiredGlossary,
-    message: asrOnly
-      ? `正在启动 ASR ${asrModel.label}（API 翻译，不启动本地翻译模型）`
-      : `正在启动 ${translationModel.label} + ${asrModel.label}`,
+    ...(asrOnly
+      ? jobText(
+          `正在启动 ASR ${asrModel.label}（API 翻译，不启动本地翻译模型）`,
+          "server_job_starting_asr_only",
+          asrModel.label
+        )
+      : jobText(
+          `正在启动 ${translationModel.label} + ${asrModel.label}`,
+          "server_job_starting",
+          translationModel.label,
+          asrModel.label
+        )),
     startedAt: Date.now(),
     finishedAt: null,
     exitCode: null
   };
 
-  const child = spawnPowerShell(START_SCRIPT, startArgs);
-  jobChild = child;
-  child.on("error", (error) => {
-    jobChild = null;
-    if (job.state === "stopping") return;
-    job = {
-      ...job,
-      state: "error",
-      message: `启动失败：${error.message}`,
-      finishedAt: Date.now()
-    };
-  });
-  child.on("exit", (code) => {
-    jobChild = null;
-    // /stop kills the launcher; the stop handler owns the final job state.
-    if (job.state === "stopping") return;
-    const finishedAt = Date.now();
-    if (code === 0) {
-      startedWlkMode = job.translationMode || null;
-      startedGlossarySignature = job.glossarySignature ?? "";
-      job = { ...job, state: "finished", message: "本地服务已就绪", finishedAt, exitCode: code };
-    } else {
-      const tail = logTail.slice(-4).join(" | ");
-      job = {
-        ...job,
-        state: "error",
-        message: tail || `启动脚本退出码 ${code}`,
-        finishedAt,
-        exitCode: code
-      };
-    }
-  });
+  const controller = new AbortController();
+  const startedJob = job;
+  jobAbort = controller;
+  jobSettled = manager
+    .start(request, { signal: controller.signal })
+    .then(
+      () => {
+        // /stop aborts the start; the stop handler owns the final job state.
+        if (job !== startedJob) return;
+        startedWlkMode = job.translationMode || null;
+        startedGlossarySignature = job.glossarySignature ?? "";
+        job = {
+          ...job,
+          state: "finished",
+          ...jobText("本地服务已就绪", "server_job_ready"),
+          finishedAt: Date.now(),
+          exitCode: 0
+        };
+      },
+      (error) => {
+        if (job !== startedJob) return;
+        const message = error?.message || String(error);
+        pushLog(message);
+        appendJobLog([message]);
+        job = {
+          ...job,
+          state: "error",
+          ...jobText(`启动失败：${message}`, "server_job_start_failed", message),
+          finishedAt: Date.now(),
+          exitCode: 1
+        };
+      }
+    )
+    .finally(() => {
+      if (jobAbort === controller) {
+        jobAbort = null;
+        jobSettled = null;
+      }
+    });
 
   return { status: 200, body: { ok: true, job } };
 }
 
 async function handleStop() {
   if (job.state === "stopping") {
-    return { status: 409, body: { ok: false, error: "正在停止中" } };
+    return { status: 409, body: failure("正在停止中", "server_stop_in_progress") };
   }
-  if (download?.state === "downloading") {
-    return { status: 409, body: { ok: false, error: "模型下载中，请稍后再停止" } };
+  if (downloadPending || download?.state === "downloading") {
+    return { status: 409, body: failure("模型下载中，请稍后再停止", "server_stop_blocked_by_download") };
   }
-  // A start launcher that is still running would re-create the services after
-  // Stop-Services finished, so terminate it first.
-  if (jobChild) {
-    pushLog("收到停止请求，终止进行中的启动脚本");
-    jobChild.kill();
-    jobChild = null;
+  stopGeneration += 1;
+  // A start that is still running would re-create the services after the stop
+  // finished, so cancel it and let it unwind (its waits are abortable and it
+  // spawns nothing once aborted) before killing what it already launched.
+  const pendingStart = jobSettled;
+  if (jobAbort) {
+    pushLog("收到停止请求，取消进行中的启动任务");
+    jobAbort.abort();
   }
   job = {
     state: "stopping",
     action: "stop",
-    message: "正在停止本地服务",
+    ...jobText("正在停止本地服务", "server_job_stopping"),
     startedAt: Date.now(),
     finishedAt: null,
     exitCode: null
   };
+  if (pendingStart) await pendingStart;
   const result = await runStopServices();
   // Nothing is running any more, so the recorded WhisperLiveKit mode is void.
   if (result.ok) {
     startedWlkMode = null;
     startedGlossarySignature = null;
   }
+  const stopError = String(result.error || result.code);
   job = {
     ...job,
     state: result.ok ? "idle" : "error",
-    message: result.ok ? "已停止" : `停止失败：${result.error || result.code}`,
+    ...(result.ok
+      ? jobText("已停止", "server_job_stopped")
+      : jobText(`停止失败：${stopError}`, "server_job_stop_failed", stopError)),
     finishedAt: Date.now(),
     exitCode: result.code ?? null
   };
-  return { status: 200, body: { ok: result.ok, job, error: result.ok ? undefined : job.message } };
-}
-
-function curlProxyArgs() {
-  if (process.env.SHENGMU_DOWNLOAD_NO_PROXY === "1") return ["--noproxy", "*"];
-  return [];
-}
-
-function runCurlHeadTotal(url) {
-  return new Promise((resolve) => {
-    const child = spawn(
-      CURL,
-      ["-sIL", "--max-time", "25", ...curlProxyArgs(), url],
-      { windowsHide: true, stdio: ["ignore", "pipe", "ignore"] }
-    );
-    let output = "";
-    child.stdout.on("data", (chunk) => {
-      output += String(chunk);
-    });
-    child.on("error", () => resolve(0));
-    child.on("exit", () => {
-      const sizes = [...output.matchAll(/^content-length:\s*(\d+)/gim)].map((match) =>
-        Number(match[1])
-      );
-      // The last hop is the real payload; earlier values belong to redirect
-      // responses whose body is a short HTML page.
-      resolve(sizes.length ? sizes[sizes.length - 1] : 0);
-    });
-  });
+  const body = result.ok
+    ? { ok: true, job }
+    : { ...failure(job.message, job.messageKey, ...job.messageParams), job };
+  return { status: 200, body };
 }
 
 async function startDownload(payload) {
-  if (download?.state === "downloading") {
-    return { status: 409, body: { ok: false, error: `正在下载 ${download.modelId}` } };
+  if (downloadPending || download?.state === "downloading") {
+    const modelId = download?.modelId || "";
+    return {
+      status: 409,
+      body: modelId
+        ? failure(`正在下载 ${modelId}`, "server_download_busy_model", modelId)
+        : failure("正在下载", "server_download_busy")
+    };
   }
+  downloadPending = true;
+  try {
+    return await beginDownload(payload);
+  } finally {
+    downloadPending = false;
+  }
+}
+
+// Failures other than these two carry download.mjs's own text and no code.
+function downloadErrorFields(error) {
+  if (error instanceof DownloadError && error.code === "size-mismatch") {
+    return errorFields(
+      `下载大小不符（期望 ${error.expected}，实际 ${error.actual}）`,
+      "server_download_size_mismatch",
+      error.expected,
+      error.actual
+    );
+  }
+  if (error instanceof DownloadError && error.code === "rename") {
+    return errorFields(`保存失败：${error.message}`, "server_download_save_failed", error.message);
+  }
+  return errorFields(error?.message || String(error));
+}
+
+async function beginDownload(payload) {
   const model = resolveTranslationModel(payload.translationModel);
   if (!model) {
-    return { status: 400, body: { ok: false, error: "未知的本地翻译模型" } };
+    return { status: 400, body: failure("未知的本地翻译模型", "server_unknown_translation_model") };
   }
-  const targetPath = path.join(model.dir, model.file);
+  const targetPath = translationModelPath(CONFIG, model);
   if (fileExists(targetPath)) {
     download = {
       modelId: model.id,
       state: "done",
       receivedBytes: fileSize(targetPath),
       totalBytes: fileSize(targetPath),
-      error: "",
+      ...errorFields(""),
       startedAt: Date.now(),
       finishedAt: Date.now()
     };
     return { status: 200, body: { ok: true, download } };
   }
 
-  await fsp.mkdir(model.dir, { recursive: true });
+  await fsp.mkdir(path.dirname(targetPath), { recursive: true });
   const partPath = `${targetPath}.part`;
-  const totalBytes = await runCurlHeadTotal(model.downloadUrl);
-  const partBytes = fileSize(partPath);
-  if (partBytes > 0 && (partBytes === totalBytes || partBytes > totalBytes)) {
-    // A finished or over-long leftover would make curl answer 416 forever.
-    try {
-      fs.rmSync(partPath, { force: true });
-    } catch {
-      // ignore
-    }
-  }
+  const { downloadUrl } = translationModelUrls(CONFIG, model);
+  const totalBytes = await probeTotalBytes(downloadUrl);
+  discardStalePart(partPath, totalBytes);
   download = {
     modelId: model.id,
     state: "downloading",
     receivedBytes: fileSize(partPath),
     totalBytes,
-    error: "",
+    ...errorFields(""),
     startedAt: Date.now(),
     finishedAt: null
   };
 
-  const child = spawn(
-    CURL,
-    [
-      "-L",
-      "--fail",
-      "--retry",
-      "3",
-      "--retry-delay",
-      "2",
-      "-C",
-      "-",
-      "-o",
-      partPath,
-      ...curlProxyArgs(),
-      model.downloadUrl
-    ],
-    { windowsHide: true, stdio: ["ignore", "ignore", "pipe"] }
-  );
-  downloadChild = child;
-  let stderrTail = "";
-  child.stderr.on("data", (chunk) => {
-    stderrTail = (stderrTail + String(chunk)).slice(-800);
-  });
-
+  const controller = new AbortController();
+  downloadAbort = controller;
   const timer = setInterval(() => {
     if (download?.modelId !== model.id) return;
     download = { ...download, receivedBytes: fileSize(partPath) };
   }, DOWNLOAD_POLL_MS);
 
-  child.on("error", (error) => {
-    clearInterval(timer);
-    download = {
-      ...download,
-      state: "error",
-      error: error.message,
-      finishedAt: Date.now()
-    };
-    downloadChild = null;
-  });
-
-  child.on("exit", (code) => {
-    clearInterval(timer);
-    if (code === 0) {
-      try {
-        fs.renameSync(partPath, targetPath);
+  downloadToFile({ url: downloadUrl, targetPath, totalBytes, signal: controller.signal })
+    .then(
+      () => {
         download = {
           ...download,
           state: "done",
           receivedBytes: fileSize(targetPath),
           totalBytes: fileSize(targetPath),
-          error: "",
+          ...errorFields(""),
           finishedAt: Date.now()
         };
-      } catch (error) {
+      },
+      (error) => {
+        // The .part stays so a retry resumes with Range; the next download
+        // removes it only when its size is already past the total.
         download = {
           ...download,
           state: "error",
-          error: `保存失败：${error.message}`,
+          receivedBytes: fileSize(partPath),
+          ...downloadErrorFields(error),
           finishedAt: Date.now()
         };
       }
-    } else {
-      // Keep the .part file so a retry can resume with `curl -C -`; the next
-      // startDownload removes it only when its size is already past the total.
-      download = {
-        ...download,
-        state: "error",
-        receivedBytes: fileSize(partPath),
-        error: stderrTail.trim().split(/\r?\n/).pop() || `curl 退出码 ${code}`,
-        finishedAt: Date.now()
-      };
-    }
-    downloadChild = null;
-  });
+    )
+    .finally(() => {
+      clearInterval(timer);
+      if (downloadAbort === controller) downloadAbort = null;
+    });
 
   return { status: 200, body: { ok: true, download } };
 }
 
+// DNS rebinding: a page on evil.example that re-resolves to 127.0.0.1 sends
+// same-origin GETs with no Origin header, so the Host header is the only signal.
+function hostAllowed(host) {
+  if (!host) return true; // HTTP/1.0 native callers
+  return [`127.0.0.1:${PORT}`, `localhost:${PORT}`, `[::1]:${PORT}`].includes(
+    host.toLowerCase()
+  );
+}
+
 function originAllowed(origin) {
-  if (!origin) return true; // curl / PowerShell / native callers
+  if (!origin) return true; // curl / scripts / native callers
   return origin.startsWith("chrome-extension://");
 }
 
@@ -705,10 +710,11 @@ async function handleRequest(req, res) {
   // Cross-site browser requests without an Origin header (inline <img>, <link>,
   // etc.) must not reach the control plane either.
   const blocked =
+    !hostAllowed(req.headers.host) ||
     !originAllowed(origin) ||
     (!origin && fetchSite && fetchSite === "cross-site");
   if (blocked) {
-    return sendJson(res, 403, { ok: false, error: "只接受扩展页面调用" });
+    return sendJson(res, 403, failure("只接受扩展页面调用", "server_forbidden_origin"));
   }
   if (origin) {
     res.setHeader("access-control-allow-origin", origin);
@@ -762,15 +768,15 @@ async function handleRequest(req, res) {
       const result = await startDownload(body);
       return sendJson(res, result.status, result.body);
     }
-    return sendJson(res, 404, { ok: false, error: `未知接口：${route}` });
+    return sendJson(res, 404, failure(`未知接口：${route}`, "server_unknown_route", route));
   } catch (error) {
-    return sendJson(res, 500, { ok: false, error: error?.message || String(error) });
+    return sendJson(res, 500, failure(error?.message || String(error), error?.errorCode));
   }
 }
 
 const server = http.createServer((req, res) => {
   void handleRequest(req, res).catch((error) => {
-    sendJson(res, 500, { ok: false, error: error?.message || String(error) });
+    sendJson(res, 500, failure(error?.message || String(error)));
   });
 });
 
@@ -783,30 +789,28 @@ server.on("error", (error) => {
   process.exit(1);
 });
 
-server.listen(PORT, HOST, () => {
-  fs.mkdirSync(RESEARCH, { recursive: true });
-  fs.writeFileSync(
-    path.join(HERE, "server.pid"),
-    String(process.pid),
-    "ascii"
-  );
+server.listen(REQUESTED_PORT, HOST, () => {
+  PORT = server.address().port;
+  fs.mkdirSync(path.dirname(PID_FILE), { recursive: true });
+  fs.writeFileSync(PID_FILE, String(process.pid), "ascii");
   console.log(`[shengmu-local] listening on http://${HOST}:${PORT}`);
+  console.log(
+    `[shengmu-local] ASR backend ${CONFIG.asrBackend}; download proxy ${
+      proxySetup.enabled ? "from environment" : `off (${proxySetup.reason})`
+    }`
+  );
 });
 
 function shutdown() {
   try {
-    fs.rmSync(path.join(HERE, "server.pid"), { force: true });
+    fs.rmSync(PID_FILE, { force: true });
   } catch {
     // ignore
   }
-  // Do not leave an orphaned launcher behind after the control plane exits.
-  if (jobChild) {
-    jobChild.kill();
-    jobChild = null;
-  }
-  if (download?.state === "downloading" && downloadChild) {
-    downloadChild.kill();
-  }
+  // Do not leave a half-finished start behind after the control plane exits;
+  // services it already launched keep running, as they did under PowerShell.
+  jobAbort?.abort();
+  downloadAbort?.abort();
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 1500).unref();
 }

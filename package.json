@@ -1,9 +1,33 @@
 {
   "name": "shengmu-live-captions",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@12.16.1",
+  "engines": {
+    "node": ">=24.22.2"
+  },
   "scripts": {
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "check": "node scripts/check-syntax.mjs",
+    "lint": "eslint .",
+    "typecheck": "tsc -p .",
+    "smoke": "node scripts/smoke-extension.mjs",
+    "verify": "pnpm run check && pnpm run lint && pnpm run typecheck && pnpm test",
+    "services": "node scripts/services.mjs",
+    "services:start": "node scripts/services.mjs start",
+    "services:stop": "node scripts/services.mjs stop",
+    "services:status": "node scripts/services.mjs status",
+    "services:serve": "node scripts/services.mjs serve",
+    "services:serve-stop": "node scripts/services.mjs serve-stop",
+    "dev-browser": "node scripts/services.mjs dev-browser",
+    "native-host:install": "node scripts/native-host/install.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.6",
+    "eslint": "^10.14.0",
+    "globals": "^17.14.0",
+    "typescript": "^7.0.2"
   }
 }

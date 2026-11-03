@@ -1,5 +1,38 @@
 # 项目进度记录 (PROGRESS.md)
 
+## 2026-11-03 · 0.5.6：零配置（Chrome 内置识别与翻译、阿里云百炼、Windows 助手）、多语言界面、后台拆分与门禁
+
+设计/验收记录：`paseo/14-zero-setup-0.5.6.md`。目标是终端用户装上扩展即可使用，不运行脚本、不填 Key、不要求本地显卡。
+
+### 已修改文件
+- `extension/background/`：`service-worker.js` 拆为 `settings-store.js`、`runtime-store.js`、`session-lifecycle.js`、`message-router.js`（`MESSAGE_ROUTES` 发送方策略表）、`history-sync.js`、`views.js`、`offscreen-client.js`，新增 `asr-auth.js`（百炼 Key 经 DNR 会话规则加到握手头）与 `i18n.js`。
+- `extension/lib/`：新增 `translation-scheduler.js`、`transcript-reducer.js`、`translation-cooldown.js`、`caption-delta.js`、`asr-sessions.js`、`ui-model.js`、`i18n-message.js`；`translation-api.js` 固定 system prompt、记住端点请求形状、解析 `Retry-After`、新增 Chrome 内置翻译与通义千问；`glossary.js` 新增占位词保护与还原。
+- `extension/offscreen/`：识别后端 `wlk` / `chrome` / `bailian`，新增 `web-speech.js`；内置翻译 RPC；ASR 套接字积压超过 64 KiB 时丢包计数。
+- `extension/popup/` `extension/subtitle/` `extension/ui/i18n.js`：识别引擎选择、百炼 Key 与地域、内置翻译模型下载、DeepSeek Key 提示、Windows「启动控制服务」；全部文案改走 `chrome.i18n`。
+- `extension/content/content-overlay.js`：状态与模式文案改为文案键，`OVERLAY_VERSION` 8 → 9。
+- `extension/_locales/{zh_CN,en,zh_TW}/messages.json`（新增，416 条）；`extension/manifest.json`：`default_locale`、`__MSG_*__`、`optional_permissions: nativeMessaging`、0.5.5 → 0.5.6。
+- `scripts/services.mjs` `scripts/local-service/`：Node 运行时取代 PowerShell 脚本（已删除）；控制服务返回 `errorCode` / `messageKey`。
+- `scripts/native-host/`（新增）与 `install-windows.cmd`：Windows 本机消息助手及安装脚本，同时登记给 Chrome 与 Edge。`scripts/require-node.mjs`（新增）：Node 24.22.2 下限。
+- `scripts/smoke-extension.mjs`、`.github/workflows/ci.yml`、`eslint.config.js`、`tsconfig.json`、`pnpm-workspace.yaml`：冒烟、CI 矩阵、分层 lint、`lib/` 类型检查；npm 改为 pnpm。
+- `tests/`：113 项 → 269 项，新增共享 `chrome` mock、`i18n` 文案一致性测试、各新模块单测。
+- `README.md`：快速开始改为零配置路径，新增识别引擎表，本地模型降为可选；`paseo/README.md`：索引与常用命令。
+
+### 已执行验证
+- `pnpm run verify`：85 个脚本语法检查、ESLint、类型检查通过，269 项单元测试全部通过；`pnpm run smoke`：11 项全部通过；CI 9 个任务通过。
+- DeepSeek 前缀缓存（同一 14 次请求脚本，冷启动）：命中率 35.3% → 61.9%，未命中输入 token −35%，p50 延迟不变（约 300 ms），0 失败。
+- 增量广播：稳态单次发布 97 KB → 4.6 KB。
+- Chrome 155：本机识别模型安装 19 秒、首个中间结果 0.8 秒、短语偏置有效，`speech.wav` 端到端输出 8 行；内置翻译模型下载 21 秒，之后创建 73 ms、每行约 4 ms，经后台 → offscreen 测试译出「您好，欢迎来到今天的直播。」；占位词还原焚界者、神圣石、贤主，单行 18 ms。
+- DNR：百炼握手头只出现在 offscreen 文档的请求上。`nativeMessaging` 为可选权限，安装扩展不出现新增权限警告。
+- 多语言：`--lang=en-US` 下面板、字幕页与扩展名称为英文，`$1` 参数替换正常。
+
+### 未执行 / 待后续
+- 未在 WLK + 本地 9B 下跑固定样本验收（开发机为 Mac，没有 `.research/` 栈）；缺译、`deliveredRatio`、延迟三项需在 Windows 上复测。
+- 百炼未用真实 Key 端到端测试识别与通义千问翻译。
+- Windows 上需人工确认：Node 拉起 WLK / llama-server 是否闪窗口、llama-server 参数与路径、0.5.5 遗留的无 PID 文件进程、代理下断点续传、`install-windows.cmd` 登记与「启动控制服务」按钮。
+- zh_TW 界面未在浏览器里查看（macOS 上 `--lang` 不生效），只经过文案一致性测试。
+- `AGENTS.md` 未随本次更新（维护者文件），其中的版本号、npm 命令与测试数已过时。
+
+
 ## 2026-11-03 · 0.5.5：去灰化、语义单元合并、语气词三道、采集埋点
 
 设计/验收记录：`paseo/13-subtitle-flow-0.5.5.md`。起因是实际使用反馈四条（译文整行变灰、断句导致中文不连贯、语气词被直译、切页后采集失效），前三者判定为同一条流水线的时间结构问题，统一改；第四条先埋点，按「复现再修」搁置。
