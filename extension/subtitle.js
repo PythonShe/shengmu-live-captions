@@ -565,7 +565,10 @@ function renderTranscript() {
       : "当前场次还没有稳定句子。语音开始后，字幕会自动出现在这里。";
   }
 
-  elements.lineCount.textContent = `${filtered.length} 条字幕`;
+  elements.lineCount.textContent =
+    transcriptQuery && filtered.length > MAX_SEARCH_RESULTS
+      ? `显示最近 ${MAX_SEARCH_RESULTS} / ${filtered.length} 条匹配`
+      : `${filtered.length} 条字幕`;
   if (shouldFollow) {
     followLatest = true;
     scheduleFollowScroll();
