@@ -17,7 +17,8 @@
     "services:status": "node scripts/services.mjs status",
     "services:serve": "node scripts/services.mjs serve",
     "services:serve-stop": "node scripts/services.mjs serve-stop",
-    "dev-browser": "node scripts/services.mjs dev-browser"
+    "dev-browser": "node scripts/services.mjs dev-browser",
+    "native-host:install": "node scripts/native-host/install.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

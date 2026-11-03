@@ -96,6 +96,7 @@ const elements = {
   localServiceCommand: document.querySelector("#localServiceCommand"),
   copyLocalServiceCommand: document.querySelector("#copyLocalServiceCommand"),
   retryLocalService: document.querySelector("#retryLocalService"),
+  startControlService: document.querySelector("#startControlService"),
   asrBackend: document.querySelector("#asrBackend"),
   builtinSupportHint: document.querySelector("#builtinSupportHint"),
   bailianFields: document.querySelector("#bailianFields"),
@@ -122,6 +123,9 @@ const LOCAL_SERVICE_URL = "http://127.0.0.1:8014";
 // Same on every OS since the Node service manager replaced the .ps1 scripts.
 const LOCAL_SERVICE_COMMAND = "pnpm services:serve";
 const LOCAL_POLL_MS = 2500;
+// Registered by install-windows.cmd; same name as scripts/native-host/protocol.mjs.
+const NATIVE_HOST_NAME = "com.shengmu.live_captions";
+const IS_WINDOWS = /^Win/i.test(navigator.userAgentData?.platform || navigator.platform || "");
 
 let activeTab = null;
 let runtimeState = null;
@@ -753,6 +757,39 @@ function renderLocal() {
 
   elements.localServiceOffline.hidden = local.serviceOnline;
   elements.localServiceCommand.textContent = LOCAL_SERVICE_COMMAND;
+  elements.startControlService.hidden = !IS_WINDOWS;
+  elements.startControlService.disabled = local.busy;
+}
+
+/**
+ * Starts the control service through the native host, so Windows users never
+ * open a terminal. The permission is optional and asked for here, on the
+ * click, so nobody else sees a native-messaging warning at install.
+ */
+async function startControlServiceNatively() {
+  local.busy = true;
+  setLocalNotice("正在启动本地控制服务…");
+  renderLocal();
+  try {
+    const granted = await chrome.permissions.request({ permissions: ["nativeMessaging"] });
+    if (!granted) throw new Error("需要允许扩展与本机程序通信，才能从这里启动本地服务");
+    const response = await chrome.runtime.sendNativeMessage(NATIVE_HOST_NAME, {
+      type: "start-control-service"
+    });
+    if (!response?.ok) throw new Error(response?.error || "本地控制服务没有启动");
+    setLocalNotice("本地控制服务已启动");
+  } catch (error) {
+    const message = error?.message || String(error);
+    setLocalNotice(
+      /not found|forbidden/i.test(message)
+        ? "还没装本地助手：在项目目录双击 install-windows.cmd（只需一次），然后再点这里"
+        : `启动失败：${message}`
+    );
+  } finally {
+    local.busy = false;
+  }
+  await pollLocal();
+  renderLocal();
 }
 
 let localPolling = false;
@@ -1252,6 +1289,10 @@ elements.localDownloadButton.addEventListener("click", () => {
 
 elements.copyLocalServiceCommand.addEventListener("click", () => {
   void copyLocalServiceCommand();
+});
+
+elements.startControlService.addEventListener("click", () => {
+  void startControlServiceNatively();
 });
 
 elements.retryLocalService.addEventListener("click", () => {
