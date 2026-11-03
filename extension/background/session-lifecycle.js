@@ -168,7 +168,8 @@ export function createSessionLifecycle({
         streamId: message.streamId,
         asr
       });
-      if (!result?.ok) throw new Error(result?.error || t("session_capture_start_failed"));
+      // The offscreen document has no chrome.i18n and sends messages.
+      if (!result?.ok) throw new Error(render(result?.error) || t("session_capture_start_failed"));
     } catch (error) {
       await finalize("error", errorText(error), { quiet: true });
       throw error;
@@ -315,7 +316,9 @@ export function createSessionLifecycle({
     if (message.sessionId && store.state.sessionId && message.sessionId !== store.state.sessionId) {
       return;
     }
-    const status = message.status || {};
+    // The offscreen document has no chrome.i18n; its detail is a message.
+    const status = { ...(message.status || {}) };
+    status.detail = render(status.detail);
     if (!store.state.active) return;
     store.state.status = status.state || store.state.status;
     store.state.detail = status.detail || store.state.detail;

@@ -9,17 +9,20 @@ const FINAL_WRITE_TIMEOUT_MS = 5000;
 // grow memory without bound) when WhisperLiveKit or the link falls behind.
 const WS_BUFFERED_LIMIT_BYTES = 64 * 1024;
 
-// chrome.i18n; this classic script cannot import ui/i18n.js.
-function t(key, ...params) {
-  return chrome.i18n.getMessage(key, params.map((param) => String(param ?? ""))) || key;
+// Offscreen documents get chrome.runtime only, no chrome.i18n. User-facing
+// text therefore leaves here as { key, params } messages (the lib/
+// i18n-message.js shape) and the worker renders it.
+function msg(key, ...params) {
+  return { key, params };
 }
 
-// Renders a lib/ { key, params } message (see lib/i18n-message.js).
-function render(value) {
-  if (value && typeof value === "object" && typeof value.key === "string") {
-    return t(value.key, ...(value.params || []).map(render));
-  }
-  return value == null ? "" : String(value);
+function localError(key, ...params) {
+  return Object.assign(new Error(key), { localMessage: msg(key, ...params) });
+}
+
+// What to send for anything thrown: its message when it has one, else text.
+function errorPayload(error) {
+  return error?.localMessage || error?.message || String(error);
 }
 
 let sessionId = null;
@@ -74,7 +77,7 @@ let translatorPromise = null;
 function normalizeWsUrl(value) {
   const url = new URL(String(value || "").trim());
   if (!["ws:", "wss:"].includes(url.protocol)) {
-    throw new Error(t("ws_url_protocol"));
+    throw localError("ws_url_protocol");
   }
   if (!url.pathname || url.pathname === "/") {
     url.pathname = "/asr";
@@ -92,7 +95,7 @@ function normalizeAsr(message) {
   }
   if (asr.backend === "bailian") {
     const url = new URL(String(asr.url || ""));
-    if (url.protocol !== "wss:") throw new Error(t("bailian_url_not_wss"));
+    if (url.protocol !== "wss:") throw localError("bailian_url_not_wss");
     return { backend: "bailian", url: url.toString(), context: String(asr.context || "") };
   }
   return { backend: "wlk", wsUrl: normalizeWsUrl(asr.wsUrl) };
@@ -320,7 +323,7 @@ function scheduleReconnect() {
   reconnectAttempts += 1;
   void publishStatus(
     "reconnecting",
-    t("offscreen_retry_in", Math.round(delay / 1000))
+    msg("offscreen_retry_in", Math.round(delay / 1000))
   );
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
@@ -335,20 +338,20 @@ async function handleServerMessage(event) {
   } catch (error) {
     await publishStatus(
       "error",
-      t("offscreen_unparsable_message", error.message),
+      msg("offscreen_unparsable_message", error.message),
       { fatal: true }
     );
     return;
   }
 
   if (data.type === "config") {
-    void publishStatus("capturing", t("offscreen_model_connected"), { serverConfig: data });
+    void publishStatus("capturing", msg("offscreen_model_connected"), { serverConfig: data });
     return;
   }
   if (data.type === "error") {
     await publishStatus(
       "error",
-      data.error || t("offscreen_server_error"),
+      data.error || msg("offscreen_server_error"),
       { fatal: true }
     );
     return;
@@ -356,7 +359,7 @@ async function handleServerMessage(event) {
   if (data.type === "ready_to_stop") {
     await waitForChain(backgroundWriteChain, 3000);
     markServerFinished();
-    await publishStatus("finished", t("offscreen_server_finished"));
+    await publishStatus("finished", msg("offscreen_server_finished"));
     return;
   }
 
@@ -386,20 +389,20 @@ async function handleBailianMessage(event) {
   const parsed = asrLib.parseBailianEvent(event.data);
   if (parsed.kind === "started") {
     bailianStarted = true;
-    void publishStatus("capturing", t("offscreen_bailian_connected"));
+    void publishStatus("capturing", msg("offscreen_bailian_connected"));
     return;
   }
   if (parsed.kind === "finished") {
     await waitForChain(backgroundWriteChain, 3000);
     markServerFinished();
-    await publishStatus("finished", t("offscreen_bailian_finished"));
+    await publishStatus("finished", msg("offscreen_bailian_finished"));
     return;
   }
   if (parsed.kind === "failed") {
     // The server closes the socket after a failed task; a reconnect would
     // fail the same way (bad key, no quota), so the capture ends instead.
     markServerFinished();
-    await publishStatus("error", render(asrLib.bailianErrorDetail(parsed.code, parsed.message)), { fatal: true });
+    await publishStatus("error", asrLib.bailianErrorDetail(parsed.code, parsed.message), { fatal: true });
     return;
   }
   if (parsed.kind !== "sentence") return;
@@ -419,7 +422,7 @@ function openWebSocket() {
   try {
     socket = new WebSocket(requestedWsUrl);
   } catch (error) {
-    void publishStatus("error", t("offscreen_ws_url_invalid", error.message));
+    void publishStatus("error", msg("offscreen_ws_url_invalid", error.message));
     scheduleReconnect();
     return;
   }
@@ -441,10 +444,10 @@ function openWebSocket() {
       bailianTaskId = crypto.randomUUID().replaceAll("-", "");
       bailianLines = asrLib.createLineAccumulator();
       socket.send(JSON.stringify(asrLib.bailianRunTask({ taskId: bailianTaskId, context: asrConfig.context })));
-      void publishStatus("starting", t("offscreen_bailian_starting"));
+      void publishStatus("starting", msg("offscreen_bailian_starting"));
       return;
     }
-    void publishStatus("capturing", t("offscreen_receiving"));
+    void publishStatus("capturing", msg("offscreen_receiving"));
   };
 
   socket.onmessage = (event) => {
@@ -455,7 +458,7 @@ function openWebSocket() {
       .catch((error) =>
         publishStatus(
           "error",
-          t("offscreen_message_failed", error?.message || error),
+          msg("offscreen_message_failed", errorPayload(error)),
           { fatal: true }
         )
       );
@@ -463,7 +466,7 @@ function openWebSocket() {
 
   socket.onerror = () => {
     if (token !== connectionToken) return;
-    void publishStatus("reconnecting", t("offscreen_connection_problem"));
+    void publishStatus("reconnecting", msg("offscreen_connection_problem"));
   };
 
   socket.onclose = (event) => {
@@ -472,7 +475,7 @@ function openWebSocket() {
     resetPendingAudio();
     if (stopping) return;
     if (serverFinished) {
-      void publishStatus("finished", event.reason || t("offscreen_server_finished"));
+      void publishStatus("finished", event.reason || msg("offscreen_server_finished"));
       return;
     }
     scheduleReconnect();
@@ -543,7 +546,7 @@ async function startCapture(message) {
   resamplePosition = 0;
   resampleTail = 0;
   finishWaiter = null;
-  await publishStatus("starting", t("offscreen_reading_audio"));
+  await publishStatus("starting", msg("offscreen_reading_audio"));
 
   try {
     mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -556,7 +559,7 @@ async function startCapture(message) {
       video: false
     });
     const track = mediaStream.getAudioTracks()[0];
-    if (!track) throw new Error(t("offscreen_no_audio_track"));
+    if (!track) throw localError("offscreen_no_audio_track");
     captureInfo = {
       label: track.label,
       settings: track.getSettings(),
@@ -565,21 +568,21 @@ async function startCapture(message) {
     track.addEventListener("ended", () => {
       if (stopping) return;
       console.info("[capture-diag] track ended", track.readyState);
-      void publishStatus("error", t("offscreen_track_ended"));
-      void stopCapture({ detail: t("offscreen_track_ended") });
+      void publishStatus("error", msg("offscreen_track_ended"));
+      void stopCapture({ detail: msg("offscreen_track_ended") });
     });
     // Navigation can leave the track alive but muted (no active media in the
     // tab at that moment), which looks identical to a working capture until
     // the transcripts stop arriving. Report both edges for diagnosis.
     track.addEventListener("muted", () => {
       console.info("[capture-diag] track muted", track.readyState);
-      void publishStatus("capturing", t("offscreen_track_muted"), {
+      void publishStatus("capturing", msg("offscreen_track_muted"), {
         trackMuted: true
       });
     });
     track.addEventListener("unmuted", () => {
       console.info("[capture-diag] track unmuted", track.readyState);
-      void publishStatus("capturing", t("offscreen_track_unmuted"), { trackMuted: false });
+      void publishStatus("capturing", msg("offscreen_track_unmuted"), { trackMuted: false });
     });
 
     // Monitor at the device rate and resample only the ASR stream.
@@ -634,7 +637,7 @@ async function startCapture(message) {
     }
     await publishStatus(
       "starting",
-      t("offscreen_captured_connecting", track.label || t("offscreen_this_tab"))
+      msg("offscreen_captured_connecting", track.label || msg("offscreen_this_tab"))
     );
     openWebSocket();
   } catch (error) {
@@ -670,7 +673,7 @@ async function startWebSpeech(track) {
     onMessage: (data) => void emitTranscript(data),
     onFatal: (detail) => void publishStatus("error", detail, { fatal: true })
   });
-  await publishStatus("capturing", t("offscreen_using_chrome_speech"));
+  await publishStatus("capturing", msg("offscreen_using_chrome_speech"));
 }
 
 function stopCapture(options = {}) {
@@ -683,7 +686,7 @@ function stopCapture(options = {}) {
 
 async function performStopCapture(options = {}) {
   const quiet = options.quiet === true;
-  const stopDetail = options.detail || t("session_capture_stopped");
+  const stopDetail = options.detail || msg("session_capture_stopped");
   const stoppedSessionId = sessionId;
   stopping = true;
   clearReconnectTimer();
@@ -758,7 +761,7 @@ function builtinTranslator() {
   if (!translatorPromise) {
     translatorPromise = (async () => {
       if (!globalThis.Translator) {
-        throw Object.assign(new Error(t("offscreen_no_translator")), {
+        throw Object.assign(localError("offscreen_no_translator"), {
           code: "builtin_unavailable"
         });
       }
@@ -766,7 +769,7 @@ function builtinTranslator() {
       const availability = await Translator.availability(languages);
       if (availability !== "available") {
         throw Object.assign(
-          new Error(t("offscreen_translator_not_downloaded")),
+          localError("offscreen_translator_not_downloaded"),
           { code: "builtin_unavailable" }
         );
       }
@@ -794,12 +797,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     try {
       if (message.type === "start-capture") {
         await startCapture(message);
-        sendResponse({ ok: true, detail: t("offscreen_capture_started") });
+        sendResponse({ ok: true, detail: msg("offscreen_capture_started") });
       } else if (message.type === "builtin-translate") {
         try {
           sendResponse({ ok: true, translations: await builtinTranslate(message.texts) });
         } catch (error) {
-          sendResponse({ ok: false, error: error?.message || String(error), code: error?.code || "api_error" });
+          sendResponse({ ok: false, error: errorPayload(error), code: error?.code || "api_error" });
         }
         return;
       } else if (message.type === "stop-capture") {
@@ -816,11 +819,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           audio: latestAudioStats
         });
       } else {
-        sendResponse({ ok: false, error: t("error_unknown_message", message.type) });
+        sendResponse({ ok: false, error: msg("error_unknown_message", message.type) });
       }
     } catch (error) {
-      await publishStatus("error", error?.message || String(error));
-      sendResponse({ ok: false, error: error?.message || String(error) });
+      await publishStatus("error", errorPayload(error));
+      sendResponse({ ok: false, error: errorPayload(error) });
     }
   })();
   return true;

@@ -2,6 +2,7 @@
 // zero-setup speech backend. offscreen.js imports this module only when that
 // backend is selected.
 import { createLineAccumulator } from "../lib/asr-sessions.js";
+import { LocalizedError, msg } from "../lib/i18n-message.js";
 
 // Errors after which restarting the recognizer cannot help.
 // Values are messages.json keys.
@@ -16,10 +17,6 @@ const FATAL_ERRORS = new Map([
 const RESTART_DELAY_MS = 250;
 const STOP_TIMEOUT_MS = 2000;
 
-function t(key, ...params) {
-  return globalThis.chrome?.i18n?.getMessage(key, params.map(String)) || key;
-}
-
 function recognitionClass() {
   return globalThis.SpeechRecognition || globalThis.webkitSpeechRecognition || null;
 }
@@ -27,22 +24,22 @@ function recognitionClass() {
 /**
  * Makes sure the on-device English model is installed. The first download
  * takes about 20 s (Chrome 155 probe, 2026-11-03).
- * @param {{ lang: string, onStatus: (detail: string) => void }} options
+ * @param {{ lang: string, onStatus: (detail: import("../lib/i18n-message.js").LocalMessage) => void }} options
  */
 export async function prepareWebSpeech({ lang, onStatus }) {
   const Recognition = recognitionClass();
   if (!Recognition?.available) {
-    throw new Error(t("speech_unsupported"));
+    throw new LocalizedError(msg("speech_unsupported"));
   }
   const options = { langs: [lang], processLocally: true };
   const availability = await Recognition.available(options);
   if (availability === "available") return;
   if (availability === "unavailable") {
-    throw new Error(t("speech_unavailable"));
+    throw new LocalizedError(msg("speech_unavailable"));
   }
-  onStatus(t("speech_downloading"));
+  onStatus(msg("speech_downloading"));
   if (!(await Recognition.install(options))) {
-    throw new Error(t("speech_download_failed"));
+    throw new LocalizedError(msg("speech_download_failed"));
   }
 }
 
@@ -52,7 +49,7 @@ export async function prepareWebSpeech({ lang, onStatus }) {
  *   lang: string,
  *   phrases?: string[],
  *   onMessage: (data: any) => void,
- *   onFatal: (detail: string) => void,
+ *   onFatal: (detail: import("../lib/i18n-message.js").LocalMessage) => void,
  *   now?: () => number
  * }} options
  */
@@ -118,7 +115,7 @@ export function createWebSpeechSession({ track, lang, phrases = [], onMessage, o
       const fatal = FATAL_ERRORS.get(event.error);
       if (!fatal || stopped) return;
       stopped = true;
-      onFatal(t(fatal));
+      onFatal(msg(fatal));
     };
     current.onend = () => {
       if (recognizer !== current) return;
@@ -134,7 +131,7 @@ export function createWebSpeechSession({ track, lang, phrases = [], onMessage, o
     } catch (error) {
       recognizer = null;
       stopped = true;
-      onFatal(t("speech_start_failed", error?.message || error));
+      onFatal(msg("speech_start_failed", error?.message || String(error)));
     }
   }
 
