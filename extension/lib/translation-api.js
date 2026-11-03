@@ -48,6 +48,11 @@ const PROVIDER_IDS = Object.keys(TRANSLATION_PROVIDERS);
 const DEFAULT_CONTEXT_LINES = 4;
 const MAX_CONTEXT_CHARS = 480;
 
+// The system prompt must stay byte-identical for every request: DeepSeek and
+// similar providers cache the longest common message prefix automatically, so
+// anything that varies per request (partial flag, domain hint, glossary) lives
+// in the user JSON payload instead. Rules 7-9 only say how to read those
+// optional payload fields.
 const SYSTEM_PROMPT = [
   "你是专业的中英实时字幕翻译器。把英文直播语音转写翻译成简体中文。",
   "必须遵守：",
@@ -56,11 +61,14 @@ const SYSTEM_PROMPT = [
   "3. 人名、地名、品牌、产品名、数字、单位保持准确；没有通用中文译名的专有名词保留英文原文。",
   "4. 输入可能是未说完的半句，也可能把一句话切成了多个片段。只翻译已有内容，不要续写或补全；每条译文只对应同下标的 segments 项，不合并、不拆分、不重复。",
   "5. segments 中相邻的片段来自同一段连续语音：译文必须前后衔接，不要把每个片段都翻成独立完整句，也不要把上一片段的意思再译一遍。",
-  "6. context 是紧邻的前文（英文原文与已有中文译文）。译文必须承接前文语境，省略的主语和代词按前文补足；不要重复前文已译的内容。"
+  "6. context 是紧邻的前文（英文原文与已有中文译文）。译文必须承接前文语境，省略的主语和代词按前文补足；不要重复前文已译的内容。",
+  "7. 输入中若有 partial 字段，说明最后一个 segment 是尚未定稿的半句，按该字段的说明翻译：自然、简短，只翻已有内容。",
+  "8. 输入中若有 domain 字段，它给出直播领域：请结合该领域语境翻译，并自动修正明显的语音识别同音错词。",
+  "9. 输入中若有 glossary 字段，必须严格使用其中的术语译名（若译名与源词相同则保留英文原文）；仅在对应词出现时使用，不要输出或解释术语表。"
 ].join("\n");
 
-const PARTIAL_HINT =
-  "当前输入是实时字幕里尚未定稿的半句，翻译要自然、简短，只翻已有内容。";
+const PARTIAL_INSTRUCTION =
+  "最后一个 segment 是实时字幕里尚未定稿的半句，翻译要自然、简短，只翻已有内容。";
 
 export class TranslationApiError extends Error {
   constructor(message, { code = "api_error", status = null, cause = null } = {}) {
@@ -246,29 +254,11 @@ export function recentTranslationContext(
   return context;
 }
 
-function buildSystemPrompt({ partial = false, domainHint = "", hasGlossary = false } = {}) {
-  const lines = [SYSTEM_PROMPT];
-  let ruleNumber = 7;
-  if (partial) {
-    lines.push(`${ruleNumber}. ${PARTIAL_HINT}`);
-    ruleNumber += 1;
-  }
-  const cleanDomain = String(domainHint ?? "")
+function cleanDomainHint(value) {
+  return String(value ?? "")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 120);
-  if (cleanDomain) {
-    lines.push(
-      `${ruleNumber}. 当前直播领域：${cleanDomain}。请结合该领域语境翻译，并自动修正明显的语音识别同音错词。`
-    );
-    ruleNumber += 1;
-  }
-  if (hasGlossary) {
-    lines.push(
-      `${ruleNumber}. 必须严格使用输入 glossary 中的术语译名（若译名与源词相同则保留英文原文）；仅在对应词出现时使用，不要输出或解释术语表。`
-    );
-  }
-  return lines.join("\n");
 }
 
 /**
@@ -325,11 +315,14 @@ export function buildTranslationRequestBody({
     matchGlossaryTerms(segments, effectiveEntries)
   );
   const hasGlossary = Object.keys(glossaryMap).length > 0;
+  const cleanDomain = cleanDomainHint(effectiveDomainHint);
   const maxTokens = Math.min(
     2048,
     Math.max(128, segments.length * 128 + 64)
   );
   const userPayload = {
+    ...(partial ? { partial: PARTIAL_INSTRUCTION } : {}),
+    ...(cleanDomain ? { domain: cleanDomain } : {}),
     ...(hasGlossary ? { glossary: glossaryMap } : {}),
     context: Array.isArray(context) ? context.slice(-DEFAULT_CONTEXT_LINES) : [],
     segments
@@ -342,11 +335,7 @@ export function buildTranslationRequestBody({
     messages: [
       {
         role: "system",
-        content: buildSystemPrompt({
-          partial,
-          domainHint: effectiveDomainHint,
-          hasGlossary
-        })
+        content: SYSTEM_PROMPT
       },
       {
         role: "user",
