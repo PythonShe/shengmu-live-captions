@@ -13,7 +13,7 @@ import {
   parseGlossaryText,
   resolveEffectiveGlossary,
   serializeWlkGlossary
-} from "../extension/glossary.js";
+} from "../extension/lib/glossary.js";
 
 // Fixture terms are the ones named in the Path of Exile transcripts under
 // .research/poe-041; the shipped preset dictionary itself is exercised in a

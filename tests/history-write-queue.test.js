@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { HistoryWriteQueue } from "../extension/history-write-queue.js";
+import { HistoryWriteQueue } from "../extension/lib/history-write-queue.js";
 
 function line(id, translation = "") {
   return { id, sessionId: "session", source: id, translation };

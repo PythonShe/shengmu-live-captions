@@ -18,11 +18,11 @@ import {
   selectDisplayCaption,
   settingsForBroadcast,
   settingsForCaptions
-} from "./caption-utils.js";
+} from "../lib/caption-utils.js";
 import {
   buildAsrContextPrompt,
   resolveEffectiveGlossary
-} from "./glossary.js";
+} from "../lib/glossary.js";
 import {
   TRANSLATION_PROVIDERS,
   isAbortError,
@@ -33,20 +33,20 @@ import {
   testTranslationConnection,
   translateTexts,
   translationConfigIssue
-} from "./translation-api.js";
+} from "../lib/translation-api.js";
 import {
   countHistoryLines,
   createHistorySession,
   getHistoryLines,
   updateHistorySession,
   upsertHistoryLines
-} from "./history-db.js";
-import { HistoryWriteQueue } from "./history-write-queue.js";
-import { polishTranslation, stripSpeechFillers } from "./speech-cleanup.js";
-import { planTranslationBatch } from "./utterance.js";
+} from "../storage/history-db.js";
+import { HistoryWriteQueue } from "../lib/history-write-queue.js";
+import { polishTranslation, stripSpeechFillers } from "../lib/speech-cleanup.js";
+import { planTranslationBatch } from "../lib/utterance.js";
 
-const OFFSCREEN_URL = "offscreen.html";
-const MONITOR_URL = "subtitle.html";
+const OFFSCREEN_URL = "offscreen/offscreen.html";
+const MONITOR_URL = "subtitle/subtitle.html";
 const LINE_FLUSH_DELAY_MS = 700;
 const STATE_PERSIST_DELAY_MS = 350;
 const TRANSLATION_LINE_DEBOUNCE_MS = 160;
@@ -371,7 +371,7 @@ async function injectOverlay(tabId = runtimeState.tabId) {
   try {
     await chrome.scripting.executeScript({
       target: { tabId },
-      files: ["overlay-history.js", "content-overlay.js"]
+      files: ["content/overlay-history.js", "content/content-overlay.js"]
     });
   } catch (error) {
     console.warn("声幕页面浮层注入失败", error);

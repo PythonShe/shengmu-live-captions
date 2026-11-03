@@ -22,12 +22,12 @@
     "ws://localhost/*"
   ],
   "background": {
-    "service_worker": "service-worker.js",
+    "service_worker": "background/service-worker.js",
     "type": "module"
   },
   "action": {
     "default_title": "声幕 - 实时字幕翻译",
-    "default_popup": "popup.html"
+    "default_popup": "popup/popup.html"
   },
   "commands": {
     "_execute_action": {

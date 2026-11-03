@@ -20,8 +20,8 @@ import {
   settingsForCaptions,
   shiftTimecode,
   transcriptDuration
-} from "../extension/caption-utils.js";
-import { MAX_CUSTOM_GLOSSARY_CHARS } from "../extension/glossary.js";
+} from "../extension/lib/caption-utils.js";
+import { MAX_CUSTOM_GLOSSARY_CHARS } from "../extension/lib/glossary.js";
 
 test("normalizeSettings defaults to DeepSeek API and validates its fields", () => {
   const settings = normalizeSettings({});
@@ -550,7 +550,7 @@ test("applyOverlayFailure records and clears the overlay error idempotently", ()
 });
 
 test("mergeCaptionFragments joins a dangling fragment with the row that completes it", async () => {
-  const { mergeCaptionFragments } = await import("../extension/caption-utils.js");
+  const { mergeCaptionFragments } = await import("../extension/lib/caption-utils.js");
   const lines = [
     { id: "a", source: "Pharaoh finally meets Danig, a real Kalgurin runesmith.", start: "0:00:01.00", end: "0:00:04.00" },
     { id: "b", source: "with the ancient", start: "0:00:04.50", end: "0:00:05.20" },
@@ -572,7 +572,7 @@ test("mergeCaptionFragments joins a dangling fragment with the row that complete
 });
 
 test("mergeCaptionFragments stops after the sentence that completes the unit", async () => {
-  const { mergeCaptionFragments } = await import("../extension/caption-utils.js");
+  const { mergeCaptionFragments } = await import("../extension/lib/caption-utils.js");
   const lines = [
     { id: "a", source: "so I think people will be experimenting.", start: "0:00:01.00", end: "0:00:03.00" },
     { id: "b", source: "with these for a long time.", start: "0:00:03.20", end: "0:00:05.00" },
@@ -588,7 +588,7 @@ test("mergeCaptionFragments stops after the sentence that completes the unit", a
 });
 
 test("mergeCaptionFragments respects the gap, size and line limits", async () => {
-  const { mergeCaptionFragments } = await import("../extension/caption-utils.js");
+  const { mergeCaptionFragments } = await import("../extension/lib/caption-utils.js");
   const far = [
     { id: "a", source: "and then", start: "0:00:01.00", end: "0:00:02.00" },
     { id: "b", source: "the map opens.", start: "0:00:09.00", end: "0:00:10.00" }
@@ -607,7 +607,7 @@ test("mergeCaptionFragments respects the gap, size and line limits", async () =>
 });
 
 test("mergeCaptionFragments clears a translation that the merge invalidated", async () => {
-  const { mergeCaptionFragments } = await import("../extension/caption-utils.js");
+  const { mergeCaptionFragments } = await import("../extension/lib/caption-utils.js");
   const lines = [
     { id: "a", source: "and riddled with excitement", translation: "而且充满兴奋", start: "0:00:01.00", end: "0:00:02.00" },
     { id: "b", source: "he wants to learn.", start: "0:00:02.20", end: "0:00:03.50" }
