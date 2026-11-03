@@ -112,6 +112,7 @@ let stopGeneration = 0;
 
 function sanitizeWlkGlossary(value) {
   return String(value ?? "")
+    // eslint-disable-next-line no-control-regex -- strip control characters before they reach a CLI argument
     .replace(/[\0-\x1F\x7F]+/g, " ")
     .replace(/\s+/g, " ")
     .trim()

@@ -54,7 +54,7 @@ const server = http.createServer(async (request, response) => {
   }
 
   const raw = await readBody(request);
-  let body = {};
+  let body;
   try {
     body = JSON.parse(raw);
   } catch {
@@ -81,7 +81,7 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
-  let payload = {};
+  let payload;
   try {
     payload = JSON.parse(body.messages?.at(-1)?.content || "{}");
   } catch {
@@ -92,7 +92,9 @@ const server = http.createServer(async (request, response) => {
   const content = JSON.stringify(translations);
 
   if (delayMs > 0) {
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    await new Promise((resolve) => {
+      setTimeout(resolve, delayMs);
+    });
   }
   send(response, 200, {
     id: "mock-completion",

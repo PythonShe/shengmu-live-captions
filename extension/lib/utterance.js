@@ -51,11 +51,6 @@ function charCount(entry) {
   return textOf(entry).replace(/\s+/g, " ").length;
 }
 
-function wordCount(entry) {
-  const text = textOf(entry);
-  return text ? text.split(WORD_SPLIT).filter(Boolean).length : 0;
-}
-
 /**
  * A fragment is a row that cannot stand alone: either it is very short, or it
  * opens with a connector, or it stops on a function word. A full stop is *not*
@@ -63,11 +58,8 @@ function wordCount(entry) {
  * "and riddled with excitement." arrives looking like a finished sentence while
  * it is only the subordinate clause of the next row.
  */
-export function isSpeechShard(text, options = {}) {
-  return (
-    startsContinuation(text) ||
-    needsCompletion(text, options)
-  );
+export function isSpeechShard(text) {
+  return startsContinuation(text) || needsCompletion(text);
 }
 
 /**
@@ -92,14 +84,11 @@ export function startsContinuation(text) {
  * The row itself is unfinished: too short, or it stops on a comma or a function
  * word. The next row has to be joined onto it.
  */
-export function needsCompletion(text, options = {}) {
+export function needsCompletion(text) {
   const value = typeof text === "string" ? text.trim() : "";
   if (!value) return false;
   if (HARD_SENTENCE_END.test(value)) return false;
   const words = value.split(WORD_SPLIT).filter(Boolean);
-  const maxWords = Number.isFinite(Number(options.connectorMaxWords))
-    ? Number(options.connectorMaxWords)
-    : MAX_CONNECTOR_SHARD_WORDS;
   if (words.length <= SPEECH_SHARD_MAX_WORDS) return true;
   if (value.length <= SPEECH_SHARD_MAX_CHARS) return true;
   if (TRAILING_COMMA.test(value)) return true;

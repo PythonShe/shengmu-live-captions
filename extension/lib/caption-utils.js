@@ -641,6 +641,7 @@ export function buildSrt(lines) {
 
 export function safeFileStem(value) {
   return cleanText(value || "caption")
+    // eslint-disable-next-line no-control-regex -- control characters are invalid in file names
     .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_")
     .replace(/[. ]+$/g, "")
     .slice(0, 80) || "caption";

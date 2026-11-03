@@ -22,7 +22,7 @@ function startServer(handler) {
     const chunks = [];
     for await (const chunk of request) chunks.push(chunk);
     const bodyText = Buffer.concat(chunks).toString("utf8");
-    let body = null;
+    let body;
     try {
       body = JSON.parse(bodyText);
     } catch {
