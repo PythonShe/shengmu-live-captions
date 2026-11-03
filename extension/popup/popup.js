@@ -324,15 +324,46 @@ function renderSpeechSettings() {
   elements.bailianKeyHint.textContent = settings.translationApiKeyConfigured?.bailian
     ? t("popup_bailian_key_saved")
     : t("popup_bailian_key_hint");
-  const unsupported =
-    (backend === "chrome" && ["missing", "unavailable"].includes(builtinSupport.speech)) ||
-    (settings.translationProvider === "chrome" &&
-      settings.translationMode === "api" &&
-      ["missing", "unavailable"].includes(builtinSupport.translator));
-  elements.builtinSupportHint.hidden = !unsupported;
-  elements.builtinSupportHint.textContent = unsupported
-    ? t("popup_builtin_unsupported")
-    : "";
+  // Name the half that is missing: Edge, for one, has the built-in
+  // Translator but no on-device speech model.
+  const hints = [];
+  if (backend === "chrome" && ["missing", "unavailable"].includes(builtinSupport.speech)) {
+    hints.push(t("popup_speech_unsupported"));
+  }
+  if (
+    settings.translationProvider === "chrome" &&
+    settings.translationMode === "api" &&
+    ["missing", "unavailable"].includes(builtinSupport.translator)
+  ) {
+    hints.push(t("popup_translator_unsupported"));
+  }
+  elements.builtinSupportHint.hidden = hints.length === 0;
+  elements.builtinSupportHint.textContent = hints.join(" ");
+}
+
+/**
+ * Chrome downloads its speech model only from a user gesture, like the
+ * translation model; the offscreen page waits for it. About 20 s, once.
+ */
+async function ensureBuiltinSpeech() {
+  if (settings.asrBackend !== "chrome") return;
+  const Recognition = globalThis.SpeechRecognition || globalThis.webkitSpeechRecognition;
+  if (!Recognition?.install) return;
+  const availability = await Recognition.available(BUILTIN_SPEECH);
+  if (availability !== "downloadable" && availability !== "downloading") return;
+  elements.statusLabel.textContent = t("popup_downloading_speech");
+  if (!(await Recognition.install(BUILTIN_SPEECH))) {
+    throw new Error(t("speech_download_failed"));
+  }
+  builtinSupport.speech = "available";
+}
+
+/**
+ * Starts both model downloads at once, so both begin while the click still
+ * counts as a user gesture (transient activation lasts a few seconds).
+ */
+async function ensureBuiltinModels() {
+  await Promise.all([ensureBuiltinSpeech(), ensureBuiltinTranslator()]);
 }
 
 /**
@@ -963,7 +994,7 @@ async function startCapture() {
   if (bailianKey) {
     patch.translationApiKeys = { ...patch.translationApiKeys, bailian: bailianKey };
   }
-  await ensureBuiltinTranslator();
+  await ensureBuiltinModels();
   await savePatch(patch);
   elements.translationApiKey.value = "";
   elements.bailianApiKey.value = "";

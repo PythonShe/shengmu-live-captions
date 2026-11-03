@@ -4,6 +4,10 @@
 import { createLineAccumulator } from "../lib/asr-sessions.js";
 import { LocalizedError, msg } from "../lib/i18n-message.js";
 
+// The model is downloaded by the popup's start click (install() needs a user
+// gesture); a download that is still running is waited for this long.
+const DOWNLOAD_WAIT_MS = 120000;
+const DOWNLOAD_POLL_MS = 1000;
 // Errors after which restarting the recognizer cannot help.
 // Values are messages.json keys.
 const FATAL_ERRORS = new Map([
@@ -22,8 +26,10 @@ function recognitionClass() {
 }
 
 /**
- * Makes sure the on-device English model is installed. The first download
- * takes about 20 s (Chrome 155 probe, 2026-11-03).
+ * Makes sure the on-device English model is installed. install() needs a
+ * user gesture, which an offscreen document never has, so the popup starts
+ * the download (about 20 s, Chrome 155 probe, 2026-11-03) and this only
+ * waits for it.
  * @param {{ lang: string, onStatus: (detail: import("../lib/i18n-message.js").LocalMessage) => void }} options
  */
 export async function prepareWebSpeech({ lang, onStatus }) {
@@ -37,10 +43,20 @@ export async function prepareWebSpeech({ lang, onStatus }) {
   if (availability === "unavailable") {
     throw new LocalizedError(msg("speech_unavailable"));
   }
-  onStatus(msg("speech_downloading"));
-  if (!(await Recognition.install(options))) {
-    throw new LocalizedError(msg("speech_download_failed"));
+  if (availability !== "downloading") {
+    throw new LocalizedError(msg("speech_model_not_downloaded"));
   }
+  onStatus(msg("speech_downloading"));
+  const deadline = Date.now() + DOWNLOAD_WAIT_MS;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => {
+      setTimeout(resolve, DOWNLOAD_POLL_MS);
+    });
+    const now = await Recognition.available(options);
+    if (now === "available") return;
+    if (now !== "downloading") break;
+  }
+  throw new LocalizedError(msg("speech_download_failed"));
 }
 
 /**
