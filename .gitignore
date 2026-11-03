@@ -7,3 +7,4 @@
 /scripts/local-service/server.pid
 /test-assets/
 /paseo/evidence/
+/node_modules/

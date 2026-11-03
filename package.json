@@ -4,6 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "lint": "eslint .",
+    "check": "node scripts/check-syntax.mjs",
+    "smoke": "node scripts/smoke-extension.mjs",
+    "verify": "npm run check && npm run lint && npm test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.14.0",
+    "globals": "^17.14.0"
   }
 }
