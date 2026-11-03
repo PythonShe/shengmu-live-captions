@@ -16,6 +16,7 @@ import {
   recentTranslationContext,
   resetTranslationRequestShapeCache,
   resolveTranslationConfig,
+  translatesInExtension,
   testTranslationConnection,
   translateTexts,
   translationConfigIssue
@@ -276,6 +277,31 @@ test("custom provider pointed at DeepSeek also disables thinking", () => {
   assert.equal(config.disableThinking, true);
   const body = buildTranslationRequestBody({ texts: ["Hi"], config });
   assert.deepEqual(body.thinking, { type: "disabled" });
+});
+
+test("translatesInExtension tells when the local translation model is not needed", () => {
+  const decide = (settings, builtinSupport = "available") =>
+    translatesInExtension(
+      { translationMode: "api", translationApiKeyConfigured: {}, ...settings },
+      builtinSupport
+    );
+  assert.equal(decide({ translationProvider: "chrome", translationModel: "builtin" }), true);
+  assert.equal(decide({ translationProvider: "chrome" }, "downloadable"), true);
+  assert.equal(decide({ translationProvider: "chrome" }, ""), true, "still being checked");
+  assert.equal(decide({ translationProvider: "chrome" }, "unavailable"), false);
+  assert.equal(decide({ translationProvider: "chrome" }, "missing"), false);
+  assert.equal(decide({ translationProvider: "deepseek" }), false);
+  assert.equal(
+    decide({ translationProvider: "deepseek", translationApiKeyConfigured: { deepseek: true } }),
+    true
+  );
+  assert.equal(decide({ translationProvider: "custom", translationModel: "qwen3" }), true);
+  assert.equal(decide({ translationProvider: "custom", translationModel: " " }), false);
+  assert.equal(
+    decide({ translationMode: "server", translationProvider: "chrome" }),
+    false,
+    "server mode always translates locally"
+  );
 });
 
 test("each provider switches reasoning off in its own dialect", () => {

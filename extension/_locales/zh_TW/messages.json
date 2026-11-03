@@ -477,7 +477,7 @@
     "message": "啟動中…"
   },
   "popup_translation_by_api": {
-    "message": "由 API 翻譯，不啟動本地模型"
+    "message": "由擴充功能翻譯，不啟動本地模型"
   },
   "popup_ready": {
     "message": "已就緒"
@@ -486,7 +486,7 @@
     "message": "啟動本地控制服務後，可以在這裡一鍵拉起 ASR 與本地翻譯模型。"
   },
   "popup_hint_api_mode": {
-    "message": "API 翻譯模式只需本地 ASR：啟動後不佔用顯示記憶體跑翻譯模型，顯示記憶體與算力全部留給識別。"
+    "message": "當前翻譯不用本地模型，只需本地 ASR：啟動後不佔用顯示記憶體跑翻譯模型，顯示記憶體與算力全部留給識別。"
   },
   "popup_hint_asr_cached": {
     "message": "ASR $1 已快取"
@@ -504,7 +504,7 @@
     "message": "當前執行 $1，點「一鍵啟動」會切換到所選模型"
   },
   "popup_hint_local_fallback": {
-    "message": "API Key 未配置，本地模型將作為兜底翻譯"
+    "message": "所選翻譯服務還不可用，本地模型將作為兜底翻譯"
   },
   "hint_separator": {
     "message": "；"

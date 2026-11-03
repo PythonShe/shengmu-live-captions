@@ -15,7 +15,8 @@ import {
 } from "../lib/glossary.js";
 import {
   TRANSLATION_PROVIDERS,
-  normalizeTranslationBaseUrl
+  normalizeTranslationBaseUrl,
+  translatesInExtension
 } from "../lib/translation-api.js";
 import { createCaptionReceiver } from "../lib/caption-delta.js";
 import { errorText, localizePage, renderMessage, t } from "../ui/i18n.js";
@@ -630,13 +631,9 @@ function renderLocal() {
       : null;
   const jobRunning = job?.state === "starting" || job?.state === "stopping";
   // The local llama.cpp server is only unnecessary when the extension really
-  // translates with its own provider. Without an API key the local model is the
-  // fallback that still produces Chinese, so it stays part of the start.
-  const apiKeyConfigured = Boolean(
-    settings.translationApiKeyConfigured?.[settings.translationProvider]
-  );
-  const usesApiTranslation =
-    settings.translationMode === "api" && apiKeyConfigured;
+  // translates with its own provider. Otherwise the local model is the fallback
+  // that still produces Chinese, so it stays part of the start.
+  const usesApiTranslation = translatesInExtension(settings, builtinSupport.translator);
 
   let badgeLabel = t("popup_control_offline");
   let badgeClass = "warning";
@@ -865,9 +862,6 @@ async function startLocalServices() {
   renderLocal();
   try {
     await savePatch(collectGlossaryPatchFromInputs());
-    const apiKeyConfigured = Boolean(
-      settings.translationApiKeyConfigured?.[settings.translationProvider]
-    );
     const effectiveGlossary = resolveEffectiveGlossary(settings);
     const wlkGlossary = effectiveGlossary.enabled
       ? serializeWlkGlossary(effectiveGlossary.entries)
@@ -879,7 +873,7 @@ async function startLocalServices() {
         translationModel: settings.localTranslationModel,
         asrModel: settings.localAsrModel,
         translationMode: settings.translationMode,
-        apiTranslationConfigured: apiKeyConfigured,
+        apiTranslationConfigured: translatesInExtension(settings, builtinSupport.translator),
         glossary: wlkGlossary
       }),
       timeoutMs: 15000
