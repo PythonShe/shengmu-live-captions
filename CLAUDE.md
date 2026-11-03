@@ -12,7 +12,7 @@ Chrome MV3 extension: `tabCapture` audio -> `offscreen` -> WhisperLiveKit ASR (`
 
 ## Gates and tooling
 
-- `pnpm run verify` (syntax check, lint, typecheck, tests) must pass before every commit. Run `pnpm run smoke` (headless Chrome over CDP) after touching paths, the manifest, page HTML or worker startup. CI runs verify on ubuntu and windows, smoke on ubuntu.
+- `pnpm run verify` (syntax check, lint, typecheck, tests) must pass before every commit. Run `pnpm run smoke` (headless Chrome over CDP) after touching paths, the manifest, page HTML or worker startup. CI runs verify on ubuntu, windows and macos (x64 and arm64), smoke on ubuntu, windows and macos.
 - pnpm only (pinned via `packageManager`). The extension has no bundler, no build and no runtime `node_modules`; dev tooling only.
 - Layering is enforced by lint globals: `extension/lib/` may use only web APIs Node also has (no `chrome`, `window`, `document`), `storage/` adds IndexedDB. `content/*`, `offscreen/offscreen.js` and `pcm-worklet.js` are classic scripts.
 - Typecheck covers `extension/lib/` only; destructured option params need a JSDoc type or tsc infers `{}` and rejects callers.
