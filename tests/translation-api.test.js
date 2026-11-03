@@ -870,3 +870,17 @@ test("the built-in provider without a translator fails with a stable code", asyn
     (error) => error.code === "builtin_unavailable"
   );
 });
+
+test("the bailian translation endpoint follows the speech region and keeps the shared key", () => {
+  const cn = resolveTranslationConfig({ translationProvider: "bailian", translationApiKeys: { bailian: "sk" } });
+  assert.equal(cn.baseUrl, "https://dashscope.aliyuncs.com/compatible-mode/v1");
+  assert.equal(cn.enabled, true);
+  const intl = resolveTranslationConfig({
+    translationProvider: "bailian",
+    translationBaseUrl: "https://attacker.example/v1",
+    bailianRegion: "intl",
+    translationApiKeys: { bailian: "sk" }
+  });
+  assert.equal(intl.baseUrl, "https://dashscope-intl.aliyuncs.com/compatible-mode/v1");
+  assert.equal(intl.model, "qwen-plus");
+});
