@@ -45,7 +45,11 @@ const USAGE = `Usage: node scripts/services.mjs <command> [options]   (pnpm serv
   dev-browser    [--port 9223] [--profile-dir DIR] [--url URL] [--extension-path DIR]
   load-extension [--port 9223] [--extension-path DIR]
 
-Environment overrides (paths, commands, ports) are listed in CLAUDE.md.`;
+Environment overrides (read by resolveConfig in scripts/local-service/config.mjs):
+  SHENGMU_RESEARCH_DIR, SHENGMU_LOGS_DIR, SHENGMU_RUNTIME_DIR, SHENGMU_WLK_WORKDIR,
+  SHENGMU_WHISPER_CPP_MODELS_DIR, SHENGMU_ASR_BACKEND, SHENGMU_{ASR,WHISPER_CPP,TRANSLATION}_PORT,
+  SHENGMU_{WLK,LLAMA,WHISPER_CPP}_COMMAND, SHENGMU_{WLK,LLAMA,WHISPER_CPP}_SERVER,
+  SHENGMU_LLAMA_EXTRA_ARGS, SHENGMU_HEALTH_POLL_MS`;
 
 const OPTIONS = {
   "asr-only": { type: "boolean" },
