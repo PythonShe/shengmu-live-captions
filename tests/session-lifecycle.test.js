@@ -148,3 +148,33 @@ test("finalize counts a transcript that lands while it settles and drops one aft
   assert.deepEqual(recorded, ["The first sentence is complete.", "A new session speaks."]);
   assert.equal(warn.mock.callCount(), 1);
 });
+
+test("a start that fails before the capture removes the bailian auth rule", async () => {
+  const auth = [];
+  const lifecycle = createSessionLifecycle({
+    store: { state: { active: false }, persist: async () => {} },
+    settings: {
+      current: { wsUrl: "ws://127.0.0.1:8010/asr" },
+      update: async () => {},
+      translationConfig: () => ({ mode: "api", model: "m", provider: "custom", enabled: true }),
+      sessionAsr: () => ({ backend: "bailian", url: "wss://dashscope.aliyuncs.com/api-ws/v1/inference", context: "" }),
+      bailianApiKey: () => "sk"
+    },
+    views: {},
+    offscreen: { hasDocument: async () => false },
+    history: {
+      resetSession() {},
+      createSession: async () => {
+        throw new Error("IndexedDB is gone");
+      }
+    },
+    scheduler: { reset() {} },
+    ready: async () => {},
+    asrAuth: {
+      grant: async () => auth.push("grant"),
+      revoke: async () => auth.push("revoke")
+    }
+  });
+  await assert.rejects(lifecycle.start({ targetTabId: 1, streamId: "x" }), /IndexedDB is gone/);
+  assert.deepEqual(auth, ["grant", "revoke"]);
+});
