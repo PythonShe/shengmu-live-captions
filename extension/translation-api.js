@@ -441,7 +441,10 @@ export function parseTranslationOutput(content, expectedCount) {
       code: "parse_error"
     });
   }
-  if (parsed.length < count || (!fromJson && parsed.length !== count)) {
+  // Extra non-empty JSON items mean the model split or merged segments, so
+  // slicing would shift every later translation onto the wrong line.
+  const extraContent = parsed.slice(count).some((item) => item);
+  if (parsed.length < count || extraContent || (!fromJson && parsed.length !== count)) {
     throw new TranslationApiError(
       `翻译 API 返回的条数不匹配（期望 ${count}，实际 ${parsed.length}）`,
       { code: "count_mismatch" }
