@@ -417,3 +417,20 @@ test("stop drops PID files of dead processes and never kills a reused PID", asyn
   assert.equal(outcome, "foreign");
   assert.equal(isPidAlive(bystander.pid), true);
 });
+
+test("killServiceTree leaves a reused PID alone when its command line does not match", { skip: process.platform === "win32" }, async () => {
+  // A detached child leads its own process group, like a stale PID file that
+  // now names an unrelated group leader (a terminal after a reboot).
+  const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { detached: true, stdio: "ignore" });
+  await new Promise((resolve) => {
+    child.once("spawn", resolve);
+  });
+  try {
+    assert.equal(await killServiceTree({ pid: child.pid, image: "wlk" }, { graceMs: 500 }), "foreign");
+    assert.equal(isPidAlive(child.pid), true);
+    const image = path.basename(process.execPath).toLowerCase();
+    assert.equal(await killServiceTree({ pid: child.pid, image }, { graceMs: 2000 }), "killed");
+  } finally {
+    if (isPidAlive(child.pid)) process.kill(child.pid, "SIGKILL");
+  }
+});
