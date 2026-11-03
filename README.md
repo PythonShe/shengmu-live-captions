@@ -8,22 +8,33 @@ Chrome MV3 扩展。采集当前标签页的英文音频，在本机实时转写
 
 ## 快速开始
 
-需要 Windows + Chrome + NVIDIA GPU（本地模型推理），以及 Node.js（启动脚本用）。
+需要 Chrome、Node.js 24（启动脚本用）和 pnpm；本地模型推理在 Windows 上用 NVIDIA GPU，在 Apple Silicon Mac 上用 Metal（见下文「macOS」）。
 
-```powershell
-# 1. 起本地服务：ASR(8010) + 本地翻译(8013)；纯 API 用法加 -AsrOnly 省显存
-.\scripts\Start-Services.ps1
+```sh
+# 1. 起本地服务：ASR(8010) + 本地翻译(8013)；纯 API 用法加 --asr-only 省显存
+pnpm services:start
 
 # 2. 起开发浏览器并加载扩展
-.\scripts\Start-DevBrowser.ps1 -Url 'https://www.youtube.com/'
+pnpm dev-browser --url https://www.youtube.com/
 
 # 3. 在目标页面按 Ctrl+Shift+Y 打开面板，点「开始实时翻译」
 #    Ctrl+Shift+U 打开字幕与历史窗口
 ```
 
-也可以用 `.\scripts\Start-LocalService.ps1` 起控制服务（`127.0.0.1:8014`），之后在面板里一键启停本地模型，不必手动敲命令。
+也可以用 `pnpm services:serve` 在后台起控制服务（`127.0.0.1:8014`），之后在面板里一键启停本地模型，不必手动敲命令；`pnpm services:serve-stop` 关掉它。`pnpm services:status` 看各端口状态，`pnpm services:stop` 停掉本地模型。
 
-模型档位可切换：`-TranslationModel 9b-q4km|2b-iq4xs`、`-AsrModel large-v3-turbo|medium`。
+模型档位可切换：`--translation-model 9b-q4km|2b-iq4xs`、`--asr-model large-v3-turbo|medium`。全部选项见 `pnpm services help`。
+
+本地服务的目录约定（都在 `.research/` 下，不入库）：WhisperLiveKit 源码 `WhisperLiveKit/`、虚拟环境 `wlk-venv/`（Windows 为 `Scripts\*.exe`，macOS/Linux 为 `bin/`）、llama.cpp `llama.cpp-*/`、翻译模型 `models/`。进程 PID 记在 `.runtime/`，日志在 `logs/`。模型下载走 Node 的 fetch，设置了 `HTTPS_PROXY` 会自动走代理（`SHENGMU_DOWNLOAD_NO_PROXY=1` 关闭）；`HF_ENDPOINT` 可换 Hugging Face 镜像。
+
+### macOS
+
+ASR 默认走 whisper.cpp（Metal 加速）。WhisperLiveKit 没有 whisper.cpp 后端，所以由它的 `openai-api` 后端把音频转给本机的 `whisper-server`（`127.0.0.1:8011`，`--inference-path /v1/audio/transcriptions`），扩展仍然只连 8010，用法不变。这条路是实验性的：whisper-server 只按句段返回词级时间戳，识别节奏可能比 Windows 上的 faster-whisper 粗。
+
+- `whisper-server` 需要自己编译 whisper.cpp（Homebrew 的 `whisper-cpp` 不带它），放在 `.research/whisper.cpp/build/bin/` 或 PATH 里。
+- ggml 模型（`ggml-large-v3-turbo.bin` / `ggml-medium.bin`）首次启动时自动下载到 `.research/models/whisper.cpp/`。
+- WhisperLiveKit 仍需本项目所用的那份分支（`--openai-translation-*` 等参数只在它里面有）。
+- 想换回 MLX：`SHENGMU_ASR_BACKEND=mlx-whisper pnpm services:start`。
 
 ## 字幕怎么显示
 
@@ -53,7 +64,7 @@ Chrome MV3 扩展。采集当前标签页的英文音频，在本机实时转写
 | 自定义 OpenAI 兼容 | 自定 | 可指向本地 `llama-server`（`http://127.0.0.1:8013/v1`）或任何兼容端点 |
 | WhisperLiveKit 内置 | 本机 | 面板把翻译引擎切到「本地服务」，由 WLK 调用 8013 翻译，扩展不再改写译文 |
 
-纯 API 用法推荐 `Start-Services.ps1 -AsrOnly`，显存全给 ASR。API Key 只存在本机 `chrome.storage`，不会下发给网页。
+纯 API 用法推荐 `pnpm services:start --asr-only`，显存全给 ASR。API Key 只存在本机 `chrome.storage`，不会下发给网页。
 
 ## 术语库
 
@@ -76,14 +87,14 @@ Chrome MV3 扩展。采集当前标签页的英文音频，在本机实时转写
 
 ## 开发
 
-```powershell
+```sh
 pnpm install                 # 只装开发工具（ESLint、TypeScript），扩展本身不依赖 node_modules
 pnpm run verify              # 语法检查 + ESLint + 类型检查（lib/）+ 单元测试，提交前必过
 pnpm run smoke               # 无头 Chrome 加载扩展，检查后台、offscreen、面板、字幕页与浮层注入
-.\scripts\Start-Services.ps1 # 本地 ASR + 翻译
+pnpm services:start          # 本地 ASR + 翻译（scripts/services.mjs）
 ```
 
-包管理器为 pnpm（版本由 `package.json` 的 `packageManager` 锁定，`corepack enable` 后自动使用）。`verify` 中各项也可单独运行：`pnpm run check`（全部脚本 `node --check`）、`pnpm run lint`、`pnpm run typecheck`、`pnpm test`。CI（`.github/workflows/ci.yml`）在每次 push 与 PR 上跑 `verify` 与 `smoke`。
+包管理器为 pnpm（版本由 `package.json` 的 `packageManager` 锁定，`corepack enable` 后自动使用）。`verify` 中各项也可单独运行：`pnpm run check`（全部脚本 `node --check`）、`pnpm run lint`、`pnpm run typecheck`、`pnpm test`。CI（`.github/workflows/ci.yml`）在每次 push 与 PR 上于 Ubuntu 和 Windows 跑 `verify`，在 Ubuntu 跑 `smoke`。本地服务的启停逻辑在 `scripts/local-service/`（`service-manager.mjs`，控制服务 `server.mjs` 与命令行共用），测试用桩进程代替真实模型，任何系统上都能跑。
 
 分层约定：`extension/` 按入口分目录（`background/`、`offscreen/`、`content/`、`popup/`、`subtitle/`），入口之间只通过 `chrome.runtime` / `chrome.storage.local` 通信；`lib/` 为纯函数模块，禁止引入 `chrome.*` 与 DOM；`storage/history-db.js` 封装 IndexedDB。设计与验收记录在 `paseo/`。
 
