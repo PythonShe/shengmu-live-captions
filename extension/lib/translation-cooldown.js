@@ -45,19 +45,27 @@ export function createTranslationCooldown({
      * @returns {Promise<void>}
      */
     wait(signal) {
-      const ms = until - now();
-      if (ms <= 0) return Promise.resolve();
+      if (until - now() <= 0) return Promise.resolve();
       if (signal?.aborted) return Promise.reject(abortReason(signal));
       return new Promise((resolve, reject) => {
+        let timer = null;
         const onAbort = () => {
           clearTimer(timer);
           reject(abortReason(signal));
         };
-        const timer = setTimer(() => {
+        // Reads `until` again on every wake: another request may have extended
+        // the cooldown since this one parked.
+        const arm = () => {
+          const ms = until - now();
+          if (ms > 0) {
+            timer = setTimer(arm, ms);
+            return;
+          }
           signal?.removeEventListener("abort", onAbort);
           resolve();
-        }, ms);
+        };
         signal?.addEventListener("abort", onAbort, { once: true });
+        arm();
       });
     },
 
