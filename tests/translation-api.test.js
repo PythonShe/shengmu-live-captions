@@ -138,13 +138,19 @@ test("normalizeTranslationBaseUrl adds a protocol and strips trailing slashes", 
   );
 });
 
-test("translation settings default to DeepSeek and keep per-provider keys", () => {
+test("translation settings default to the built-in translator and keep per-provider keys", () => {
   const defaults = normalizeTranslationSettings({});
   assert.equal(defaults.mode, "api");
-  assert.equal(defaults.provider, "deepseek");
-  assert.equal(defaults.model, "deepseek-chat");
-  assert.equal(defaults.baseUrl, "https://api.deepseek.com/v1");
+  assert.equal(defaults.provider, "chrome");
+  assert.equal(defaults.model, "builtin");
+  assert.equal(defaults.baseUrl, "");
   assert.equal(defaults.translatePartial, true);
+  const builtin = resolveTranslationConfig({});
+  assert.equal(builtin.enabled, true, "no key needed");
+  assert.equal(builtin.builtin, true);
+  const deepseek = normalizeTranslationSettings({ translationProvider: "deepseek" });
+  assert.equal(deepseek.model, "deepseek-chat");
+  assert.equal(deepseek.baseUrl, "https://api.deepseek.com/v1");
 
   const withKeys = normalizeTranslationSettings({
     translationApiKeys: {
@@ -153,7 +159,7 @@ test("translation settings default to DeepSeek and keep per-provider keys", () =
       unknown: "ignored"
     }
   });
-  assert.deepEqual(withKeys.apiKeys, { deepseek: "dk", openai: "ok", custom: "" });
+  assert.deepEqual(withKeys.apiKeys, { chrome: "", deepseek: "dk", openai: "ok", bailian: "", custom: "" });
 });
 
 test("translationConfigIssue requires a key only for providers that need one", () => {

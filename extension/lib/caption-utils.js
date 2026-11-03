@@ -1,6 +1,7 @@
 import {
   DEFAULT_TRANSLATION_MODE,
   DEFAULT_TRANSLATION_PROVIDER,
+  TRANSLATION_PROVIDERS,
   DEFAULT_TRANSLATION_TIMEOUT_MS,
   normalizeTranslationSettings
 } from "./translation-api.js";
@@ -23,7 +24,18 @@ export const LOCAL_ASR_MODELS = Object.freeze(["large-v3-turbo", "medium"]);
 // is prompt pollution, so the stored value is clipped.
 export const MAX_GLOSSARY_DOMAIN_HINT_CHARS = 120;
 
+/**
+ * Speech recognition backends:
+ * - chrome: Chrome's on-device SpeechRecognition on the tab track (no setup)
+ * - bailian: Alibaba Cloud fun-asr-realtime over WebSocket (key, paid)
+ * - wlk: the local WhisperLiveKit service on 8010 (best quality, needs setup)
+ */
+export const ASR_BACKENDS = Object.freeze(["chrome", "bailian", "wlk"]);
+export const BAILIAN_REGIONS = Object.freeze(["cn", "intl"]);
+
 export const DEFAULT_SETTINGS = Object.freeze({
+  asrBackend: "chrome",
+  bailianRegion: "cn",
   wsUrl: "ws://127.0.0.1:8010/asr?target_language=zh",
   displayMode: "bilingual",
   fontSize: 34,
@@ -35,8 +47,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
   localAsrModel: "large-v3-turbo",
   translationMode: DEFAULT_TRANSLATION_MODE,
   translationProvider: DEFAULT_TRANSLATION_PROVIDER,
-  translationBaseUrl: "https://api.deepseek.com/v1",
-  translationModel: "deepseek-chat",
+  translationBaseUrl: TRANSLATION_PROVIDERS[DEFAULT_TRANSLATION_PROVIDER].baseUrl,
+  translationModel: TRANSLATION_PROVIDERS[DEFAULT_TRANSLATION_PROVIDER].model,
   translationApiKeys: Object.freeze({}),
   translationTranslatePartial: true,
   translationTimeoutMs: DEFAULT_TRANSLATION_TIMEOUT_MS,
@@ -144,9 +156,16 @@ export function normalizeSettings(value = {}) {
     ? value.displayMode
     : DEFAULT_SETTINGS.displayMode;
   const translation = normalizeTranslationSettings(value);
+  const asrBackend = ASR_BACKENDS.includes(value.asrBackend)
+    ? value.asrBackend
+    : DEFAULT_SETTINGS.asrBackend;
   return {
     ...DEFAULT_SETTINGS,
     ...value,
+    asrBackend,
+    bailianRegion: BAILIAN_REGIONS.includes(value.bailianRegion)
+      ? value.bailianRegion
+      : DEFAULT_SETTINGS.bailianRegion,
     wsUrl: normalizeWsUrl(value.wsUrl || DEFAULT_SETTINGS.wsUrl),
     displayMode,
     fontSize: Math.round(clamp(Number(value.fontSize) || DEFAULT_SETTINGS.fontSize, 20, 64)),
@@ -162,7 +181,9 @@ export function normalizeSettings(value = {}) {
     localAsrModel: LOCAL_ASR_MODELS.includes(value.localAsrModel)
       ? value.localAsrModel
       : DEFAULT_SETTINGS.localAsrModel,
-    translationMode: translation.mode,
+    // Server mode means WhisperLiveKit translates; the other speech backends
+    // have no translator of their own.
+    translationMode: asrBackend === "wlk" ? translation.mode : "api",
     translationProvider: translation.provider,
     translationBaseUrl: translation.baseUrl,
     translationModel: translation.model,
@@ -206,8 +227,21 @@ function normalizeCustomGlossary(value) {
  */
 export function migrateLegacySettings(value) {
   const source = value && typeof value === "object" ? value : {};
-  const settings = normalizeSettings(source);
-  if (Object.keys(source).length > 0 && source.translationMode === undefined) {
+  const existing = Object.keys(source).length > 0;
+  // Installs from before the speech backend and built-in translator existed
+  // keep what they ran: WhisperLiveKit and the DeepSeek preset.
+  const settings = normalizeSettings({
+    ...source,
+    ...(existing && source.asrBackend === undefined ? { asrBackend: "wlk" } : {}),
+    ...(existing && source.translationProvider === undefined
+      ? {
+          translationProvider: "deepseek",
+          translationBaseUrl: source.translationBaseUrl ?? TRANSLATION_PROVIDERS.deepseek.baseUrl,
+          translationModel: source.translationModel ?? TRANSLATION_PROVIDERS.deepseek.model
+        }
+      : {})
+  });
+  if (existing && source.translationMode === undefined) {
     settings.translationMode = "server";
   }
   return settings;

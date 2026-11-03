@@ -12,16 +12,18 @@ await new Promise((resolve) => {
   setTimeout(resolve, 30);
 });
 
-test("background defaults to DeepSeek and never broadcasts API keys", async () => {
+test("background defaults to the built-in translator and never broadcasts API keys", async () => {
   const state = await sendToBackground({ target: "background", type: "get-state" });
   assert.equal(state.ok, true);
   assert.equal(state.settings.translationMode, "api");
-  assert.equal(state.settings.translationProvider, "deepseek");
-  assert.equal(state.settings.translationModel, "deepseek-chat");
+  assert.equal(state.settings.translationProvider, "chrome");
+  assert.equal(state.settings.asrBackend, "chrome");
   assert.equal("translationApiKeys" in state.settings, false);
   assert.deepEqual(state.settings.translationApiKeyConfigured, {
+    chrome: false,
     deepseek: false,
     openai: false,
+    bailian: false,
     custom: false
   });
 });
