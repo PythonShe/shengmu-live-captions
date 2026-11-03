@@ -248,6 +248,12 @@ export function createSessionLifecycle({ store, settings, views, offscreen, hist
       pendingStopDetail = options.detail || "标签页音频采集已停止";
     }
     await offscreen.stopCapture();
+    // The offscreen document outlives its session, so a stale stop button can
+    // land here after finalize already ran; finalizing again would overwrite
+    // the ended session's status and endedAt.
+    if (!store.state.active && !finalizingPromise) {
+      return { ok: true, alreadyStopped: true };
+    }
     await finalize(
       options.status || "stopped",
       pendingStopDetail || options.detail || "标签页音频采集已停止",
