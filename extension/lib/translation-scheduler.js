@@ -12,7 +12,12 @@ import { createBufferTranslation } from "./buffer-translation.js";
 import { cleanText, selectDisplayCaption } from "./caption-utils.js";
 import { polishTranslation, stripSpeechFillers } from "./speech-cleanup.js";
 import { lineSignature } from "./transcript-reducer.js";
-import { isAbortError, recentTranslationContext } from "./translation-api.js";
+import { createTranslationCooldown } from "./translation-cooldown.js";
+import {
+  isAbortError,
+  isSplittableTranslationError,
+  recentTranslationContext
+} from "./translation-api.js";
 import { planTranslationBatch } from "./utterance.js";
 
 export {
@@ -28,6 +33,7 @@ export const TRANSLATION_STOP_TIMEOUT_MS = 15000;
 /** The buffer request yields to the line queue only above this backlog. */
 export const TRANSLATION_BUFFER_MAX_BACKLOG = 2;
 const LINE_FOLLOW_UP_DELAY_MS = 250;
+
 const MAX_FLUSH_ROUNDS = 12;
 
 const NON_RETRYABLE_CODES = new Set([
@@ -78,6 +84,7 @@ function emptyUsage() {
  * @property {(callback: () => void, ms: number) => any} [setTimeout]
  * @property {(handle: any) => void} [clearTimeout]
  * @property {() => number} [now]
+ * @property {() => number} [random] Jitter source in [0, 1); defaults to Math.random.
  */
 
 /** @param {TranslationSchedulerDeps} deps */
@@ -93,7 +100,8 @@ export function createTranslationScheduler(deps) {
     partialEnabled = () => true,
     setTimeout: setTimer = globalThis.setTimeout.bind(globalThis),
     clearTimeout: clearTimer = globalThis.clearTimeout.bind(globalThis),
-    now = Date.now
+    now = Date.now,
+    random = Math.random
   } = deps;
 
   const pending = new Map();
@@ -111,6 +119,25 @@ export function createTranslationScheduler(deps) {
     return new Promise((resolve) => {
       setTimer(resolve, ms);
     });
+  }
+
+  // One cooldown for both streams (see translation-cooldown.js).
+  const cooldown = createTranslationCooldown({
+    now,
+    random,
+    setTimeout: setTimer,
+    clearTimeout: clearTimer
+  });
+
+  /** translateTexts behind the shared provider cooldown. */
+  async function guardedTranslate(options) {
+    await cooldown.wait(options?.signal);
+    try {
+      return await translateTexts(options);
+    } catch (error) {
+      cooldown.note(error);
+      throw error;
+    }
   }
 
   function sessionActive() {
@@ -155,7 +182,7 @@ export function createTranslationScheduler(deps) {
     getConfig,
     isApiEnabled,
     partialEnabled,
-    translateTexts,
+    translateTexts: guardedTranslate,
     isLineBacklogged: () => pending.size > TRANSLATION_BUFFER_MAX_BACKLOG || Boolean(flushPromise),
     generation: () => generation,
     recordSuccess: (value) => {
@@ -364,6 +391,66 @@ export function createTranslationScheduler(deps) {
     }
   }
 
+  /**
+   * One line request. A batch-shape failure (wrong count, unparseable or
+   * truncated output) is retried in halves before it counts as a failed
+   * attempt: one awkward line no longer drags five good ones into a retry.
+   * Returns null when the round was cancelled, { failed: true } when the
+   * failure was recorded, { split: true } when the halves were handled here,
+   * or the translator result. `excludeIds` keeps this request's rows and any
+   * later rows of the original batch out of the context.
+   */
+  async function requestBatch(entries, excludeIds, config, startGeneration) {
+    const controller = new AbortController();
+    lineAbort = controller;
+    let result;
+    try {
+      result = await guardedTranslate({
+        texts: entries.map(([, entry]) => entry.promptText || entry.source),
+        // The batch ids keep this request's own rows out of the context,
+        // otherwise a sentence appears in both segments and context.
+        context: recentTranslationContext(runtimeLines(), undefined, excludeIds),
+        config,
+        signal: controller.signal
+      });
+    } catch (error) {
+      if (isAbortError(error) || startGeneration !== generation) return null;
+      if (isSplittableTranslationError(error, entries.length)) {
+        const middle = Math.ceil(entries.length / 2);
+        const first = entries.slice(0, middle);
+        // The second half may read the first half's fresh translations as
+        // context; the first half must not see the later rows.
+        const secondExclude = new Set(excludeIds);
+        for (const [lineId] of first) secondExclude.delete(lineId);
+        for (const [half, halfExclude] of [
+          [first, excludeIds],
+          [entries.slice(middle), secondExclude]
+        ]) {
+          if (startGeneration !== generation || !sessionActive()) return null;
+          const halfResult = await requestBatch(half, halfExclude, config, startGeneration);
+          if (!halfResult) return null;
+          if (halfResult.split || halfResult.failed) continue;
+          const outcome = await applyLineTranslations(half, halfResult.translations);
+          if (outcome.emptyEntries.length > 0) {
+            await handleFailure(
+              outcome.emptyEntries,
+              codedError("翻译 API 返回了空译文", "empty_translation")
+            );
+          }
+        }
+        return { split: true };
+      }
+      await handleFailure(entries, error);
+      return { failed: true };
+    } finally {
+      if (lineAbort === controller) lineAbort = null;
+    }
+    if (startGeneration !== generation) return null;
+    lastError = "";
+    addUsage(result.usage);
+    return result;
+  }
+
   async function flushLines() {
     if (flushPromise) return flushPromise;
     const startGeneration = generation;
@@ -389,28 +476,13 @@ export function createTranslationScheduler(deps) {
           await handleFailure(entries, codedError(config.issue || "翻译 API 未启用", "config"));
           return;
         }
-        let result;
-        const controller = new AbortController();
-        lineAbort = controller;
-        try {
-          result = await translateTexts({
-            texts: entries.map(([, entry]) => entry.promptText || entry.source),
-            // The batch ids keep this request's own rows out of the context,
-            // otherwise a sentence appears in both segments and context.
-            context: recentTranslationContext(runtimeLines(), undefined, batchIds),
-            config,
-            signal: controller.signal
-          });
-        } catch (error) {
-          if (isAbortError(error)) return;
-          await handleFailure(entries, error);
-          return;
-        } finally {
-          if (lineAbort === controller) lineAbort = null;
+        const result = await requestBatch(entries, batchIds, config, startGeneration);
+        if (!result || result.failed) return;
+        // Halves that failed armed the retry timer; honour its delay.
+        if (result.split) {
+          if (retryTimer) return;
+          continue;
         }
-        if (startGeneration !== generation) return;
-        lastError = "";
-        addUsage(result.usage);
         const outcome = await applyLineTranslations(entries, result.translations);
         if (outcome.emptyEntries.length > 0) {
           await handleFailure(
@@ -495,6 +567,7 @@ export function createTranslationScheduler(deps) {
     pending.clear();
     failed.clear();
     lastError = "";
+    cooldown.reset();
     buffer.reset();
     if (!keepUsage) usage = emptyUsage();
     refreshSummary();
@@ -562,6 +635,7 @@ export function createTranslationScheduler(deps) {
         lineInFlight: Boolean(flushPromise),
         lineTimer: Boolean(flushTimer),
         retryTimer: Boolean(retryTimer),
+        cooldownMs: cooldown.remainingMs(),
         ...buffer.inspect(),
         lastError
       };

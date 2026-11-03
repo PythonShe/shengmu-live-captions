@@ -9,6 +9,7 @@ import {
   createTranslationScheduler,
   shouldRetryTranslationError
 } from "../extension/lib/translation-scheduler.js";
+import { TranslationApiError } from "../extension/lib/translation-api.js";
 import { createFakeClock, settleAsync } from "./helpers/fake-clock.js";
 
 const LONG = "This sentence is long enough to never be held as a fragment.";
@@ -38,7 +39,7 @@ function row(id, source, extra = {}) {
   return { id, source, translation: "", translationPending: true, ...extra };
 }
 
-function setup({ lines = [], bufferSource = "", auto = null, config = {}, partial = true } = {}) {
+function setup({ lines = [], bufferSource = "", auto = null, config = {}, partial = true, random = () => 0 } = {}) {
   const clock = createFakeClock();
   const translator = createTranslator({ auto });
   const state = {
@@ -68,7 +69,8 @@ function setup({ lines = [], bufferSource = "", auto = null, config = {}, partia
     },
     setTimeout: clock.setTimeout,
     clearTimeout: clock.clearTimeout,
-    now: clock.now
+    now: clock.now,
+    random
   });
   return { clock, translator, state, settings, knownLines, history, published, scheduler };
 }
@@ -296,4 +298,70 @@ test("restore and config changes reset the error and requeue failed rows", async
   assert.equal(scheduler.lastError, "");
   await clock.advance(0);
   assert.equal(translator.calls.length, 2, "the new config gets another try");
+});
+
+test("a batch-shape failure is retried in halves without spending an attempt", async () => {
+  const { clock, translator, state, scheduler } = setup({
+    lines: [row("a", `A: ${LONG}`), row("b", `B: ${LONG}`), row("c", `C: ${LONG}`), row("d", `D: ${LONG}`)]
+  });
+  scheduler.scheduleLines(0);
+  await clock.advance(0);
+  assert.equal(translator.calls[0].texts.length, 4);
+  translator.calls[0].reject(new TranslationApiError("count", { code: "count_mismatch" }));
+  await settleAsync();
+  assert.equal(translator.calls.length, 2);
+  assert.equal(translator.calls[1].texts.length, 2);
+  translator.calls[1].resolve({ translations: ["甲", "乙"] });
+  await settleAsync();
+  assert.equal(translator.calls.length, 3);
+  // The second half sees the first half's fresh translations as context.
+  assert.deepEqual(translator.calls[2].context.map((item) => item.translation), ["甲", "乙"]);
+  translator.calls[2].resolve({ translations: ["丙", "丁"] });
+  await settleAsync();
+  assert.deepEqual(state.current.lines.map((line) => line.translation), ["甲", "乙", "丙", "丁"]);
+  assert.equal(scheduler.inspect().pending.size, 0);
+  assert.equal(scheduler.usage.requests, 2);
+});
+
+test("a single row that still fails after splitting goes through the normal retry delay", async () => {
+  const { clock, translator, state, scheduler } = setup({
+    lines: [row("a", `A: ${LONG}`), row("b", `B: ${LONG}`)]
+  });
+  scheduler.scheduleLines(0);
+  await clock.advance(0);
+  translator.calls[0].reject(new TranslationApiError("parse", { code: "parse_error" }));
+  await settleAsync();
+  translator.calls[1].reject(new TranslationApiError("parse", { code: "parse_error" }));
+  await settleAsync();
+  assert.equal(translator.calls.length, 3, "the second half still goes out");
+  translator.calls[2].resolve({ translations: ["乙"] });
+  await settleAsync();
+  assert.equal(state.current.lines[1].translation, "乙");
+  assert.equal(scheduler.inspect().pending.get("a").attempts, 1);
+  assert.equal(scheduler.inspect().retryTimer, true);
+  await clock.advance(TRANSLATION_LINE_RETRY_DELAYS_MS[0] - 1);
+  assert.equal(translator.calls.length, 3, "no immediate re-request past the retry delay");
+  await clock.advance(1);
+  assert.equal(translator.calls.length, 4);
+  assert.deepEqual(translator.calls[3].texts, [`A: ${LONG}`]);
+});
+
+test("a Retry-After from one stream holds back both streams", async () => {
+  const { clock, translator, scheduler } = setup({
+    lines: [row("a", LONG)],
+    bufferSource: "and the buffer keeps talking about the next thing"
+  });
+  scheduler.scheduleLines(0);
+  await clock.advance(0);
+  translator.calls[0].reject(
+    new TranslationApiError("slow down", { code: "rate_limit", status: 429, retryAfterMs: 5000 })
+  );
+  await settleAsync();
+  assert.equal(scheduler.inspect().cooldownMs, 5000);
+  scheduler.scheduleBuffer();
+  await clock.advance(TRANSLATION_LINE_RETRY_DELAYS_MS[0]);
+  await clock.advance(TRANSLATION_BUFFER_MIN_INTERVAL_MS);
+  assert.equal(translator.calls.length, 1, "neither the line retry nor the buffer jumps the cooldown");
+  await clock.advance(5000 - TRANSLATION_LINE_RETRY_DELAYS_MS[0] - TRANSLATION_BUFFER_MIN_INTERVAL_MS);
+  assert.ok(translator.calls.length >= 2, "requests resume once the cooldown ends");
 });
