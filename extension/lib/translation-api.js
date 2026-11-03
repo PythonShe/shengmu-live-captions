@@ -271,6 +271,28 @@ function buildSystemPrompt({ partial = false, domainHint = "", hasGlossary = fal
   return lines.join("\n");
 }
 
+/**
+ * Output of resolveTranslationConfig: normalized settings plus provider facts.
+ * @typedef {Record<string, any>} TranslationConfig
+ */
+
+/**
+ * @typedef {object} TranslationRequestOptions
+ * @property {string[]} [texts] Segments to translate, one result per segment (validated at runtime).
+ * @property {object[]} [context] Earlier lines the model should continue from.
+ * @property {TranslationConfig} [config]
+ * @property {boolean} [partial] The last segment is an unfinished buffer.
+ * @property {object[]} [glossaryEntries] Overrides config.glossaryEntries.
+ * @property {string} [domainHint] Overrides config.domainHint.
+ */
+
+/**
+ * @param {TranslationRequestOptions & {
+ *   includeThinking?: boolean,
+ *   includeTemperature?: boolean,
+ *   tokenField?: string
+ * }} options
+ */
 export function buildTranslationRequestBody({
   texts,
   context = [],
@@ -312,6 +334,7 @@ export function buildTranslationRequestBody({
     context: Array.isArray(context) ? context.slice(-DEFAULT_CONTEXT_LINES) : [],
     segments
   };
+  /** @type {Record<string, unknown>} */
   const body = {
     model,
     [tokenField]: maxTokens,
@@ -591,6 +614,12 @@ async function postChatCompletion({
   }
 }
 
+/**
+ * @param {TranslationRequestOptions & {
+ *   fetchImpl?: typeof fetch,
+ *   signal?: AbortSignal | null
+ * }} options
+ */
 export async function translateTexts({
   texts,
   context = [],
