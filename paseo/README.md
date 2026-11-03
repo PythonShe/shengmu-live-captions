@@ -32,7 +32,7 @@
 ## 常用命令
 
 ```powershell
-npm run verify                              # 语法 + ESLint + 类型检查 + 单元测试
+pnpm run verify                             # 语法 + ESLint + 类型检查 + 单元测试
 .\scripts\Start-Services.ps1 [-AsrOnly]     # 本地 ASR + 翻译
 node paseo/mock-openai-server.mjs           # mock 翻译 API（http://127.0.0.1:8787/v1）
 ```
