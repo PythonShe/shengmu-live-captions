@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -58,6 +60,32 @@ test("the host manifest allows exactly the found extensions", () => {
     type: "stdio",
     allowed_origins: [`chrome-extension://${ID_A}/`]
   });
+});
+
+test("the installer finds an extension loaded in Edge and registers both browsers", () => {
+  const localAppData = fs.mkdtempSync(path.join(os.tmpdir(), "shengmu-native-"));
+  try {
+    const extensionDir = fileURLToPath(new URL("../extension", import.meta.url));
+    const profile = path.join(localAppData, "Microsoft", "Edge", "User Data", "Default");
+    fs.mkdirSync(profile, { recursive: true });
+    fs.writeFileSync(
+      path.join(profile, "Secure Preferences"),
+      JSON.stringify({ extensions: { settings: { [ID_B]: { path: extensionDir } } } })
+    );
+    const output = execFileSync(
+      process.execPath,
+      [fileURLToPath(new URL("../scripts/native-host/install.mjs", import.meta.url)), "--dry-run"],
+      { encoding: "utf8", env: { ...process.env, LOCALAPPDATA: localAppData } }
+    );
+    const plan = JSON.parse(output);
+    assert.deepEqual(plan.manifest.allowed_origins, [`chrome-extension://${ID_B}/`]);
+    assert.deepEqual(plan.registryKeys, [
+      `HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\${NATIVE_HOST_NAME}`,
+      `HKCU\\Software\\Microsoft\\Edge\\NativeMessagingHosts\\${NATIVE_HOST_NAME}`
+    ]);
+  } finally {
+    fs.rmSync(localAppData, { recursive: true, force: true });
+  }
 });
 
 test("the popup asks for the host the installer registers", () => {

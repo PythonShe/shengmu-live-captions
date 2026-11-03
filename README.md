@@ -39,7 +39,7 @@ pnpm dev-browser --url https://www.youtube.com/
 
 面板里把识别引擎切到「本地 WhisperLiveKit」即可使用。也可以用 `pnpm services:serve` 在后台起控制服务（`127.0.0.1:8014`），之后在面板里一键启停本地模型；`pnpm services:serve-stop` 关掉它。`pnpm services:status` 看各端口状态，`pnpm services:stop` 停掉本地模型。
 
-Windows 上可以双击仓库根目录的 `install-windows.cmd`（需已安装 Node.js）：它把一个本机消息助手登记给 Chrome，之后面板里的「启动控制服务」按钮就能直接拉起控制服务，不必再开终端。`install-windows.cmd --uninstall` 撤销登记。
+Windows 上可以双击仓库根目录的 `install-windows.cmd`（需已安装 Node.js）：它把一个本机消息助手登记给 Chrome 和 Edge，之后面板里的「启动控制服务」按钮就能直接拉起控制服务，不必再开终端。`install-windows.cmd --uninstall` 撤销登记。
 
 模型档位可切换：`--translation-model 9b-q4km|2b-iq4xs`、`--asr-model large-v3-turbo|medium`。全部选项见 `pnpm services help`。
 
