@@ -32,6 +32,14 @@ export function rememberLine(line) {
   return { ...line, signature: lineSignature(line.source, line.translation) };
 }
 
+/** Rows whose text, translation or timing differ from the remembered copy. */
+export function linesChangedSince(lines, knownLines) {
+  return lines.filter((line) => {
+    const known = knownLines.get(line.id);
+    return lineChanged(known, line) || known?.signature !== lineSignature(line.source, line.translation);
+  });
+}
+
 /**
  * @typedef {object} TranscriptMessage
  * @property {any} data The WhisperLiveKit payload (`lines`, `buffer_transcription` ...).
@@ -98,13 +106,7 @@ export function reduceTranscriptUpdate(state, message, options) {
     };
   });
 
-  const historyLines = lines.filter((line) => {
-    const known = knownLines.get(line.id);
-    return (
-      lineChanged(known, line) ||
-      known?.signature !== lineSignature(line.source, line.translation)
-    );
-  });
+  const historyLines = linesChangedSince(lines, knownLines);
 
   const bufferChanged = cleanText(previous.bufferSource) !== normalized.bufferSource;
   const bufferTranslation = useApi
