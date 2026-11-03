@@ -611,11 +611,18 @@
       const rect = stage.getBoundingClientRect();
       const widthRange = Math.max(1, window.innerWidth - rect.width);
       const heightRange = Math.max(1, window.innerHeight - rect.height);
-      positionStore[siteKey()] = {
+      const key = siteKey();
+      const position = {
         x: rect.left / widthRange,
         y: rect.top / heightRange
       };
-      void chrome.storage.local.set({ [POSITION_KEY]: positionStore });
+      positionStore[key] = position;
+      // Other tabs write their own sites into the same key; merging into a
+      // fresh read keeps their drags instead of replaying our stale snapshot.
+      void chrome.storage.local.get(POSITION_KEY).then((values) => {
+        positionStore = { ...(values[POSITION_KEY] || {}), [key]: position };
+        return chrome.storage.local.set({ [POSITION_KEY]: positionStore });
+      });
       dragState = null;
       stageRectCache = null;
       historyRectCache = null;
