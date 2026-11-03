@@ -104,9 +104,10 @@ export function parseRetryAfter(value, now = Date.now()) {
  *  rate_limit (429), server (>=500), http_error  transient; may carry retryAfterMs
  *  network, timeout         transient transport failures
  *  aborted                  caller cancelled, not an error to report
- *  parse_error, count_mismatch, empty_response, empty_translation,
- *  truncated, thinking_only  the model answered badly; splittable batches
- *                           (see isSplittableTranslationError) may retry in halves
+ *  count_mismatch, parse_error, truncated  batch shape problem; retry in
+ *                           halves (see isSplittableTranslationError)
+ *  empty_response, empty_translation, thinking_only  the model answered
+ *                           badly; plain retry, splitting does not help
  */
 export class TranslationApiError extends Error {
   /**
@@ -126,6 +127,27 @@ export class TranslationApiError extends Error {
     this.retryAfterMs = retryAfterMs;
     if (cause) this.cause = cause;
   }
+}
+
+// Failures where the model answered but the answer does not fit the batch:
+// a smaller batch has a real chance of succeeding, unlike auth or network.
+const SPLITTABLE_ERROR_CODES = new Set([
+  "count_mismatch",
+  "parse_error",
+  "truncated"
+]);
+
+/**
+ * True when retrying the batch in two halves is worthwhile.
+ * @param {unknown} error
+ * @param {number} [batchSize] When given, a single segment is not splittable.
+ */
+export function isSplittableTranslationError(error, batchSize = Infinity) {
+  return (
+    error instanceof TranslationApiError &&
+    SPLITTABLE_ERROR_CODES.has(error.code) &&
+    batchSize > 1
+  );
 }
 
 export function isAbortError(error) {
