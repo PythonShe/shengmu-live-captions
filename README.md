@@ -94,7 +94,7 @@ pnpm run smoke               # 无头 Chrome 加载扩展，检查后台、offsc
 pnpm services:start          # 本地 ASR + 翻译（scripts/services.mjs）
 ```
 
-包管理器为 pnpm（版本由 `package.json` 的 `packageManager` 锁定，`corepack enable` 后自动使用）。`verify` 中各项也可单独运行：`pnpm run check`（全部脚本 `node --check`）、`pnpm run lint`、`pnpm run typecheck`、`pnpm test`。CI（`.github/workflows/ci.yml`）在每次 push 与 PR 上于 Ubuntu 和 Windows 跑 `verify`，在 Ubuntu 跑 `smoke`。本地服务的启停逻辑在 `scripts/local-service/`（`service-manager.mjs`，控制服务 `server.mjs` 与命令行共用），测试用桩进程代替真实模型，任何系统上都能跑。
+包管理器为 pnpm（版本由 `package.json` 的 `packageManager` 锁定，`corepack enable` 后自动使用）。`verify` 中各项也可单独运行：`pnpm run check`（全部脚本 `node --check`）、`pnpm run lint`、`pnpm run typecheck`、`pnpm test`。CI（`.github/workflows/ci.yml`）在每次 push 与 PR 上于 Ubuntu、Windows、macOS（x64 与 arm64）跑 `verify`，在 Ubuntu、Windows、macOS 跑 `smoke`。本地服务的启停逻辑在 `scripts/local-service/`（`service-manager.mjs`，控制服务 `server.mjs` 与命令行共用），测试用桩进程代替真实模型，任何系统上都能跑。
 
 分层约定：`extension/` 按入口分目录（`background/`、`offscreen/`、`content/`、`popup/`、`subtitle/`），入口之间只通过 `chrome.runtime` / `chrome.storage.local` 通信；`lib/` 为纯函数模块，禁止引入 `chrome.*` 与 DOM；`storage/history-db.js` 封装 IndexedDB。设计与验收记录在 `paseo/`。
 
