@@ -1,6 +1,7 @@
 import { settingsForBroadcast } from "../lib/caption-utils.js";
-import { translateTexts } from "../lib/translation-api.js";
+import { TranslationApiError, translateTexts } from "../lib/translation-api.js";
 import { createTranslationScheduler } from "../lib/translation-scheduler.js";
+import { createAsrAuth } from "./asr-auth.js";
 import { probeServices, testTranslationApi } from "./diagnostics.js";
 import { createHistorySync } from "./history-sync.js";
 import { createMessageDispatcher } from "./message-router.js";
@@ -15,13 +16,25 @@ const store = createRuntimeStore();
 const settings = createSettingsStore();
 const offscreen = createOffscreenClient();
 const views = createViews({ store, settings, ready: initialize });
+const asrAuth = createAsrAuth();
+
+/** Chrome's built-in Translator runs in the offscreen document only. */
+async function builtinTranslate(texts) {
+  const response = await offscreen.send({ type: "builtin-translate", texts });
+  if (!response?.ok) {
+    throw new TranslationApiError(response?.error || "Chrome 内置翻译失败", {
+      code: response?.code || "builtin_unavailable"
+    });
+  }
+  return response.translations;
+}
 const history = createHistorySync({ store, views });
 const scheduler = createTranslationScheduler({
   getState: () => store.state,
   getConfig: () => settings.translationConfig(),
   isApiEnabled: () => settings.apiTranslationActive(),
   partialEnabled: () => Boolean(settings.current.translationTranslatePartial),
-  translateTexts,
+  translateTexts: (options) => translateTexts({ ...options, builtinTranslate }),
   knownLines: history.knownLines,
   enqueueHistory: (lines) => history.enqueue(lines),
   publish: () => lifecycle.publishCaptions()
@@ -33,7 +46,8 @@ const lifecycle = createSessionLifecycle({
   offscreen,
   history,
   scheduler,
-  ready: initialize
+  ready: initialize,
+  asrAuth
 });
 
 let initializationPromise = null;
@@ -78,7 +92,7 @@ const dispatch = createMessageDispatcher({
     publicSettings: () => settingsForBroadcast(settings.current),
     saveSettings,
     overlayEnabled: () => settings.current.overlayEnabled,
-    testTranslationApi: () => testTranslationApi(settings.translationConfig()),
+    testTranslationApi: () => testTranslationApi(settings.translationConfig(), { builtinTranslate }),
     openMonitorWindow: () => views.openMonitorWindow(),
     refreshOverlay: () => views.refreshOverlay(),
     acknowledgeContentReady: (sender) => views.acknowledgeContentReady(sender),

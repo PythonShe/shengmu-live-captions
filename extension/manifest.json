@@ -7,6 +7,7 @@
   "description": "捕获当前标签页的英文音频，实时生成中文字幕；支持 DeepSeek/OpenAI 等翻译 API 与本地翻译服务。",
   "permissions": [
     "activeTab",
+    "declarativeNetRequestWithHostAccess",
     "downloads",
     "offscreen",
     "scripting",

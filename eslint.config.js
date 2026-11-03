@@ -76,6 +76,11 @@ export default [
     rules: { "no-implicit-globals": "off" }
   },
   {
+    // Imported by offscreen.js only when its backend runs.
+    files: ["extension/offscreen/web-speech.js"],
+    languageOptions: { globals: { ...globals.browser, ...chrome } }
+  },
+  {
     // Injected with chrome.scripting.executeScript as classic scripts.
     files: ["extension/content/**/*.js"],
     languageOptions: { sourceType: "script", globals: { ...globals.browser, ...chrome } }

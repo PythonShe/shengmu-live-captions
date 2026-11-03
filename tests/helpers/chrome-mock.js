@@ -27,6 +27,8 @@ export function createChromeMock() {
   const injections = [];
   const createdDocuments = [];
   const state = { offscreenOpen: false };
+  // declarativeNetRequest session rules by id.
+  const sessionRules = new Map();
   // Tests swap these to change how the "browser" answers.
   const hooks = {
     offscreen: async () => ({ ok: true }),
@@ -106,6 +108,13 @@ export function createChromeMock() {
         }
       }
     },
+    declarativeNetRequest: {
+      updateSessionRules: async ({ removeRuleIds = [], addRules = [] } = {}) => {
+        for (const id of removeRuleIds) sessionRules.delete(id);
+        for (const rule of addRules) sessionRules.set(rule.id, structuredClone(rule));
+      },
+      getSessionRules: async () => [...sessionRules.values()].map((rule) => structuredClone(rule))
+    },
     scripting: {
       executeScript: async (details) => {
         injections.push(details);
@@ -128,6 +137,7 @@ export function createChromeMock() {
     tabMessages,
     injections,
     createdDocuments,
+    sessionRules,
     state,
     hooks,
     sendToBackground: (message, sender = POPUP_SENDER) => dispatch(message, sender),

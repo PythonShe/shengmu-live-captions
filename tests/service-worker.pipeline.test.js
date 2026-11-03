@@ -257,3 +257,78 @@ test("a stop that arrives after the session ended does not finalize it again", a
   // The stray capture, if any, was still told to stop.
   assert.equal(mock.sent.at(-1).type, "stop-capture");
 });
+
+function lastStartCapture() {
+  return mock.sent.filter((message) => message?.target === "offscreen" && message.type === "start-capture").at(-1);
+}
+
+test("the chrome backend starts with glossary phrases and translates through the offscreen translator", async () => {
+  await mock.sendToBackground({
+    target: "background",
+    type: "save-settings",
+    settings: {
+      asrBackend: "chrome",
+      translationProvider: "chrome",
+      glossaryEnabled: true,
+      glossaryPresetIds: ["poe"],
+      customGlossary: "",
+      openPanelOnStart: false
+    }
+  });
+  const previousHook = mock.hooks.offscreen;
+  mock.hooks.offscreen = async (message) =>
+    message.type === "builtin-translate"
+      ? { ok: true, translations: message.texts.map((text) => `内置:${text}`) }
+      : { ok: true };
+  try {
+    const sessionId = await startSession();
+    const { asr } = lastStartCapture();
+    assert.equal(asr.backend, "chrome");
+    assert.equal(asr.lang, "en-US");
+    assert.ok(asr.phrases.includes("Path of Exile"), "glossary hotwords bias the recognizer");
+    assert.equal(mock.sessionRules.size, 0, "no auth rule without Bailian");
+
+    await sendTranscript(sessionId, [line("Hello there, this is a complete sentence.", "0:00:01.00", "0:00:02.50")]);
+    const state = await waitFor(async () => {
+      const current = await getState();
+      return current.current.lines[0]?.translation ? current : null;
+    });
+    assert.match(state.current.lines[0].translation, /^内置:/);
+    await mock.sendToBackground({ target: "background", type: "stop-capture" });
+  } finally {
+    mock.hooks.offscreen = previousHook;
+    await mock.sendToBackground({
+      target: "background",
+      type: "save-settings",
+      settings: { asrBackend: "wlk", glossaryEnabled: false }
+    });
+  }
+});
+
+test("the bailian backend needs its key, adds the handshake header and removes it at stop", async () => {
+  await configureApi({ asrBackend: "bailian", bailianRegion: "cn" });
+  const refused = await mock.sendToBackground({
+    target: "background",
+    type: "start-capture",
+    targetTabId: 7,
+    streamId: "stream-1"
+  });
+  assert.equal(refused.ok, false);
+  assert.match(refused.error, /百炼 API Key/);
+
+  await configureApi({ asrBackend: "bailian", translationApiKeys: { custom: "secret-key", bailian: "sk-bailian" } });
+  await startSession();
+  const { asr } = lastStartCapture();
+  assert.deepEqual(Object.keys(asr).sort(), ["backend", "context", "url"]);
+  assert.equal(asr.url, "wss://dashscope.aliyuncs.com/api-ws/v1/inference");
+  assert.equal(JSON.stringify(lastStartCapture()).includes("sk-bailian"), false, "the key never reaches offscreen");
+  const [rule] = mock.sessionRules.values();
+  assert.equal(rule.action.requestHeaders[0].value, "Bearer sk-bailian");
+  assert.deepEqual(rule.condition.initiatorDomains, ["test-extension"]);
+  assert.deepEqual(rule.condition.tabIds, [-1]);
+  assert.equal(rule.condition.urlFilter, "|wss://dashscope.aliyuncs.com/api-ws/v1/inference");
+
+  await mock.sendToBackground({ target: "background", type: "stop-capture" });
+  assert.equal(mock.sessionRules.size, 0);
+  await configureApi({ asrBackend: "wlk" });
+});
