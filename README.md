@@ -8,7 +8,7 @@ Chrome MV3 扩展。采集当前标签页的英文音频，在本机实时转写
 
 ## 快速开始
 
-需要 Chrome、Node.js 24（启动脚本用）和 pnpm；本地模型推理在 Windows 上用 NVIDIA GPU，在 Apple Silicon Mac 上用 Metal（见下文「macOS」）。
+需要 Chrome、Node.js 24 LTS（24.22.2 或更新，旧版本有已公开的安全漏洞；启动脚本用）和 pnpm；本地模型推理在 Windows 上用 NVIDIA GPU，在 Apple Silicon Mac 上用 Metal（见下文「macOS」）。
 
 ```sh
 # 1. 起本地服务：ASR(8010) + 本地翻译(8013)；纯 API 用法加 --asr-only 省显存

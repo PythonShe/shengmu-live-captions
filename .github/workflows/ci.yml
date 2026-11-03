@@ -33,6 +33,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+          # The runner cache can hold an older 24.x; engines needs >= 24.22.2.
+          check-latest: true
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm run verify
@@ -51,4 +53,6 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+          # The runner cache can hold an older 24.x; engines needs >= 24.22.2.
+          check-latest: true
       - run: pnpm run smoke
