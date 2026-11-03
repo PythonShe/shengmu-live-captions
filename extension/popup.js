@@ -253,7 +253,7 @@ function render() {
   elements.overlayEnabled.checked = settings.overlayEnabled;
   renderOverlayHint();
   elements.openPanelOnStart.checked = settings.openPanelOnStart;
-  elements.wsUrl.value = settings.wsUrl;
+  setFieldValue(elements.wsUrl, settings.wsUrl);
   renderTranslationSettings();
   renderGlossarySettings();
 }
@@ -559,7 +559,7 @@ function renderLocal() {
       hint += `；当前运行 ${runningModel}，点“一键启动”会切换到所选模型`;
     }
     if (settings.translationMode === "api") {
-      hint += "；API Key 未配置，本地模型将作为惠底翻译";
+      hint += "；API Key 未配置，本地模型将作为兜底翻译";
     }
   }
   elements.localModelHint.textContent = hint;
