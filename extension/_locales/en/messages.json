@@ -27,7 +27,7 @@
     "message": "Alibaba Bailian (cloud)"
   },
   "asr_backend_wlk": {
-    "message": "Local WhisperLiveKit"
+    "message": "Local WhisperLiveKit (self-hosted)"
   },
   "popup_bailian_region": {
     "message": "Region"
@@ -1231,7 +1231,7 @@
     "description": "BCP 47 tag of this catalog, for the lang attribute"
   },
   "popup_speech_unsupported": {
-    "message": "This browser cannot recognize speech on-device (it needs desktop Chrome 138 or later; Edge and other browsers lack it). Use Alibaba Bailian or local WhisperLiveKit."
+    "message": "This browser has no on-device speech recognition; only desktop Chrome 138 or later does. Alibaba Bailian needs no install, just an API key."
   },
   "popup_translator_unsupported": {
     "message": "This browser has no built-in translation (it needs desktop Chrome 138 or later). Add a DeepSeek key or pick another translation engine."
@@ -1241,5 +1241,11 @@
   },
   "speech_model_not_downloaded": {
     "message": "Chrome's speech model is not downloaded yet; start again from the extension panel"
+  },
+  "asr_backend_chrome_unavailable": {
+    "message": "Chrome on-device (not in this browser)"
+  },
+  "popup_switch_bailian": {
+    "message": "Use Alibaba Bailian"
   }
 }

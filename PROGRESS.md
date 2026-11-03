@@ -10,15 +10,15 @@
 - `extension/offscreen/`：识别后端 `wlk` / `chrome` / `bailian`，新增 `web-speech.js`；内置翻译 RPC；ASR 套接字积压超过 64 KiB 时丢包计数。
 - `extension/popup/` `extension/subtitle/` `extension/ui/i18n.js`：识别引擎选择、百炼 Key 与地域、内置翻译模型下载、DeepSeek Key 提示、Windows「启动控制服务」；全部文案改走 `chrome.i18n`。
 - `extension/content/content-overlay.js`：状态与模式文案改为文案键，`OVERLAY_VERSION` 8 → 9。
-- `extension/_locales/{zh_CN,en,zh_TW}/messages.json`（新增，414 条）；`extension/manifest.json`：`default_locale`、`__MSG_*__`、`optional_permissions: nativeMessaging`、0.5.5 → 0.5.6。
+- `extension/_locales/{zh_CN,en,zh_TW}/messages.json`（新增，416 条）；`extension/manifest.json`：`default_locale`、`__MSG_*__`、`optional_permissions: nativeMessaging`、0.5.5 → 0.5.6。
 - `scripts/services.mjs` `scripts/local-service/`：Node 运行时取代 PowerShell 脚本（已删除）；控制服务返回 `errorCode` / `messageKey`。
 - `scripts/native-host/`（新增）与 `install-windows.cmd`：Windows 本机消息助手及安装脚本，同时登记给 Chrome 与 Edge。`scripts/require-node.mjs`（新增）：Node 24.22.2 下限。
 - `scripts/smoke-extension.mjs`、`.github/workflows/ci.yml`、`eslint.config.js`、`tsconfig.json`、`pnpm-workspace.yaml`：冒烟、CI 矩阵、分层 lint、`lib/` 类型检查；npm 改为 pnpm。
-- `tests/`：113 项 → 258 项，新增共享 `chrome` mock、`i18n` 文案一致性测试、各新模块单测。
+- `tests/`：113 项 → 259 项，新增共享 `chrome` mock、`i18n` 文案一致性测试、各新模块单测。
 - `README.md`：快速开始改为零配置路径，新增识别引擎表，本地模型降为可选；`paseo/README.md`：索引与常用命令。
 
 ### 已执行验证
-- `pnpm run verify`：85 个脚本语法检查、ESLint、类型检查通过，258 项单元测试全部通过；`pnpm run smoke`：11 项全部通过；CI 9 个任务通过。
+- `pnpm run verify`：85 个脚本语法检查、ESLint、类型检查通过，259 项单元测试全部通过；`pnpm run smoke`：11 项全部通过；CI 9 个任务通过。
 - DeepSeek 前缀缓存（同一 14 次请求脚本，冷启动）：命中率 35.3% → 61.9%，未命中输入 token −35%，p50 延迟不变（约 300 ms），0 失败。
 - 增量广播：稳态单次发布 97 KB → 4.6 KB。
 - Chrome 155：本机识别模型安装 19 秒、首个中间结果 0.8 秒、短语偏置有效，`speech.wav` 端到端输出 8 行；内置翻译模型下载 21 秒，之后创建 73 ms、每行约 4 ms，经后台 → offscreen 测试译出「您好，欢迎来到今天的直播。」；占位词还原焚界者、神圣石、贤主，单行 18 ms。
