@@ -14,8 +14,20 @@ import { NATIVE_HOST_NAME, findUnpackedExtensionIds, hostManifest } from "./prot
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const EXTENSION_DIR = path.resolve(HERE, "..", "..", "extension");
 const HOST_SCRIPT = path.join(HERE, "host.mjs");
-const REGISTRY_KEY = `HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\${NATIVE_HOST_NAME}`;
-const CHROME_CHANNELS = ["Chrome", "Chrome Beta", "Chrome Dev", "Chrome SxS"];
+// Each browser reads its own registry key and keeps its own profiles. Both
+// keys are always written: an unpacked extension's ID derives from its
+// folder, so it is the same in Chrome and Edge.
+const BROWSERS = [
+  {
+    registryKey: `HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\${NATIVE_HOST_NAME}`,
+    userData: ["Chrome", "Chrome Beta", "Chrome Dev", "Chrome SxS"].map((channel) => path.join("Google", channel, "User Data"))
+  },
+  {
+    registryKey: `HKCU\\Software\\Microsoft\\Edge\\NativeMessagingHosts\\${NATIVE_HOST_NAME}`,
+    userData: ["Edge", "Edge Beta", "Edge Dev", "Edge SxS"].map((channel) => path.join("Microsoft", channel, "User Data"))
+  }
+];
+const REGISTRY_KEYS = BROWSERS.map((browser) => browser.registryKey);
 
 const { values } = parseArgs({
   options: {
@@ -45,11 +57,11 @@ function readJson(file) {
   }
 }
 
-/** Parsed Preferences of every profile of every installed Chrome channel. */
-function chromePreferences() {
+/** Parsed Preferences of every profile of every installed Chrome and Edge channel. */
+function browserPreferences() {
   const found = [];
-  for (const channel of CHROME_CHANNELS) {
-    const userData = path.join(localAppData, "Google", channel, "User Data");
+  for (const relative of BROWSERS.flatMap((browser) => browser.userData)) {
+    const userData = path.join(localAppData, relative);
     let profiles;
     try {
       profiles = fs.readdirSync(userData, { withFileTypes: true }).filter((entry) => entry.isDirectory());
@@ -68,10 +80,12 @@ function chromePreferences() {
 
 if (values.uninstall) {
   if (!dryRun) {
-    try {
-      execFileSync("reg", ["delete", REGISTRY_KEY, "/f"], { stdio: "ignore" });
-    } catch {
-      // Already gone.
+    for (const key of REGISTRY_KEYS) {
+      try {
+        execFileSync("reg", ["delete", key, "/f"], { stdio: "ignore" });
+      } catch {
+        // Already gone, or that browser was never registered.
+      }
     }
     fs.rmSync(installDir, { recursive: true, force: true });
   }
@@ -80,16 +94,17 @@ if (values.uninstall) {
 }
 
 const extensionIds = [
-  ...new Set([...(values["extension-id"] || []), ...findUnpackedExtensionIds(chromePreferences(), EXTENSION_DIR)])
+  ...new Set([...(values["extension-id"] || []), ...findUnpackedExtensionIds(browserPreferences(), EXTENSION_DIR)])
 ];
 const invalid = extensionIds.filter((id) => !/^[a-p]{32}$/.test(id));
 if (invalid.length > 0) fail(`扩展 ID 格式不对：${invalid.join(", ")}`);
 if (extensionIds.length === 0) {
   fail(
     [
-      "没有在 Chrome 里找到从这个目录加载的声幕扩展：",
+      "没有在 Chrome 或 Edge 里找到从这个目录加载的声幕扩展：",
       `  ${EXTENSION_DIR}`,
-      "请先在 chrome://extensions 打开开发者模式，点“加载已解压的扩展程序”选中上面的文件夹，再运行一次。",
+      "请先在 chrome://extensions（Edge 为 edge://extensions）打开开发者模式，点“加载已解压的扩展程序”选中上面的文件夹，再运行一次。",
+      "刚加载完扩展时浏览器可能还没写入配置，关闭浏览器后再运行一次即可。",
       "也可以用 --extension-id <ID> 直接指定扩展 ID。"
     ].join("\n")
   );
@@ -103,19 +118,21 @@ const launcher = `@echo off\r\n"${process.execPath}" "${HOST_SCRIPT}" %*\r\n`;
 const manifest = hostManifest({ hostPath, extensionIds });
 
 if (dryRun) {
-  console.log(JSON.stringify({ registryKey: REGISTRY_KEY, manifestPath, manifest, launcher }, null, 2));
+  console.log(JSON.stringify({ registryKeys: REGISTRY_KEYS, manifestPath, manifest, launcher }, null, 2));
   process.exit(0);
 }
 
 fs.mkdirSync(installDir, { recursive: true });
 fs.writeFileSync(hostPath, launcher);
 fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
-execFileSync("reg", ["add", REGISTRY_KEY, "/ve", "/t", "REG_SZ", "/d", manifestPath, "/f"], { stdio: "ignore" });
+for (const key of REGISTRY_KEYS) {
+  execFileSync("reg", ["add", key, "/ve", "/t", "REG_SZ", "/d", manifestPath, "/f"], { stdio: "ignore" });
+}
 console.log(
   [
     "声幕本地助手已安装。",
     `扩展：${extensionIds.join(", ")}`,
-    "现在可以在扩展弹窗里点“启动控制服务”，不需要再开终端。",
+    "现在可以在 Chrome 或 Edge 的扩展弹窗里点“启动控制服务”，不需要再开终端。",
     "扩展目录移动位置后需要重新运行一次。"
   ].join("\n")
 );

@@ -29,7 +29,7 @@ Node 下限定为 24.22.2（Node 24 LTS 当前最新版，旧版本有已公开�
 
 ### 1.3 门禁
 
-`pnpm run verify` = 全部脚本 `node --check` + ESLint（按层限定全局变量）+ `tsc --checkJs`（只查 `lib/`）+ 单元测试；`pnpm run smoke` 用无头 Chrome 加载扩展，检查后台、offscreen、面板、字幕页、浮层注入和本机消息助手的扩展 ID 查找。CI 在 Ubuntu、Windows、macOS（x64 与 arm64）跑 verify，在三个系统跑 smoke。单元测试从 0.5.5 的 113 项增加到 256 项。
+`pnpm run verify` = 全部脚本 `node --check` + ESLint（按层限定全局变量）+ `tsc --checkJs`（只查 `lib/`）+ 单元测试；`pnpm run smoke` 用无头 Chrome 加载扩展，检查后台、offscreen、面板、字幕页、浮层注入和本机消息助手的扩展 ID 查找。CI 在 Ubuntu、Windows、macOS（x64 与 arm64）跑 verify，在三个系统跑 smoke。单元测试从 0.5.5 的 113 项增加到 258 项。
 
 ## 2. 翻译链路
 
@@ -96,7 +96,7 @@ Chrome 155 实测（offscreen 文档内）：
 
 扩展页面不能启动本地进程，原来必须先在终端执行 `pnpm services:serve`。0.5.6 在 Windows 上提供本机消息助手 `com.shengmu.live_captions`（`scripts/native-host/`）：
 
-- 用户双击 `install-windows.cmd`。安装脚本从 Chrome 配置的 `Secure Preferences` / `Preferences` 里按扩展目录找到已加载的扩展 ID，把助手清单写进 `%LOCALAPPDATA%\Shengmu\native-host`，再登记到 `HKCU\Software\Google\Chrome\NativeMessagingHosts`。
+- 用户双击 `install-windows.cmd`。安装脚本从 Chrome 与 Edge 各渠道配置的 `Secure Preferences` / `Preferences` 里按扩展目录找到已加载的扩展 ID，把助手清单写进 `%LOCALAPPDATA%\Shengmu\native-host`，再同时登记到 `HKCU\Software\Google\Chrome\NativeMessagingHosts` 与 `HKCU\Software\Microsoft\Edge\NativeMessagingHosts`。未打包扩展的 ID 由目录决定，两个浏览器里相同，所以一份清单即可；`--uninstall` 两处都撤销。
 - 没有用 manifest `key` 固定 ID：加了 `key` 会改变已安装用户的扩展 ID，旧的设置与历史随之失联。
 - `nativeMessaging` 放在 `optional_permissions`，点「启动控制服务」时才申请。实测安装扩展时不出现任何新增权限警告。
 
@@ -106,7 +106,7 @@ Chrome 155 实测（offscreen 文档内）：
 
 ## 4. 界面多语言
 
-使用 `chrome.i18n`：`_locales/zh_CN`（`default_locale`）、`en`、`zh_TW`，共 410 条文案。界面语言跟随 Chrome 的显示语言；翻译提示词、术语数据与译文目标语言（简体中文）不变。
+使用 `chrome.i18n`：`_locales/zh_CN`（`default_locale`）、`en`、`zh_TW`，共 414 条文案。界面语言跟随 Chrome 的显示语言；翻译提示词、术语数据与译文目标语言（简体中文）不变。
 
 - `lib/` 不能访问 `chrome.*`，所以只返回文案键与参数（`lib/i18n-message.js` 的 `msg(key, ...params)`，参数可以嵌套另一条文案，例如提供方名称），或抛出携带文案的错误；页面、后台、offscreen 与浮层各自渲染。运行态里的 `detail`、`translationError` 存渲染后的文本。
 - 本地控制服务在原中文 `error` / `message` 旁增加 `errorCode` / `messageKey` 与参数，命令行与旧版扩展仍读中文文本。
@@ -119,7 +119,7 @@ Chrome 155 实测（offscreen 文档内）：
 
 ## 5. 验证结果
 
-- `pnpm run verify`：85 个脚本语法检查通过，ESLint 与类型检查通过，单元测试 256 项全部通过。
+- `pnpm run verify`：85 个脚本语法检查通过，ESLint 与类型检查通过，单元测试 258 项全部通过。
 - `pnpm run smoke`：11 项检查全部通过。
 - CI：9 个任务（三系统 verify，含 macOS x64 与 arm64，以及三系统 smoke）通过。
 
@@ -130,5 +130,5 @@ Chrome 155 实测（offscreen 文档内）：
 - **固定样本验收**：`.research/quality-samples/*poe*.wav` 在 WLK + 本地 9B 下的缺译数、`deliveredRatio`、延迟（`paseo/03-verification.md` 口径）。
 - **百炼**：协议与 DNR 规则已在本机验证，但没有用真实百炼 Key 跑过端到端识别与通义千问翻译。
 - **Windows 本地服务**：Node 运行时拉起 WLK 与 llama-server 时是否闪控制台窗口；llama-server 参数与路径；0.5.5 遗留的无 PID 文件进程能否被识别；代理下模型下载断点续传。
-- **Windows 本机消息助手**：双击 `install-windows.cmd` 能否找到扩展 ID 并登记；面板「启动控制服务」能否拉起 8014。CI 只覆盖了扩展 ID 查找。
+- **Windows 本机消息助手**：双击 `install-windows.cmd` 能否找到扩展 ID 并登记；面板「启动控制服务」能否拉起 8014。CI 只覆盖了扩展 ID 查找（含 Edge 配置目录）与登记计划。
 - **zh_TW**：macOS 上 `--lang` 不生效，繁中界面没有在浏览器里看过，只经过文案一致性测试。
