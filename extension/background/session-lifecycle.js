@@ -28,6 +28,17 @@ const ERROR_STOP_TIMEOUT_MS = 2500;
  */
 export function createSessionLifecycle({ store, settings, views, offscreen, history, scheduler, ready }) {
   let finalizingPromise = null;
+  // Set when finalize starts its final history flush, cleared when it ends.
+  // A transcript update that lands before the seal (while settle waits for
+  // translations) is applied, recorded and counted by that flush. One that
+  // lands after it is dropped: the summary is already being computed from
+  // IndexedDB, and the scheduler generation bump at the same point already
+  // discards every translation result from then on, so applying the update
+  // would only write rows the session summary never counts. The offscreen
+  // document drains its final server messages before it answers the stop, so
+  // what arrives this late is a stray message from a capture whose stop timed
+  // out.
+  let historySealed = false;
   // Two start requests (double click, popup plus shortcut) would both pass the
   // `active` check before either replaced the runtime state and leave an
   // orphaned session, so starts run one at a time and the later one wins.
@@ -170,6 +181,7 @@ export function createSessionLifecycle({ store, settings, views, offscreen, hist
           );
           // Invalidate any request that outlived the stop deadline so it
           // cannot write history after the final flush/summary.
+          historySealed = true;
           scheduler.invalidate();
           await history.flush(true);
         } catch (error) {
@@ -228,6 +240,7 @@ export function createSessionLifecycle({ store, settings, views, offscreen, hist
         }
         if (sessionId) await views.notifyHistoryChanged(sessionId);
         scheduler.reset({ keepUsage: true });
+        historySealed = false;
       }
     })();
     try {
@@ -295,6 +308,14 @@ export function createSessionLifecycle({ store, settings, views, offscreen, hist
 
   async function handleTranscriptUpdate(message) {
     if (!store.state.active || message.sessionId !== store.state.sessionId) return;
+    if (historySealed) {
+      console.warn("声幕会话正在收尾，已丢弃迟到的转写", {
+        sessionId: message.sessionId,
+        epochId: message.epochId || null,
+        reason: "history-sealed"
+      });
+      return { dropped: "history-sealed" };
+    }
     const apiConfig = settings.translationConfig();
     const useApi = apiConfig.mode === "api" && apiConfig.enabled;
     const next = reduceTranscriptUpdate(store.state, message, {
@@ -311,7 +332,10 @@ export function createSessionLifecycle({ store, settings, views, offscreen, hist
 
     await publishCaptions({ epochId: message.epochId });
 
-    if (useApi) {
+    // Once a stop began, settle drives the remaining line translations itself,
+    // and the unfinished buffer is display-only for a session that is ending;
+    // a timer armed here would only start a request that finalize aborts.
+    if (useApi && !finalizingPromise) {
       scheduler.scheduleLines();
       scheduler.scheduleBuffer();
     }
