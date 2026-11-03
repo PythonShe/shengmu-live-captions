@@ -10,7 +10,14 @@
     "lint": "eslint .",
     "typecheck": "tsc -p .",
     "smoke": "node scripts/smoke-extension.mjs",
-    "verify": "pnpm run check && pnpm run lint && pnpm run typecheck && pnpm test"
+    "verify": "pnpm run check && pnpm run lint && pnpm run typecheck && pnpm test",
+    "services": "node scripts/services.mjs",
+    "services:start": "node scripts/services.mjs start",
+    "services:stop": "node scripts/services.mjs stop",
+    "services:status": "node scripts/services.mjs status",
+    "services:serve": "node scripts/services.mjs serve",
+    "services:serve-stop": "node scripts/services.mjs serve-stop",
+    "dev-browser": "node scripts/services.mjs dev-browser"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
