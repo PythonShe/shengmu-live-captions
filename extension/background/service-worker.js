@@ -1,9 +1,10 @@
-import { sanitizeSettingsPatch, settingsForBroadcast } from "../lib/caption-utils.js";
+import { settingsForBroadcast } from "../lib/caption-utils.js";
 import { translateTexts } from "../lib/translation-api.js";
 import { createTranslationScheduler } from "../lib/translation-scheduler.js";
 import { probeServices, testTranslationApi } from "./diagnostics.js";
 import { createHistorySync } from "./history-sync.js";
-import { OFFSCREEN_URL, createOffscreenClient } from "./offscreen-client.js";
+import { createMessageDispatcher } from "./message-router.js";
+import { createOffscreenClient } from "./offscreen-client.js";
 import { createRuntimeStore } from "./runtime-store.js";
 import { createSessionLifecycle } from "./session-lifecycle.js";
 import { createSettingsStore, translationSettingsChanged } from "./settings-store.js";
@@ -64,15 +65,25 @@ async function saveSettings(patch) {
   return settingsForBroadcast(settings.current);
 }
 
-function isExtensionPageSender(sender) {
-  const url = String(sender?.url || "");
-  if (url) return url.startsWith(chrome.runtime.getURL(""));
-  return sender?.id === chrome.runtime.id && !sender?.tab;
-}
-
-function rejectNonExtensionSender(sendResponse) {
-  sendResponse({ ok: false, error: "此操作只能从声幕扩展界面发起" });
-}
+const dispatch = createMessageDispatcher({
+  ready: initialize,
+  services: {
+    startSession: (message) => lifecycle.start(message),
+    stopSession: () => lifecycle.stop(),
+    handleStatusReport: (message) => lifecycle.handleStatusReport(message),
+    handleTranscriptUpdate: (message) => lifecycle.handleTranscriptUpdate(message),
+    handleAudioStats: (message) => lifecycle.handleAudioStats(message),
+    snapshot: () => store.snapshot(),
+    publicSettings: () => settingsForBroadcast(settings.current),
+    saveSettings,
+    overlayEnabled: () => settings.current.overlayEnabled,
+    testTranslationApi: () => testTranslationApi(settings.translationConfig()),
+    openMonitorWindow: () => views.openMonitorWindow(),
+    refreshOverlay: () => views.refreshOverlay(),
+    acknowledgeContentReady: (sender) => views.acknowledgeContentReady(sender),
+    probeServices: () => probeServices({ ...settings.current })
+  }
+});
 
 chrome.runtime.onInstalled.addListener((details) => {
   void initialize().then(async () => {
@@ -87,124 +98,7 @@ chrome.runtime.onStartup.addListener(() => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  void (async () => {
-    try {
-      await initialize();
-      const fromOffscreen =
-        message?.source === "offscreen" &&
-        String(sender?.url || "").startsWith(
-          chrome.runtime.getURL(OFFSCREEN_URL)
-        );
-      const toBackground = message?.target === "background";
-      const toContent = message?.target === "content";
-
-      if (fromOffscreen) {
-        if (message.type === "status-report") {
-          await lifecycle.handleStatusReport(message);
-        } else if (message.type === "transcript-update") {
-          await lifecycle.handleTranscriptUpdate(message);
-        } else if (message.type === "audio-stats") {
-          await lifecycle.handleAudioStats(message);
-        }
-        sendResponse({ ok: true });
-        return;
-      }
-
-      if (toContent) {
-        sendResponse({ ok: true });
-        return;
-      }
-
-      if (!toBackground) {
-        sendResponse({ ok: false });
-        return;
-      }
-
-      if (message.type === "start-capture") {
-        if (!isExtensionPageSender(sender)) {
-          rejectNonExtensionSender(sendResponse);
-          return;
-        }
-        sendResponse(await lifecycle.start(message));
-      } else if (message.type === "stop-capture") {
-        if (!isExtensionPageSender(sender)) {
-          rejectNonExtensionSender(sendResponse);
-          return;
-        }
-        sendResponse(await lifecycle.stop());
-      } else if (message.type === "get-state") {
-        sendResponse({
-          ok: true,
-          state: store.snapshot(),
-          settings: settingsForBroadcast(settings.current)
-        });
-      } else if (message.type === "get-settings") {
-        sendResponse({
-          ok: true,
-          settings: settingsForBroadcast(settings.current)
-        });
-      } else if (message.type === "save-settings") {
-        sendResponse({
-          ok: true,
-          settings: await saveSettings(
-            sanitizeSettingsPatch(message.settings, {
-              fromExtensionPage: isExtensionPageSender(sender)
-            })
-          )
-        });
-      } else if (message.type === "test-translation-api") {
-        if (!isExtensionPageSender(sender)) {
-          rejectNonExtensionSender(sendResponse);
-          return;
-        }
-        try {
-          sendResponse({
-            ok: true,
-            result: await testTranslationApi(settings.translationConfig())
-          });
-        } catch (error) {
-          sendResponse({
-            ok: false,
-            error: error?.message || String(error)
-          });
-        }
-      } else if (message.type === "open-monitor") {
-        await views.openMonitorWindow();
-        sendResponse({ ok: true });
-      } else if (message.type === "toggle-overlay") {
-        const next = !settings.current.overlayEnabled;
-        const saved = await saveSettings({ overlayEnabled: next });
-        sendResponse({ ok: true, settings: saved, enabled: next });
-      } else if (message.type === "show-overlay") {
-        const saved = await saveSettings({ overlayEnabled: true });
-        sendResponse({ ok: true, settings: saved });
-      } else if (message.type === "hide-overlay") {
-        const saved = await saveSettings({ overlayEnabled: false });
-        sendResponse({ ok: true, settings: saved });
-      } else if (message.type === "refresh-overlay") {
-        if (!isExtensionPageSender(sender)) {
-          rejectNonExtensionSender(sendResponse);
-          return;
-        }
-        sendResponse(await views.refreshOverlay());
-      } else if (message.type === "content-ready") {
-        await views.acknowledgeContentReady(sender);
-        sendResponse({
-          ok: true,
-          state: store.snapshot(),
-          settings: settingsForBroadcast(settings.current)
-        });
-      } else if (message.type === "probe-services") {
-        await initialize();
-        sendResponse({ ok: true, services: await probeServices({ ...settings.current }) });
-      } else {
-        sendResponse({ ok: false, error: `未知消息：${message.type}` });
-      }
-    } catch (error) {
-      console.error("声幕后台错误", error);
-      sendResponse({ ok: false, error: error?.message || String(error) });
-    }
-  })();
+  void dispatch(message, sender).then(sendResponse);
   return true;
 });
 
