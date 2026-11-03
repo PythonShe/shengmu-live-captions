@@ -142,7 +142,7 @@ async function launch(t, { env: extraEnv = {}, models = [MODEL_9B] } = {}) {
       const record = readPidFile(runtime, name);
       if (record && isPidAlive(record.pid)) process.kill(record.pid);
     }
-    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
   return ctx;
 }

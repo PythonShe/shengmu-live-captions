@@ -218,7 +218,7 @@ async function harness(t, extraEnv = {}) {
   const manager = createServiceManager({ env, log: (line) => lines.push(line), timeouts: FAST });
   t.after(async () => {
     await manager.stop();
-    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
   return { dir, env, ports, records, lines, manager, runtime: env.SHENGMU_RUNTIME_DIR };
 }

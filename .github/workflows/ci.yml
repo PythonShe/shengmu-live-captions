@@ -9,8 +9,17 @@ permissions:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    # Windows runs the same gate so the service manager's Windows paths
+    # (Scripts\*.exe layout, taskkill /T, tasklist PID checks) are exercised.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
+      # Test against the bytes in git, not a CRLF-converted checkout.
+      - if: runner.os == 'Windows'
+        run: git config --global core.autocrlf false
       - uses: actions/checkout@v7
       # Installs the pnpm version pinned in package.json `packageManager`.
       - uses: pnpm/action-setup@v6
