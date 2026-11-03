@@ -2,6 +2,7 @@
 // registers the native messaging host that runs `services.mjs serve`.
 // Double-click install-windows.cmd in the repo root, or run
 //   node scripts/native-host/install.mjs [--extension-id ID] [--uninstall] [--dry-run]
+import "../require-node.mjs";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";

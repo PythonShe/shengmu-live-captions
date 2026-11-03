@@ -79,3 +79,15 @@ test("the host answers one framed request and exits", async () => {
   assert.equal(code, 0);
   assert.deepEqual(replies, [{ ok: true }]);
 });
+
+test("the node floor compares numerically, not as text", async () => {
+  const { MIN_NODE_VERSION, nodeVersionSupported } = await import("../scripts/require-node.mjs");
+  assert.equal(nodeVersionSupported(`v${MIN_NODE_VERSION}`), true);
+  assert.equal(nodeVersionSupported("v24.22.1"), false);
+  assert.equal(nodeVersionSupported("v24.9.0"), false);
+  assert.equal(nodeVersionSupported("v22.30.0"), false);
+  assert.equal(nodeVersionSupported("v26.1.0"), true);
+  assert.equal(nodeVersionSupported(process.version), true, "CI and dev machines must meet the floor");
+  const pkg = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  assert.equal(pkg.engines.node, `>=${MIN_NODE_VERSION}`);
+});
