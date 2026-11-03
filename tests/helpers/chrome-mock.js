@@ -32,7 +32,10 @@ export function createChromeMock() {
     offscreen: async () => ({ ok: true }),
     executeScript: async () => {},
     tabMessage: async () => undefined,
-    createDocument: async () => {}
+    createDocument: async () => {},
+    // offscreen.js announces itself once its listener exists; false simulates
+    // a document that never does.
+    offscreenReady: true
   };
 
   const addListener = (name) => (listener) => {
@@ -93,6 +96,14 @@ export function createChromeMock() {
         createdDocuments.push(options);
         await hooks.createDocument(options);
         state.offscreenOpen = true;
+        if (hooks.offscreenReady) {
+          setImmediate(() => {
+            void dispatch(
+              { target: "background", source: "offscreen", type: "offscreen-ready" },
+              OFFSCREEN_SENDER
+            );
+          });
+        }
       }
     },
     scripting: {

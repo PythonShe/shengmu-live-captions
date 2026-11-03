@@ -625,3 +625,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   })();
   return true;
 });
+
+// The worker holds its first message until this arrives, so it must go out
+// only after the listener above is registered.
+void sendToBackground("offscreen-ready");

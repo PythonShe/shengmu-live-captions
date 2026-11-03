@@ -47,6 +47,12 @@ export const MESSAGE_ROUTES = Object.freeze({
     allow: "offscreen",
     handler: ({ services, message }) => services.handleAudioStats(message)
   },
+  // The capture document's message listener is registered; see
+  // offscreen-client.js ensureDocument.
+  "offscreen-ready": {
+    allow: "offscreen",
+    handler: ({ services }) => services.offscreenReady()
+  },
   "start-capture": {
     allow: "extension-page",
     handler: ({ services, message }) => services.startSession(message)
