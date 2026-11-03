@@ -2,7 +2,6 @@ import {
   DEFAULT_SETTINGS,
   EMPTY_RUNTIME_STATE,
   HISTORY_CHANGED_KEY,
-  RUNTIME_STATE_KEY,
   SETTINGS_KEY,
   applyOverlayFailure,
   lineNeedsTranslation,
@@ -34,6 +33,7 @@ import {
   upsertHistoryLines
 } from "../storage/history-db.js";
 import { HistoryWriteQueue } from "../lib/history-write-queue.js";
+import { createRuntimeStore, safeClone } from "./runtime-store.js";
 import { rememberLine, reduceTranscriptUpdate } from "../lib/transcript-reducer.js";
 import {
   TRANSLATION_STOP_TIMEOUT_MS,
@@ -43,37 +43,21 @@ import {
 const OFFSCREEN_URL = "offscreen/offscreen.html";
 const MONITOR_URL = "subtitle/subtitle.html";
 const LINE_FLUSH_DELAY_MS = 700;
-const STATE_PERSIST_DELAY_MS = 350;
 
 let settingsCache = { ...DEFAULT_SETTINGS };
-let runtimeState = structuredClone(EMPTY_RUNTIME_STATE);
+const store = createRuntimeStore();
 let initializationPromise = null;
-let statePersistTimer = null;
 let finalizingPromise = null;
 const knownLineSignatures = new Map();
 let pendingStopDetail = "";
 let lastHistoryWriteError = "";
 
-function safeClone(value) {
-  return value == null ? value : structuredClone(value);
-}
-
-function compactRuntimeState() {
-  return {
-    ...safeClone(runtimeState),
-    current: {
-      ...safeClone(runtimeState.current),
-      lines: (runtimeState.current?.lines || []).slice(-120)
-    }
-  };
-}
-
 function initialize() {
   if (initializationPromise) return initializationPromise;
   initializationPromise = (async () => {
-    const [localValues, sessionValues] = await Promise.all([
+    const [localValues, restored] = await Promise.all([
       chrome.storage.local.get([SETTINGS_KEY]),
-      chrome.storage.session.get([RUNTIME_STATE_KEY])
+      store.rehydrate()
     ]);
     try {
       settingsCache = migrateLegacySettings(localValues[SETTINGS_KEY]);
@@ -95,28 +79,20 @@ function initialize() {
     if (!localValues[SETTINGS_KEY]) {
       await chrome.storage.local.set({ [SETTINGS_KEY]: settingsCache });
     }
-    if (sessionValues[RUNTIME_STATE_KEY]) {
-      runtimeState = {
-        ...structuredClone(EMPTY_RUNTIME_STATE),
-        ...sessionValues[RUNTIME_STATE_KEY],
-        current: {
-          ...structuredClone(EMPTY_RUNTIME_STATE.current),
-          ...(sessionValues[RUNTIME_STATE_KEY].current || {})
-        }
-      };
+    if (restored) {
       scheduler.restore({
-        usage: runtimeState.translation?.usage,
-        error: runtimeState.translation?.error
+        usage: restored.translation?.usage,
+        error: restored.translation?.error
       });
     }
     await updateBadge();
-    if (runtimeState.active && !(await hasOffscreenDocument())) {
+    if (store.state.active && !(await hasOffscreenDocument())) {
       await finalizeSession(
         "error",
         "浏览器后台采集页面已中断，请重新开始",
         { quiet: true }
       );
-    } else if (runtimeState.active && apiTranslationActive()) {
+    } else if (store.state.active && apiTranslationActive()) {
       // The service worker can be recycled mid-session. Rebuild the pending
       // queue from the restored runtime lines; none of the queue/timers are
       // persisted in memory.
@@ -216,32 +192,14 @@ function translationSettingsChanged(patch = {}) {
   ].some((key) => key in patch);
 }
 
-async function persistRuntimeState(immediate = false) {
-  if (!immediate) {
-    clearTimeout(statePersistTimer);
-    statePersistTimer = setTimeout(() => {
-      statePersistTimer = null;
-      void chrome.storage.session.set({
-        [RUNTIME_STATE_KEY]: compactRuntimeState()
-      });
-    }, STATE_PERSIST_DELAY_MS);
-    return;
-  }
-  clearTimeout(statePersistTimer);
-  statePersistTimer = null;
-  await chrome.storage.session.set({
-    [RUNTIME_STATE_KEY]: compactRuntimeState()
-  });
-}
-
 async function updateBadge() {
-  if (runtimeState.active) {
+  if (store.state.active) {
     await chrome.action.setBadgeBackgroundColor({ color: "#c6412c" });
     await chrome.action.setBadgeText({
-      text: runtimeState.status === "reconnecting" ? "..." : "REC"
+      text: store.state.status === "reconnecting" ? "..." : "REC"
     });
     await chrome.action.setTitle({
-      title: runtimeState.detail || "声幕正在采集标签页音频"
+      title: store.state.detail || "声幕正在采集标签页音频"
     });
   } else {
     await chrome.action.setBadgeText({ text: "" });
@@ -254,7 +212,7 @@ async function broadcastToExtension(message) {
     await chrome.runtime.sendMessage({
       target: "extension-view",
       ...message,
-      state: compactRuntimeState()
+      state: store.snapshot()
     });
   } catch {
     // No extension view is open.
@@ -262,9 +220,9 @@ async function broadcastToExtension(message) {
 }
 
 async function sendToTab(message) {
-  if (!runtimeState.tabId) return false;
+  if (!store.state.tabId) return false;
   try {
-    await chrome.tabs.sendMessage(runtimeState.tabId, {
+    await chrome.tabs.sendMessage(store.state.tabId, {
       target: "content",
       ...message
     });
@@ -278,14 +236,14 @@ async function broadcastCaptionState() {
   await sendToTab({
     type: "caption-state",
     payload: {
-      active: runtimeState.active,
-      status: runtimeState.status,
-      detail: runtimeState.detail,
-      lineCount: runtimeState.lineCount,
-      wsConnected: runtimeState.wsConnected,
-      updatedAt: runtimeState.updatedAt,
-      overlayError: runtimeState.overlayError || "",
-      current: safeClone(runtimeState.current)
+      active: store.state.active,
+      status: store.state.status,
+      detail: store.state.detail,
+      lineCount: store.state.lineCount,
+      wsConnected: store.state.wsConnected,
+      updatedAt: store.state.updatedAt,
+      overlayError: store.state.overlayError || "",
+      current: safeClone(store.state.current)
     },
     settings: settingsForCaptions(settingsCache)
   });
@@ -327,7 +285,7 @@ async function messageOffscreen(message) {
   }
 }
 
-async function injectOverlay(tabId = runtimeState.tabId) {
+async function injectOverlay(tabId = store.state.tabId) {
   if (!tabId) return false;
   try {
     await chrome.scripting.executeScript({
@@ -347,7 +305,7 @@ async function injectOverlay(tabId = runtimeState.tabId) {
       target: "content",
       type: "init",
       settings: settingsForCaptions(settingsCache),
-      state: compactRuntimeState()
+      state: store.snapshot()
     });
     if (response && response.ok === false) {
       throw new Error(response.error || "浮层初始化被拒绝");
@@ -357,15 +315,15 @@ async function injectOverlay(tabId = runtimeState.tabId) {
     await reportOverlayFailure(error);
     return false;
   }
-  if (runtimeState.overlayError) await reportOverlayFailure(null);
+  if (store.state.overlayError) await reportOverlayFailure(null);
   return true;
 }
 
 // Surfaced in the popup so a broken overlay never fails silently: the switch
 // stays on while nothing appears, which reads as "the toggle does nothing".
 async function reportOverlayFailure(error) {
-  if (!applyOverlayFailure(runtimeState, error)) return;
-  await persistRuntimeState(true);
+  if (!applyOverlayFailure(store.state, error)) return;
+  await store.persist(true);
   // Both audiences matter: the content script needs the caption state, and the
   // extension views need the new overlayError to show or clear the hint.
   await broadcastToExtension({ type: "status" });
@@ -377,11 +335,11 @@ async function hideOverlay() {
 }
 
 async function applyOverlaySetting() {
-  if (!runtimeState.tabId) return;
+  if (!store.state.tabId) return;
   if (settingsCache.overlayEnabled) {
     // injectOverlay() records overlayError (and broadcasts) on its own, so a
     // failure must not trigger a second, identical broadcast here.
-    const injected = await injectOverlay(runtimeState.tabId);
+    const injected = await injectOverlay(store.state.tabId);
     if (injected) await broadcastCaptionState();
   } else {
     await hideOverlay();
@@ -440,24 +398,24 @@ async function commitHistoryBatch(lines) {
       .filter((line) => line.source || line.translation)
       .sort((left, right) => (left.order || 0) - (right.order || 0))
       .at(-1);
-    const isCurrentSession = sessionId === runtimeState.sessionId;
-    if (isCurrentSession) runtimeState.lineCount = count;
+    const isCurrentSession = sessionId === store.state.sessionId;
+    if (isCurrentSession) store.state.lineCount = count;
     const patch = {
       lineCount: count,
       preview: lastLine?.translation || lastLine?.source || ""
     };
     if (isCurrentSession) {
-      patch.status = runtimeState.active ? "capturing" : runtimeState.status;
+      patch.status = store.state.active ? "capturing" : store.state.status;
     }
     await updateHistorySession(sessionId, patch);
     if (isCurrentSession) {
       if (lastHistoryWriteError) {
         lastHistoryWriteError = "";
-        if (runtimeState.detail.startsWith("字幕历史写入失败")) {
-          runtimeState.detail = "字幕历史已恢复写入";
+        if (store.state.detail.startsWith("字幕历史写入失败")) {
+          store.state.detail = "字幕历史已恢复写入";
         }
       }
-      await persistRuntimeState(true);
+      await store.persist(true);
       await broadcastToExtension({ type: "line-count", lineCount: count });
     }
   }
@@ -466,16 +424,16 @@ async function commitHistoryBatch(lines) {
 function handleHistoryWriteError(error) {
   lastHistoryWriteError = error?.message || String(error);
   console.error("声幕历史字幕写入失败", error);
-  if (!runtimeState.active) return;
-  runtimeState.detail = `字幕历史写入失败，正在重试：${lastHistoryWriteError}`;
-  runtimeState.updatedAt = Date.now();
-  void persistRuntimeState();
+  if (!store.state.active) return;
+  store.state.detail = `字幕历史写入失败，正在重试：${lastHistoryWriteError}`;
+  store.state.updatedAt = Date.now();
+  void store.persist();
   void broadcastToExtension({
     type: "status",
     status: {
-      state: runtimeState.status,
-      detail: runtimeState.detail,
-      wsConnected: runtimeState.wsConnected
+      state: store.state.status,
+      detail: store.state.detail,
+      wsConnected: store.state.wsConnected
     }
   });
 }
@@ -537,18 +495,18 @@ function apiTranslationActive() {
 
 // Persists and broadcasts the caption state after the scheduler patched it.
 async function publishCaptionState() {
-  await persistRuntimeState();
+  await store.persist();
   await broadcastToExtension({
     type: "caption-state",
-    current: safeClone(runtimeState.current),
-    lineCount: runtimeState.lineCount
+    current: safeClone(store.state.current),
+    lineCount: store.state.lineCount
   });
   await broadcastCaptionState();
   await flushPendingHistory(false);
 }
 
 const scheduler = createTranslationScheduler({
-  getState: () => runtimeState,
+  getState: () => store.state,
   getConfig: translationConfig,
   isApiEnabled: apiTranslationActive,
   partialEnabled: () => Boolean(settingsCache.translationTranslatePartial),
@@ -579,7 +537,7 @@ async function resetSessionMemory() {
 }
 
 // Two start requests (double click, popup plus shortcut) would both pass the
-// `active` check before either replaced runtimeState and leave an orphaned
+// `active` check before either replaced the runtime state and leave an orphaned
 // session, so starts run one at a time and the later one wins.
 let startQueue = Promise.resolve();
 
@@ -591,7 +549,7 @@ function startSession(message) {
 
 async function startSessionNow(message) {
   await initialize();
-  if (runtimeState.active) {
+  if (store.state.active) {
     await stopSession({ quiet: true });
   }
 
@@ -646,8 +604,7 @@ async function startSessionNow(message) {
   await createHistorySession(metadata);
   pendingStopDetail = "";
 
-  runtimeState = {
-    ...structuredClone(EMPTY_RUNTIME_STATE),
+  store.replace({
     active: true,
     status: "starting",
     detail: "正在建立音频采集",
@@ -658,9 +615,9 @@ async function startSessionNow(message) {
     startedAt,
     updatedAt: startedAt,
     current: structuredClone(EMPTY_RUNTIME_STATE.current)
-  };
+  });
   scheduler.refreshSummary();
-  await persistRuntimeState(true);
+  await store.persist(true);
   await updateBadge();
   await broadcastToExtension({
     type: "session-state",
@@ -686,7 +643,7 @@ async function startSessionNow(message) {
   }
 
   if (settingsCache.overlayEnabled) {
-    await injectOverlay(runtimeState.tabId);
+    await injectOverlay(store.state.tabId);
   }
   let warning = "";
   if (settingsCache.openPanelOnStart) {
@@ -694,9 +651,9 @@ async function startSessionNow(message) {
       await openMonitorWindow();
     } catch (error) {
       warning = `字幕窗口未能自动打开：${error?.message || error}`;
-      runtimeState.detail = warning;
-      runtimeState.updatedAt = Date.now();
-      await persistRuntimeState(true);
+      store.state.detail = warning;
+      store.state.updatedAt = Date.now();
+      await store.persist(true);
       await broadcastToExtension({ type: "session-state" });
     }
   }
@@ -706,14 +663,14 @@ async function startSessionNow(message) {
 async function finalizeSession(status, detail, options = {}) {
   if (finalizingPromise) return finalizingPromise;
   finalizingPromise = (async () => {
-    const sessionId = runtimeState.sessionId;
+    const sessionId = store.state.sessionId;
     let finalStatus = status;
-    let finalDetail = detail || runtimeState.detail;
-    let lineCount = runtimeState.lineCount || 0;
+    let finalDetail = detail || store.state.detail;
+    let lineCount = store.state.lineCount || 0;
     let translationMissing = 0;
     let preview =
-      runtimeState.current?.lines?.at(-1)?.translation ||
-      runtimeState.current?.lines?.at(-1)?.source ||
+      store.state.current?.lines?.at(-1)?.translation ||
+      store.state.current?.lines?.at(-1)?.source ||
       "";
 
     try {
@@ -754,18 +711,18 @@ async function finalizeSession(status, detail, options = {}) {
         }
       }
     } finally {
-      runtimeState.active = false;
-      runtimeState.status = finalStatus;
-      runtimeState.detail = finalDetail || runtimeState.detail;
+      store.state.active = false;
+      store.state.status = finalStatus;
+      store.state.detail = finalDetail || store.state.detail;
       // The overlay failure belongs to the session that just ended; keeping it
       // would leave a stale warning in the popup and a tabId to re-inject into.
-      runtimeState.overlayError = "";
-      runtimeState.wsConnected = false;
-      runtimeState.lineCount = lineCount;
-      runtimeState.translationMissing = translationMissing;
-      runtimeState.updatedAt = Date.now();
+      store.state.overlayError = "";
+      store.state.wsConnected = false;
+      store.state.lineCount = lineCount;
+      store.state.translationMissing = translationMissing;
+      store.state.updatedAt = Date.now();
       try {
-        await persistRuntimeState(true);
+        await store.persist(true);
         await updateBadge();
       } catch (error) {
         console.error("声幕运行状态收尾失败", error);
@@ -774,7 +731,7 @@ async function finalizeSession(status, detail, options = {}) {
         await broadcastToExtension({
           type: "session-ended",
           status: finalStatus,
-          detail: runtimeState.detail
+          detail: store.state.detail
         });
         await broadcastCaptionState();
       }
@@ -792,10 +749,10 @@ async function finalizeSession(status, detail, options = {}) {
 
 async function stopSession(options = {}) {
   await initialize();
-  if (!runtimeState.active && !(await hasOffscreenDocument())) {
+  if (!store.state.active && !(await hasOffscreenDocument())) {
     return { ok: true, alreadyStopped: true };
   }
-  if (runtimeState.active) {
+  if (store.state.active) {
     pendingStopDetail = options.detail || "标签页音频采集已停止";
   }
   try {
@@ -820,32 +777,32 @@ async function stopSession(options = {}) {
 async function handleStatusReport(message) {
   if (
     message.sessionId &&
-    runtimeState.sessionId &&
-    message.sessionId !== runtimeState.sessionId
+    store.state.sessionId &&
+    message.sessionId !== store.state.sessionId
   ) {
     return;
   }
   const status = message.status || {};
-  if (!runtimeState.active) return;
-  runtimeState.status = status.state || runtimeState.status;
-  runtimeState.detail = status.detail || runtimeState.detail;
-  runtimeState.wsConnected = Boolean(status.wsConnected);
-  runtimeState.audio = status.audio || runtimeState.audio;
-  runtimeState.captureInfo = status.captureInfo || runtimeState.captureInfo;
-  runtimeState.updatedAt = status.updatedAt || Date.now();
-  await persistRuntimeState();
+  if (!store.state.active) return;
+  store.state.status = status.state || store.state.status;
+  store.state.detail = status.detail || store.state.detail;
+  store.state.wsConnected = Boolean(status.wsConnected);
+  store.state.audio = status.audio || store.state.audio;
+  store.state.captureInfo = status.captureInfo || store.state.captureInfo;
+  store.state.updatedAt = status.updatedAt || Date.now();
+  await store.persist();
   await updateBadge();
   await broadcastToExtension({ type: "status", status: safeClone(status) });
   await broadcastCaptionState();
 
-  if (status.state === "error" && status.fatal && runtimeState.active) {
+  if (status.state === "error" && status.fatal && store.state.active) {
     await stopSession({
       status: "error",
       detail: status.detail || "字幕服务发生致命错误"
     });
     return;
   }
-  if (status.state === "stopped" && runtimeState.active) {
+  if (status.state === "stopped" && store.state.active) {
     await finalizeSession(
       "stopped",
       pendingStopDetail || status.detail || "采集已停止"
@@ -860,29 +817,29 @@ async function refreshSourceMetadata(tabId) {
   } catch {
     return;
   }
-  const title = String(tab.title || runtimeState.tabTitle || "未命名直播");
-  const url = String(tab.url || runtimeState.tabUrl || "");
-  if (title === runtimeState.tabTitle && url === runtimeState.tabUrl) return;
+  const title = String(tab.title || store.state.tabTitle || "未命名直播");
+  const url = String(tab.url || store.state.tabUrl || "");
+  if (title === store.state.tabTitle && url === store.state.tabUrl) return;
 
-  runtimeState.tabTitle = title;
-  runtimeState.tabUrl = url;
-  runtimeState.updatedAt = Date.now();
-  if (runtimeState.sessionId) {
-    await updateHistorySession(runtimeState.sessionId, {
+  store.state.tabTitle = title;
+  store.state.tabUrl = url;
+  store.state.updatedAt = Date.now();
+  if (store.state.sessionId) {
+    await updateHistorySession(store.state.sessionId, {
       title,
       url,
-      updatedAt: runtimeState.updatedAt
+      updatedAt: store.state.updatedAt
     });
   }
-  await persistRuntimeState(true);
+  await store.persist(true);
   await broadcastToExtension({ type: "session-state" });
 }
 
 async function handleTranscriptUpdate(message) {
-  if (!runtimeState.active || message.sessionId !== runtimeState.sessionId) return;
+  if (!store.state.active || message.sessionId !== store.state.sessionId) return;
   const apiConfig = translationConfig();
   const useApi = apiConfig.mode === "api" && apiConfig.enabled;
-  const next = reduceTranscriptUpdate(runtimeState, message, {
+  const next = reduceTranscriptUpdate(store.state, message, {
     knownLines: knownLineSignatures,
     useApi,
     apiError: scheduler.lastError,
@@ -892,17 +849,17 @@ async function handleTranscriptUpdate(message) {
     knownLineSignatures.set(line.id, rememberLine(line));
   }
   if (next.historyLines.length > 0) historyWriteQueue.enqueue(next.historyLines);
-  Object.assign(runtimeState, next.patch);
+  Object.assign(store.state, next.patch);
   scheduler.refreshSummary();
 
   if (useApi && next.bufferChanged) scheduler.abortStaleBuffer();
 
-  await persistRuntimeState();
+  await store.persist();
   await broadcastToExtension({
     type: "caption-state",
-    current: safeClone(runtimeState.current),
+    current: safeClone(store.state.current),
     epochId: message.epochId,
-    lineCount: runtimeState.lineCount
+    lineCount: store.state.lineCount
   });
   await broadcastCaptionState();
   await flushPendingHistory(false);
@@ -914,14 +871,14 @@ async function handleTranscriptUpdate(message) {
 }
 
 async function handleAudioStats(message) {
-  if (message.sessionId && message.sessionId !== runtimeState.sessionId) return;
-  runtimeState.audio = message.audio || runtimeState.audio;
-  runtimeState.updatedAt = Date.now();
+  if (message.sessionId && message.sessionId !== store.state.sessionId) return;
+  store.state.audio = message.audio || store.state.audio;
+  store.state.updatedAt = Date.now();
   await broadcastToExtension({
     type: "audio-stats",
-    audio: safeClone(runtimeState.audio)
+    audio: safeClone(store.state.audio)
   });
-  await persistRuntimeState();
+  await store.persist();
 }
 
 async function probeServices() {
@@ -1048,7 +1005,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       } else if (message.type === "get-state") {
         sendResponse({
           ok: true,
-          state: compactRuntimeState(),
+          state: store.snapshot(),
           settings: settingsForBroadcast(settingsCache)
         });
       } else if (message.type === "get-settings") {
@@ -1096,7 +1053,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           rejectNonExtensionSender(sendResponse);
           return;
         }
-        if (!runtimeState.active || !runtimeState.tabId) {
+        if (!store.state.active || !store.state.tabId) {
           sendResponse({ ok: false, error: "当前没有正在采集的标签页" });
           return;
         }
@@ -1105,21 +1062,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           ok: injected,
           error: injected
             ? ""
-            : runtimeState.overlayError || "页面浮层没有响应"
+            : store.state.overlayError || "页面浮层没有响应"
         });
       } else if (message.type === "content-ready") {
         // The content script finished initializing on its own: whatever init
         // handshake failed earlier is stale now.
         if (
-          runtimeState.overlayError &&
+          store.state.overlayError &&
           sender?.tab?.id &&
-          sender.tab.id === runtimeState.tabId
+          sender.tab.id === store.state.tabId
         ) {
           await reportOverlayFailure(null);
         }
         sendResponse({
           ok: true,
-          state: compactRuntimeState(),
+          state: store.snapshot(),
           settings: settingsForBroadcast(settingsCache)
         });
       } else if (message.type === "probe-services") {
@@ -1142,13 +1099,13 @@ chrome.commands.onCommand.addListener((command) => {
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
-  if (runtimeState.active && tabId === runtimeState.tabId) {
+  if (store.state.active && tabId === store.state.tabId) {
     void stopSession({ detail: "直播标签页已关闭" });
   }
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-  if (tabId !== runtimeState.tabId || !runtimeState.active) return;
+  if (tabId !== store.state.tabId || !store.state.active) return;
   if (
     !changeInfo.title &&
     !changeInfo.url &&
