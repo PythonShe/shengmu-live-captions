@@ -694,6 +694,15 @@ async function startDownload(payload) {
   return { status: 200, body: { ok: true, download } };
 }
 
+// DNS rebinding: a page on evil.example that re-resolves to 127.0.0.1 sends
+// same-origin GETs with no Origin header, so the Host header is the only signal.
+function hostAllowed(host) {
+  if (!host) return true; // HTTP/1.0 native callers
+  return [`127.0.0.1:${PORT}`, `localhost:${PORT}`, `[::1]:${PORT}`].includes(
+    host.toLowerCase()
+  );
+}
+
 function originAllowed(origin) {
   if (!origin) return true; // curl / PowerShell / native callers
   return origin.startsWith("chrome-extension://");
@@ -705,6 +714,7 @@ async function handleRequest(req, res) {
   // Cross-site browser requests without an Origin header (inline <img>, <link>,
   // etc.) must not reach the control plane either.
   const blocked =
+    !hostAllowed(req.headers.host) ||
     !originAllowed(origin) ||
     (!origin && fetchSite && fetchSite === "cross-site");
   if (blocked) {
