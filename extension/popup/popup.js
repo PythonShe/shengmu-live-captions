@@ -100,6 +100,8 @@ const elements = {
   startControlService: document.querySelector("#startControlService"),
   asrBackend: document.querySelector("#asrBackend"),
   builtinSupportHint: document.querySelector("#builtinSupportHint"),
+  builtinSupportText: document.querySelector("#builtinSupportText"),
+  switchToBailian: document.querySelector("#switchToBailian"),
   bailianFields: document.querySelector("#bailianFields"),
   bailianRegion: document.querySelector("#bailianRegion"),
   bailianApiKey: document.querySelector("#bailianApiKey"),
@@ -325,11 +327,17 @@ function renderSpeechSettings() {
     ? t("popup_bailian_key_saved")
     : t("popup_bailian_key_hint");
   // Name the half that is missing: Edge, for one, has the built-in
-  // Translator but no on-device speech model.
+  // Translator but no on-device speech model. Bailian is then the only
+  // speech engine that needs no install, so the hint offers it directly.
+  const speechUnsupported = ["missing", "unavailable"].includes(builtinSupport.speech);
+  const chromeOption = elements.asrBackend.querySelector('option[value="chrome"]');
+  chromeOption.textContent = t(speechUnsupported ? "asr_backend_chrome_unavailable" : "asr_backend_chrome");
+  chromeOption.disabled = speechUnsupported && backend !== "chrome";
   const hints = [];
-  if (backend === "chrome" && ["missing", "unavailable"].includes(builtinSupport.speech)) {
+  if (backend === "chrome" && speechUnsupported) {
     hints.push(t("popup_speech_unsupported"));
   }
+  elements.switchToBailian.hidden = !(backend === "chrome" && speechUnsupported);
   if (
     settings.translationProvider === "chrome" &&
     settings.translationMode === "api" &&
@@ -338,7 +346,7 @@ function renderSpeechSettings() {
     hints.push(t("popup_translator_unsupported"));
   }
   elements.builtinSupportHint.hidden = hints.length === 0;
-  elements.builtinSupportHint.textContent = hints.join(" ");
+  elements.builtinSupportText.textContent = hints.join(" ");
 }
 
 /**
@@ -1129,6 +1137,12 @@ elements.asrBackend.addEventListener("change", () => {
       return pollLocal();
     })
     .catch((error) => setError(errorText(error)));
+});
+
+elements.switchToBailian.addEventListener("click", () => {
+  elements.asrBackend.value = "bailian";
+  elements.asrBackend.dispatchEvent(new Event("change"));
+  if (!settings.translationApiKeyConfigured?.bailian) elements.bailianApiKey.focus();
 });
 
 elements.bailianRegion.addEventListener("change", () => {

@@ -45,10 +45,13 @@
           <select id="asrBackend">
             <option value="chrome" data-i18n="asr_backend_chrome">Chrome 本机识别</option>
             <option value="bailian" data-i18n="asr_backend_bailian">阿里云百炼（云端）</option>
-            <option value="wlk" data-i18n="asr_backend_wlk">本地 WhisperLiveKit</option>
+            <option value="wlk" data-i18n="asr_backend_wlk">本地 WhisperLiveKit（需自行部署）</option>
           </select>
         </div>
-        <p id="builtinSupportHint" class="field-hint" hidden></p>
+        <p id="builtinSupportHint" class="field-hint" hidden>
+          <span id="builtinSupportText"></span>
+          <button id="switchToBailian" class="text-button" type="button" hidden data-i18n="popup_switch_bailian">改用阿里云百炼</button>
+        </p>
         <div id="bailianFields" hidden>
           <div class="control-row">
             <label for="bailianRegion" data-i18n="popup_bailian_region">地域</label>

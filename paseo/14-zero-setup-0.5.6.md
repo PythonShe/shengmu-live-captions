@@ -29,7 +29,7 @@ Node 下限定为 24.22.2（Node 24 LTS 当前最新版，旧版本有已公开�
 
 ### 1.3 门禁
 
-`pnpm run verify` = 全部脚本 `node --check` + ESLint（按层限定全局变量）+ `tsc --checkJs`（只查 `lib/`）+ 单元测试；`pnpm run smoke` 用无头 Chrome 加载扩展，检查后台、offscreen、面板、字幕页、浮层注入和本机消息助手的扩展 ID 查找。CI 在 Ubuntu、Windows、macOS（x64 与 arm64）跑 verify，在三个系统跑 smoke。单元测试从 0.5.5 的 113 项增加到 258 项。
+`pnpm run verify` = 全部脚本 `node --check` + ESLint（按层限定全局变量）+ `tsc --checkJs`（只查 `lib/`）+ 单元测试；`pnpm run smoke` 用无头 Chrome 加载扩展，检查后台、offscreen、面板、字幕页、浮层注入和本机消息助手的扩展 ID 查找。CI 在 Ubuntu、Windows、macOS（x64 与 arm64）跑 verify，在三个系统跑 smoke。单元测试从 0.5.5 的 113 项增加到 259 项。
 
 ## 2. 翻译链路
 
@@ -75,7 +75,7 @@ Chrome 155 实测（offscreen 文档内）：
 
 - 本机英语模型 `downloadable` → `install` 用时 19 秒；`start(MediaStreamTrack)` 可用，首个中间结果 0.8 秒。
 - `install()` 与内置翻译一样需要用户手势（模型为 `downloadable` 时），offscreen 文档没有手势，所以由面板在点「开始」时同时发起语音与翻译两个模型的下载，offscreen 只等待下载完成。
-- Microsoft Edge 156（Chromium 内核）没有 Google 的本机语音模型，`processLocally` 对任何语言都返回 `unavailable`，内置翻译则可用；面板分别提示缺的是哪一半。
+- Microsoft Edge 156（Chromium 内核）没有 Google 的本机语音模型，`processLocally` 对任何语言都返回 `unavailable`，内置翻译则可用；面板分别提示缺的是哪一半，语音缺失时下拉框标出「此浏览器不支持」，提示里给一键「改用阿里云百炼」（唯一不用安装的识别后端）。WhisperLiveKit 选项标为「需自行部署」。
 - 短语偏置有效（Searing Exarch、Divine Orbs、Maven 识别正确）；没有标点，一段话说完才给长句。
 - 端到端：英文样本 `speech.wav` 经标签页采集、本机识别，输出 8 行字幕。
 - DNR 规则验证：offscreen 文档的握手带上了 `Authorization`，扩展标签页与普通网页发起的同一地址请求都不带。
@@ -106,7 +106,7 @@ Chrome 155 实测（offscreen 文档内）：
 
 ## 4. 界面多语言
 
-使用 `chrome.i18n`：`_locales/zh_CN`（`default_locale`）、`en`、`zh_TW`，共 414 条文案。界面语言跟随 Chrome 的显示语言；翻译提示词、术语数据与译文目标语言（简体中文）不变。
+使用 `chrome.i18n`：`_locales/zh_CN`（`default_locale`）、`en`、`zh_TW`，共 416 条文案。界面语言跟随 Chrome 的显示语言；翻译提示词、术语数据与译文目标语言（简体中文）不变。
 
 - `lib/` 不能访问 `chrome.*`，所以只返回文案键与参数（`lib/i18n-message.js` 的 `msg(key, ...params)`，参数可以嵌套另一条文案，例如提供方名称），或抛出携带文案的错误；页面、后台、offscreen 与浮层各自渲染。运行态里的 `detail`、`translationError` 存渲染后的文本。
 - 本地控制服务在原中文 `error` / `message` 旁增加 `errorCode` / `messageKey` 与参数，命令行与旧版扩展仍读中文文本。
@@ -119,7 +119,7 @@ Chrome 155 实测（offscreen 文档内）：
 
 ## 5. 验证结果
 
-- `pnpm run verify`：85 个脚本语法检查通过，ESLint 与类型检查通过，单元测试 258 项全部通过。
+- `pnpm run verify`：85 个脚本语法检查通过，ESLint 与类型检查通过，单元测试 259 项全部通过。
 - `pnpm run smoke`：11 项检查全部通过。
 - CI：9 个任务（三系统 verify，含 macOS x64 与 arm64，以及三系统 smoke）通过。
 

@@ -27,7 +27,7 @@
     "message": "阿里云百炼（云端）"
   },
   "asr_backend_wlk": {
-    "message": "本地 WhisperLiveKit"
+    "message": "本地 WhisperLiveKit（需自行部署）"
   },
   "popup_bailian_region": {
     "message": "地域"
@@ -1231,7 +1231,7 @@
     "description": "BCP 47 tag of this catalog, for the lang attribute"
   },
   "popup_speech_unsupported": {
-    "message": "这个浏览器不能在本机识别语音（需要 Chrome 138 以上的桌面版，Edge 等其他浏览器没有这项功能），请改用阿里云百炼或本地 WhisperLiveKit。"
+    "message": "这个浏览器没有本机语音识别，只有桌面版 Chrome 138 以上才有。阿里云百炼不用安装，填一个 Key 就能用。"
   },
   "popup_translator_unsupported": {
     "message": "这个浏览器没有内置翻译（需要 Chrome 138 以上的桌面版），请填写 DeepSeek Key 或改用其他翻译引擎。"
@@ -1241,5 +1241,11 @@
   },
   "speech_model_not_downloaded": {
     "message": "Chrome 本机语音模型尚未下载，请在扩展面板中点「开始实时翻译」重新开始"
+  },
+  "asr_backend_chrome_unavailable": {
+    "message": "Chrome 本机识别（此浏览器不支持）"
+  },
+  "popup_switch_bailian": {
+    "message": "改用阿里云百炼"
   }
 }
