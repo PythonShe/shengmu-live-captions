@@ -1,7 +1,7 @@
 /**
  * Built-in Path of Exile glossary data (PoE 1 + PoE 2).
  *
- * Kept in its own module so `extension/glossary.js` stays focused on parsing,
+ * Kept in its own module so `extension/lib/glossary.js` stays focused on parsing,
  * matching and serialisation. Every target below is the official Simplified
  * Chinese client string taken from the poedb.tw/cn (`/cn/<Slug>` page title) or
  * poe2db.tw/cn dump, with PoE 2 wording winning when the two games disagree

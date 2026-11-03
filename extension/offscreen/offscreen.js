@@ -473,7 +473,7 @@ async function startCapture(message) {
     // Monitor at the device rate and resample only the ASR stream.
     audioContext = new AudioContext({ latencyHint: "interactive" });
     await audioContext.audioWorklet.addModule(
-      chrome.runtime.getURL("pcm-worklet.js")
+      chrome.runtime.getURL("offscreen/pcm-worklet.js")
     );
     const source = audioContext.createMediaStreamSource(mediaStream);
     workletNode = new AudioWorkletNode(audioContext, "pcm-tap", {

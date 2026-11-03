@@ -3,7 +3,7 @@ import test from "node:test";
 
 // The overlay helper is a classic content script that publishes itself on the
 // global object; importing it for side effects mirrors that environment.
-import "../extension/overlay-history.js";
+import "../extension/content/overlay-history.js";
 
 const { createHistoryLog, resetHistoryLog, syncHistoryLog } =
   globalThis.ShengmuOverlayHistory;

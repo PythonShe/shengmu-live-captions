@@ -7,7 +7,7 @@
 - 文件名按 `NN-主题-版本.md` 编号；同一主题有多篇时，**编号靠后的覆盖靠前的**（例如 `09` 覆盖 `07` 的浮层约定）。
 - 每篇记录三样东西：当次要解决的问题、做出取舍的理由、以及实测数据。没有数据的结论不算记录。
 - `evidence/`（截图、日志、长样本）与仓库根的 `.research/` 不入库，避免仓库膨胀。
-- 术语与领域概念以仓库根的 `GLOSSARY-ISSUES.md` 与 `extension/glossary-poe.js` 为准。
+- 术语与领域概念以仓库根的 `GLOSSARY-ISSUES.md` 与 `extension/lib/glossary-poe.js` 为准。
 
 ## 文档索引
 

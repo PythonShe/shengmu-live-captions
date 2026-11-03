@@ -8,14 +8,14 @@ import {
   normalizeSettings,
   planTranscriptDiff,
   safeFileStem
-} from "./caption-utils.js";
+} from "../lib/caption-utils.js";
 import {
   clearHistory,
   deleteHistorySession,
   getHistoryLines,
   getHistorySession,
   listHistorySessions
-} from "./history-db.js";
+} from "../storage/history-db.js";
 
 const PAGE_SIZE = 250;
 const MAX_SEARCH_RESULTS = 1000;

@@ -71,7 +71,7 @@ function startMockApi() {
   });
 }
 
-function sendToBackground(message, sender = { url: "chrome-extension://test-extension/popup.html" }) {
+function sendToBackground(message, sender = { url: "chrome-extension://test-extension/popup/popup.html" }) {
   return new Promise((resolve) => {
     listeners.message(message, sender, resolve);
   });
@@ -128,7 +128,7 @@ globalThis.chrome = {
   scripting: { executeScript: async () => {} }
 };
 
-await import("../extension/service-worker.js");
+await import("../extension/background/service-worker.js");
 await new Promise((resolve) => setTimeout(resolve, 30));
 
 test("background defaults to DeepSeek and never broadcasts API keys", async () => {

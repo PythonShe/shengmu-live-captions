@@ -4,7 +4,7 @@ import test from "node:test";
 import vm from "node:vm";
 
 const workletSource = readFileSync(
-  new URL("../extension/pcm-worklet.js", import.meta.url),
+  new URL("../extension/offscreen/pcm-worklet.js", import.meta.url),
   "utf8"
 );
 

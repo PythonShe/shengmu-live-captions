@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { polishTranslation, stripSpeechFillers } from "../extension/speech-cleanup.js";
+import { polishTranslation, stripSpeechFillers } from "../extension/lib/speech-cleanup.js";
 
 test("stripSpeechFillers drops interjections and comma-bounded asides", () => {
   assert.equal(

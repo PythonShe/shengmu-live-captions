@@ -84,10 +84,10 @@ npm test                     # node:test，113 项
 改完扩展脚本建议过一遍语法检查：
 
 ```powershell
-Get-ChildItem .\extension -Filter *.js | ForEach-Object { node --check $_.FullName }
+Get-ChildItem .\extension -Filter *.js -Recurse | ForEach-Object { node --check $_.FullName }
 ```
 
-分层约定：`extension/` 下页面脚本之间只通过 `chrome.runtime` / `chrome.storage.local` 通信；`caption-utils.js`、`utterance.js`、`speech-cleanup.js`、`glossary*.js` 为纯函数模块，禁止引入 `chrome.*` 与 DOM。设计与验收记录在 `paseo/`。
+分层约定：`extension/` 按入口分目录（`background/`、`offscreen/`、`content/`、`popup/`、`subtitle/`），入口之间只通过 `chrome.runtime` / `chrome.storage.local` 通信；`lib/` 为纯函数模块，禁止引入 `chrome.*` 与 DOM；`storage/history-db.js` 封装 IndexedDB。设计与验收记录在 `paseo/`。
 
 ## 许可证
 

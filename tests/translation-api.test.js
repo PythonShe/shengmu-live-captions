@@ -14,7 +14,7 @@ import {
   testTranslationConnection,
   translateTexts,
   translationConfigIssue
-} from "../extension/translation-api.js";
+} from "../extension/lib/translation-api.js";
 
 function startServer(handler) {
   const requests = [];

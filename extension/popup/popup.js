@@ -3,7 +3,7 @@ import {
   hostnameFromUrl,
   normalizeSettings,
   normalizeWsUrl
-} from "./caption-utils.js";
+} from "../lib/caption-utils.js";
 import {
   GLOSSARY_PRESETS,
   MAX_CUSTOM_GLOSSARY_CHARS,
@@ -12,11 +12,11 @@ import {
   parseGlossaryText,
   resolveEffectiveGlossary,
   serializeWlkGlossary
-} from "./glossary.js";
+} from "../lib/glossary.js";
 import {
   TRANSLATION_PROVIDERS,
   normalizeTranslationBaseUrl
-} from "./translation-api.js";
+} from "../lib/translation-api.js";
 
 const elements = {
   tabTitle: document.querySelector("#tabTitle"),
