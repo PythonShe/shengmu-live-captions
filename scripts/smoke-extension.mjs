@@ -146,6 +146,11 @@ try {
     worker.url
   );
   const workerSession = await attach(worker.targetId);
+  // The target can appear before the extension APIs are bound in it.
+  await waitFor(
+    async () => (await evaluate(workerSession, `typeof chrome !== "undefined" && Boolean(chrome.runtime?.id)`)) === true,
+    "worker extension APIs"
+  );
   check(
     "worker evaluates",
     (await evaluate(workerSession, "chrome.runtime.getManifest().version")) === manifest.version
