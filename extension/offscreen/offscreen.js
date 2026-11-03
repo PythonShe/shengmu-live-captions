@@ -127,7 +127,8 @@ async function publishStatus(state, detail, extra = {}) {
   const status = {
     state,
     detail,
-    wsConnected: websocket?.readyState === WebSocket.OPEN,
+    // The Chrome backend has no socket: a running recognizer is its link.
+    wsConnected: Boolean(speechSession) || websocket?.readyState === WebSocket.OPEN,
     audio: latestAudioStats,
     captureInfo,
     updatedAt: Date.now(),
