@@ -15,8 +15,8 @@ export const MAX_CUSTOM_GLOSSARY_CHARS = 32 * 1024;
 // remainder is left for safer URL encoding and rolling ASR history.
 export const MAX_ASR_CONTEXT_CHARS = 360;
 export const MAX_GLOSSARY_MATCHES = 24;
-// Windows caps a command line near 32k characters; the WLK glossary travels as
-// a PowerShell argument, so keep a wide safety margin.
+// Windows caps a command line near 32k characters and the WLK glossary travels
+// as a single command-line argument, so keep a wide safety margin.
 export const MAX_WLK_GLOSSARY_CHARS = 4000;
 
 export const GLOSSARY_PRESETS = Object.freeze({

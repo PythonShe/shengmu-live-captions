@@ -14,8 +14,8 @@ export const SETTINGS_KEY = "settings";
 export const RUNTIME_STATE_KEY = "runtimeState";
 export const HISTORY_CHANGED_KEY = "historyRevision";
 
-// Local model ids must match .research/local-service/server.mjs and the
-// presets in scripts/Start-Services.ps1.
+// Local model ids must match the tiers in scripts/local-service/config.mjs
+// (tests/service-manager.test.js enforces it).
 export const LOCAL_TRANSLATION_MODELS = Object.freeze(["9b-q4km", "2b-iq4xs"]);
 export const LOCAL_ASR_MODELS = Object.freeze(["large-v3-turbo", "medium"]);
 
