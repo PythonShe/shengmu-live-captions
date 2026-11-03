@@ -144,7 +144,7 @@
     "message": "改用 DeepSeek"
   },
   "popup_api_privacy": {
-    "message": "API 模式会把识别出的英文字幕和最近两条上下文发送给所选服务商。"
+    "message": "API 模式会把识别出的英文字幕和最近至多 4 条上下文（原文与译文）发送给所选服务商。"
   },
   "popup_base_url": {
     "message": "API 地址"
@@ -1228,5 +1228,9 @@
   },
   "overlay_history_back": {
     "message": "历史 $1 条 · 向下滚回实时"
+  },
+  "html_lang": {
+    "message": "zh-CN",
+    "description": "BCP 47 tag of this catalog, for the lang attribute"
   }
 }

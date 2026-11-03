@@ -18,7 +18,7 @@ import {
   normalizeTranslationBaseUrl
 } from "../lib/translation-api.js";
 import { createCaptionReceiver } from "../lib/caption-delta.js";
-import { localizePage, renderMessage, t } from "../ui/i18n.js";
+import { errorText, localizePage, renderMessage, t } from "../ui/i18n.js";
 import {
   DISPLAY_MODE_LABELS,
   DISPLAY_MODE_ORDER,
@@ -163,7 +163,7 @@ function createSliderSaver(delayMs, save) {
     state.timer = setTimeout(() => {
       state.timer = null;
       save(value)
-        .catch((error) => setError(error.message))
+        .catch((error) => setError(errorText(error)))
         .finally(() => {
           if (token === state.token) state.token = 0;
         });
@@ -785,7 +785,7 @@ async function startControlServiceNatively() {
     if (!response?.ok) throw new Error(response?.error || t("popup_control_service_not_started"));
     setLocalNotice(t("popup_control_service_started"));
   } catch (error) {
-    const message = error?.message || String(error);
+    const message = errorText(error);
     setLocalNotice(
       /not found|forbidden/i.test(message)
         ? t("popup_native_host_missing")
@@ -852,7 +852,7 @@ async function startLocalServices() {
         : payload.job?.message || t("popup_local_starting")
     );
   } catch (error) {
-    setLocalNotice(t("popup_start_failed", error.message));
+    setLocalNotice(t("popup_start_failed", errorText(error)));
   } finally {
     local.busy = false;
     await pollLocal();
@@ -868,7 +868,7 @@ async function stopLocalServices() {
     await localRequest("/stop", { method: "POST", timeoutMs: 20000 });
     setLocalNotice(t("popup_local_stopped"));
   } catch (error) {
-    setLocalNotice(t("popup_stop_failed", error.message));
+    setLocalNotice(t("popup_stop_failed", errorText(error)));
   } finally {
     local.busy = false;
     await pollLocal();
@@ -889,7 +889,7 @@ async function downloadLocalModel() {
     });
     setLocalNotice(t("popup_download_started"));
   } catch (error) {
-    setLocalNotice(t("popup_download_failed", error.message));
+    setLocalNotice(t("popup_download_failed", errorText(error)));
   } finally {
     local.busy = false;
     await pollLocal();
@@ -901,7 +901,7 @@ async function copyLocalServiceCommand() {
     await navigator.clipboard.writeText(LOCAL_SERVICE_COMMAND);
     setLocalNotice(t("popup_command_copied"));
   } catch (error) {
-    setLocalNotice(t("popup_copy_failed", error.message));
+    setLocalNotice(t("popup_copy_failed", errorText(error)));
   }
   renderLocal();
 }
@@ -1007,7 +1007,7 @@ elements.primaryButton.addEventListener("click", async () => {
       await startCapture();
     }
   } catch (error) {
-    setError(error?.message || String(error));
+    setError(errorText(error));
   } finally {
     busy = false;
     render();
@@ -1016,7 +1016,7 @@ elements.primaryButton.addEventListener("click", async () => {
 
 elements.displayMode.addEventListener("change", () => {
   void savePatch({ displayMode: elements.displayMode.value }).catch((error) =>
-    setError(error.message)
+    setError(errorText(error))
   );
 });
 
@@ -1034,7 +1034,7 @@ elements.opacity.addEventListener("input", () => {
 
 elements.overlayEnabled.addEventListener("change", () => {
   void savePatch({ overlayEnabled: elements.overlayEnabled.checked }).catch(
-    (error) => setError(error.message)
+    (error) => setError(errorText(error))
   );
 });
 
@@ -1050,7 +1050,7 @@ elements.overlayRetry.addEventListener("click", async () => {
       throw new Error(response?.error || t("popup_reinject_failed"));
     }
   } catch (error) {
-    setError(error?.message || String(error));
+    setError(errorText(error));
   } finally {
     elements.overlayRetry.disabled = false;
     await refresh();
@@ -1059,7 +1059,7 @@ elements.overlayRetry.addEventListener("click", async () => {
 
 elements.openPanelOnStart.addEventListener("change", () => {
   void savePatch({ openPanelOnStart: elements.openPanelOnStart.checked }).catch(
-    (error) => setError(error.message)
+    (error) => setError(errorText(error))
   );
 });
 
@@ -1067,10 +1067,10 @@ elements.wsUrl.addEventListener("change", () => {
   try {
     elements.wsUrl.value = normalizeWsUrl(elements.wsUrl.value);
     void savePatch({ wsUrl: elements.wsUrl.value }).catch((error) =>
-      setError(error.message)
+      setError(errorText(error))
     );
   } catch (error) {
-    setError(error.message);
+    setError(errorText(error));
   }
 });
 
@@ -1088,7 +1088,7 @@ elements.translationMode.addEventListener("change", () => {
         );
       }
     })
-    .catch((error) => setError(error.message));
+    .catch((error) => setError(errorText(error)));
 });
 
 elements.asrBackend.addEventListener("change", () => {
@@ -1097,12 +1097,12 @@ elements.asrBackend.addEventListener("change", () => {
       if (runtimeState?.active) setError(t("popup_backend_next_start"));
       return pollLocal();
     })
-    .catch((error) => setError(error.message));
+    .catch((error) => setError(errorText(error)));
 });
 
 elements.bailianRegion.addEventListener("change", () => {
   void savePatch({ bailianRegion: elements.bailianRegion.value }).catch((error) =>
-    setError(error.message)
+    setError(errorText(error))
   );
 });
 
@@ -1113,7 +1113,7 @@ elements.bailianApiKey.addEventListener("change", () => {
     .then(() => {
       elements.bailianApiKey.value = "";
     })
-    .catch((error) => setError(error.message));
+    .catch((error) => setError(errorText(error)));
 });
 
 elements.switchToDeepseek.addEventListener("click", () => {
@@ -1131,7 +1131,7 @@ elements.translationProvider.addEventListener("change", () => {
     translationProvider: preset.id,
     translationBaseUrl: preset.baseUrl,
     translationModel: preset.model
-  }).catch((error) => setError(error.message));
+  }).catch((error) => setError(errorText(error)));
 });
 
 elements.translationBaseUrl.addEventListener("change", () => {
@@ -1140,17 +1140,17 @@ elements.translationBaseUrl.addEventListener("change", () => {
     if (!url) throw new Error(t("popup_base_url_required"));
     elements.translationBaseUrl.value = url;
     void savePatch({ translationBaseUrl: url }).catch((error) =>
-      setError(error.message)
+      setError(errorText(error))
     );
   } catch (error) {
-    setError(error.message);
+    setError(errorText(error));
   }
 });
 
 elements.translationModel.addEventListener("change", () => {
   const model = elements.translationModel.value.trim();
   void savePatch({ translationModel: model }).catch((error) =>
-    setError(error.message)
+    setError(errorText(error))
   );
 });
 
@@ -1164,7 +1164,7 @@ elements.translationApiKey.addEventListener("change", () => {
       elements.translationApiKey.value = "";
       elements.translationTestResult.hidden = true;
     })
-    .catch((error) => setError(error.message));
+    .catch((error) => setError(errorText(error)));
 });
 
 elements.clearTranslationKey.addEventListener("click", () => {
@@ -1174,13 +1174,13 @@ elements.clearTranslationKey.addEventListener("click", () => {
     .then(() => {
       elements.translationTestResult.hidden = true;
     })
-    .catch((error) => setError(error.message));
+    .catch((error) => setError(errorText(error)));
 });
 
 elements.translationTranslatePartial.addEventListener("change", () => {
   void savePatch({
     translationTranslatePartial: elements.translationTranslatePartial.checked
-  }).catch((error) => setError(error.message));
+  }).catch((error) => setError(errorText(error)));
 });
 
 elements.testTranslationButton.addEventListener("click", async () => {
@@ -1224,7 +1224,7 @@ elements.testTranslationButton.addEventListener("click", async () => {
     elements.translationTestResult.textContent =
       t("popup_test_ok", result.model, result.latencyMs, result.translation);
   } catch (error) {
-    elements.translationTestResult.textContent = t("popup_failed", error?.message || String(error));
+    elements.translationTestResult.textContent = t("popup_failed", errorText(error));
   } finally {
     elements.testTranslationButton.disabled = false;
   }
@@ -1254,7 +1254,7 @@ elements.probeButton.addEventListener("click", async () => {
       })
     );
   } catch (error) {
-    elements.serviceResults.textContent = error.message;
+    elements.serviceResults.textContent = errorText(error);
   } finally {
     elements.probeButton.disabled = false;
   }
@@ -1273,14 +1273,14 @@ elements.localTranslationModel.addEventListener("change", () => {
     localTranslationModel: elements.localTranslationModel.value
   })
     .then(() => renderLocal())
-    .catch((error) => setError(error.message));
+    .catch((error) => setError(errorText(error)));
 });
 
 elements.localAsrModel.addEventListener("change", () => {
   if (!elements.localAsrModel.value) return;
   void savePatch({ localAsrModel: elements.localAsrModel.value })
     .then(() => renderLocal())
-    .catch((error) => setError(error.message));
+    .catch((error) => setError(errorText(error)));
 });
 
 elements.localStartButton.addEventListener("click", () => {
@@ -1327,14 +1327,14 @@ function notifyGlossaryRuntimeEffect() {
 elements.glossaryEnabled.addEventListener("change", () => {
   void savePatch({ glossaryEnabled: elements.glossaryEnabled.checked })
     .then(() => notifyGlossaryRuntimeEffect())
-    .catch((error) => setError(error.message));
+    .catch((error) => setError(errorText(error)));
 });
 
 elements.glossaryPresetPoe.addEventListener("change", () => {
   const presetIds = elements.glossaryPresetPoe.checked ? ["poe"] : [];
   void savePatch({ glossaryPresetIds: presetIds })
     .then(() => notifyGlossaryRuntimeEffect())
-    .catch((error) => setError(error.message));
+    .catch((error) => setError(errorText(error)));
 });
 
 elements.glossaryDomainHint.addEventListener("input", () => {
@@ -1351,7 +1351,7 @@ elements.glossaryDomainHint.addEventListener("change", () => {
     glossaryDomainHint: elements.glossaryDomainHint.value.trim()
   })
     .then(() => notifyGlossaryRuntimeEffect())
-    .catch((error) => setError(error.message));
+    .catch((error) => setError(errorText(error)));
 });
 
 elements.customGlossary.addEventListener("input", () => {
@@ -1373,7 +1373,7 @@ elements.customGlossary.addEventListener("change", () => {
   );
   void savePatch({ customGlossary: value })
     .then(() => notifyGlossaryRuntimeEffect())
-    .catch((error) => setError(error.message));
+    .catch((error) => setError(errorText(error)));
 });
 
 elements.importGlossaryButton.addEventListener("click", () => {
@@ -1427,7 +1427,7 @@ elements.importGlossaryInput.addEventListener("change", async () => {
         : t("popup_glossary_imported", file.name, imported.length, merged.length)
     );
   } catch (error) {
-    setError(error?.message || String(error));
+    setError(errorText(error));
   }
 });
 
@@ -1491,7 +1491,7 @@ window.addEventListener("unhandledrejection", (event) => {
 localizePage();
 void refresh()
   .then(() => Promise.all([pollLocal(), checkBuiltinSupport()]))
-  .catch((error) => setError(error.message));
+  .catch((error) => setError(errorText(error)));
 localPollTimer = setInterval(() => {
   void pollLocal();
 }, LOCAL_POLL_MS);
