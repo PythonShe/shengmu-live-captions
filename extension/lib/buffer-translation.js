@@ -31,6 +31,9 @@ const YIELD_DELAY_MS = 300;
  * @property {(callback: () => void, ms: number) => any} setTimeout
  * @property {(handle: any) => void} clearTimeout
  * @property {() => number} now
+ * @property {(text: string, translation: string) => void} [onTranslated] Every
+ *   successful buffer translation, even one the buffer has already moved past:
+ *   the half-sentence may have just become a committed row.
  */
 
 /** @param {BufferTranslationDeps} deps */
@@ -48,7 +51,8 @@ export function createBufferTranslation(deps) {
     publish,
     setTimeout: setTimer,
     clearTimeout: clearTimer,
-    now
+    now,
+    onTranslated = () => {}
   } = deps;
 
   let timer = null;
@@ -130,9 +134,10 @@ export function createBufferTranslation(deps) {
     lastRequestAt = now();
     const controller = new AbortController();
     abortSlot = controller;
+    const prompt = stripSpeechFillers(text);
     try {
       const result = await translateTexts({
-        texts: [stripSpeechFillers(text)],
+        texts: [prompt],
         context: recentTranslationContext(getState().current?.lines || []),
         config,
         partial: true,
@@ -140,11 +145,13 @@ export function createBufferTranslation(deps) {
       });
       if (startGeneration !== generation() || !sessionActive()) return;
       recordSuccess(result.usage);
+      const translation = polishTranslation(cleanText(result.translations[0]));
       const state = getState();
       if (cleanText(state.current?.bufferSource) === text) {
-        state.current.bufferTranslation = polishTranslation(cleanText(result.translations[0]));
+        state.current.bufferTranslation = translation;
         await publish({ reason: "buffer" });
       }
+      if (translation) onTranslated(prompt, translation);
     } catch (error) {
       if (startGeneration !== generation() || isAbortError(error)) return;
       if (recordFailure(error)) {
@@ -179,6 +186,9 @@ export function createBufferTranslation(deps) {
    */
   function abortStale() {
     if (!abortSlot) return;
+    // An emptied buffer means the half-sentence was just committed as a row:
+    // the answer still on its way is that row's translation (see onTranslated).
+    if (!bufferText()) return;
     try {
       abortSlot.abort();
     } catch {

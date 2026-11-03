@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   TRANSLATION_BUFFER_DEBOUNCE_MS,
   TRANSLATION_BUFFER_MIN_INTERVAL_MS,
+  TRANSLATION_LINE_CONCURRENCY,
   TRANSLATION_LINE_DEBOUNCE_MS,
   TRANSLATION_LINE_RETRY_DELAYS_MS,
   createTranslationScheduler,
@@ -182,6 +183,84 @@ test("reset discards a response that arrives for the previous generation", async
   await settleAsync();
   assert.equal(state.current.lines[0].translation, "");
   assert.equal(history.length, 0);
+});
+
+test("a row that finishes while a request runs gets its own request, up to the concurrency limit", async () => {
+  assert.equal(TRANSLATION_LINE_CONCURRENCY, 2);
+  const { clock, translator, state, scheduler } = setup({ lines: [row("a", LONG)] });
+  scheduler.scheduleLines();
+  await clock.advance(TRANSLATION_LINE_DEBOUNCE_MS);
+  assert.equal(translator.calls.length, 1);
+
+  state.current.lines.push(row("b", `Second: ${LONG}`));
+  scheduler.scheduleLines();
+  await clock.advance(TRANSLATION_LINE_DEBOUNCE_MS);
+  assert.equal(translator.calls.length, 2, "b does not wait behind a");
+  assert.deepEqual(translator.calls[1].texts, [`Second: ${LONG}`]);
+  assert.equal(scheduler.inspect().lineWorkers, 2);
+
+  state.current.lines.push(row("c", `Third: ${LONG}`));
+  scheduler.scheduleLines();
+  await clock.advance(TRANSLATION_LINE_DEBOUNCE_MS);
+  assert.equal(translator.calls.length, 2, "c waits for a free slot");
+
+  // b answers first; its worker then picks up c.
+  translator.calls[1].resolve({ translations: ["译乙"] });
+  await settleAsync();
+  assert.equal(state.current.lines[1].translation, "译乙");
+  assert.equal(translator.calls.length, 3);
+  assert.deepEqual(translator.calls[2].texts, [`Third: ${LONG}`]);
+  translator.calls[0].resolve({ translations: ["译甲"] });
+  translator.calls[2].resolve({ translations: ["译丙"] });
+  await settleAsync();
+  assert.deepEqual(state.current.lines.map((line) => line.translation), ["译甲", "译乙", "译丙"]);
+  assert.equal(scheduler.inspect().lineWorkers, 0);
+});
+
+test("a row the buffer request already translated takes that translation without a request", async () => {
+  const spoken = "the boss drops a divine orb when you kill it fast";
+  const { clock, translator, state, scheduler } = setup({ bufferSource: spoken });
+  scheduler.scheduleBuffer();
+  await clock.advance(TRANSLATION_BUFFER_DEBOUNCE_MS);
+  translator.calls[0].resolve({ translations: ["快速击杀首领会掉落神圣石"] });
+  await settleAsync();
+
+  // The speaker paused: the half-sentence is committed (Chrome capitalizes it).
+  state.current.bufferSource = "";
+  state.current.lines.push(row("a", "The boss drops a Divine Orb when you kill it fast."));
+  scheduler.scheduleLines();
+  await settleAsync();
+  assert.equal(state.current.lines[0].translation, "快速击杀首领会掉落神圣石");
+  assert.equal(state.current.lines[0].translationPending, false);
+  await clock.advance(TRANSLATION_LINE_DEBOUNCE_MS);
+  assert.equal(translator.calls.length, 1, "no line request was sent");
+  assert.equal(scheduler.inspect().prefetchHits, 1);
+});
+
+test("a buffer translation that lands while the row is in flight shows first, then the full one wins", async () => {
+  const spoken = "now the searing exarch is a little different";
+  const { clock, translator, state, scheduler } = setup({ bufferSource: spoken });
+  scheduler.scheduleBuffer();
+  await clock.advance(TRANSLATION_BUFFER_DEBOUNCE_MS);
+  const bufferCall = translator.calls[0];
+
+  state.current.bufferSource = "";
+  scheduler.abortStaleBuffer();
+  assert.equal(bufferCall.signal.aborted, false, "the committed half-sentence keeps its request");
+  state.current.lines.push(row("a", spoken));
+  scheduler.scheduleLines();
+  await clock.advance(TRANSLATION_LINE_DEBOUNCE_MS);
+  assert.equal(translator.calls.length, 2, "the row went out before the buffer answer");
+  const lineCall = translator.calls[1];
+
+  bufferCall.resolve({ translations: ["焚界者有点不同"] });
+  await settleAsync();
+  assert.equal(state.current.lines[0].translation, "焚界者有点不同");
+
+  lineCall.resolve({ translations: ["现在焚界者有点不一样"] });
+  await settleAsync();
+  assert.equal(state.current.lines[0].translation, "现在焚界者有点不一样");
+  assert.equal(state.current.lines[0].translationFailed, false);
 });
 
 test("the buffer request debounces, keeps a minimum interval and yields to a line backlog", async () => {

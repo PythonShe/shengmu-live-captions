@@ -28,6 +28,12 @@ export {
 
 export const TRANSLATION_LINE_DEBOUNCE_MS = 160;
 export const TRANSLATION_LINE_BATCH_SIZE = 6;
+/**
+ * Line requests in flight at once. A request costs about a second whatever
+ * its size (measured on DeepSeek: 1 row 0.94 s, 6 rows 1.24 s), so a row that
+ * finished while another request ran used to wait up to twice that.
+ */
+export const TRANSLATION_LINE_CONCURRENCY = 2;
 export const TRANSLATION_LINE_MAX_ATTEMPTS = 3;
 export const TRANSLATION_LINE_RETRY_DELAYS_MS = Object.freeze([1200, 3000]);
 export const TRANSLATION_STOP_TIMEOUT_MS = 15000;
@@ -55,6 +61,17 @@ export function shouldRetryTranslationError(error) {
 function codedError(message, code) {
   const error = isLocalMessage(message) ? new LocalizedError(message) : new Error(message);
   return Object.assign(error, { code });
+}
+
+/** Same words, ignoring case and punctuation (interim and final text differ there). */
+function sameSpeech(left, right) {
+  const words = (value) =>
+    String(value || "")
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}']+/gu, " ")
+      .trim();
+  const a = words(left);
+  return Boolean(a) && a === words(right);
 }
 
 function emptyUsage() {
@@ -113,9 +130,14 @@ export function createTranslationScheduler(deps) {
   const pending = new Map();
   const failed = new Map();
   let flushTimer = null;
-  let flushPromise = null;
+  /** @type {Set<Promise<void>>} running flush workers */
+  const workers = new Set();
   let retryTimer = null;
-  let lineAbort = null;
+  /** @type {Set<AbortController>} */
+  const lineAborts = new Set();
+  let prefetchHits = 0;
+  /** The newest buffer translation, until a committed row takes it. */
+  let prefetch = /** @type {{ text: string, translation: string } | null} */ (null);
   /** @type {TranslationUsage} */
   let usage = emptyUsage();
   let lastError = "";
@@ -167,13 +189,19 @@ export function createTranslationScheduler(deps) {
   }
 
   function abortLine() {
-    if (!lineAbort) return;
-    try {
-      lineAbort.abort();
-    } catch {
-      // Ignore abort races.
+    for (const controller of lineAborts) {
+      try {
+        controller.abort();
+      } catch {
+        // Ignore abort races.
+      }
     }
-    lineAbort = null;
+    lineAborts.clear();
+  }
+
+  /** Rows waiting for a request, as [lineId, entry]; in-flight rows excluded. */
+  function waitingEntries() {
+    return [...pending.entries()].filter(([, entry]) => !entry.inFlight);
   }
 
   function addUsage(value) {
@@ -188,7 +216,9 @@ export function createTranslationScheduler(deps) {
     isApiEnabled,
     partialEnabled,
     translateTexts: guardedTranslate,
-    isLineBacklogged: () => pending.size > TRANSLATION_BUFFER_MAX_BACKLOG || Boolean(flushPromise),
+    isLineBacklogged: () =>
+      waitingEntries().length > TRANSLATION_BUFFER_MAX_BACKLOG ||
+      workers.size >= TRANSLATION_LINE_CONCURRENCY,
     generation: () => generation,
     recordSuccess: (value) => {
       addUsage(value);
@@ -201,7 +231,11 @@ export function createTranslationScheduler(deps) {
     publish: (change) => publishCaptions(change),
     setTimeout: setTimer,
     clearTimeout: clearTimer,
-    now
+    now,
+    onTranslated: (text, translation) => {
+      prefetch = { text, translation };
+      reusePrefetched();
+    }
   });
 
   function patchRuntimeLine(lineId, patch) {
@@ -336,12 +370,34 @@ export function createTranslationScheduler(deps) {
     }
   }
 
+  /**
+   * A committed row whose text the buffer request already translated (the
+   * speaker paused, so the last half-sentence became the final row) takes
+   * that translation at once instead of waiting about a second for its own.
+   * A row still waiting needs no request at all; a row already in flight
+   * shows it now and takes the full translation when that lands.
+   */
+  function reusePrefetched() {
+    if (!prefetch) return;
+    for (const [lineId, entry] of pending) {
+      if (entry.attempts > 0 || !sameSpeech(entry.promptText, prefetch.text)) continue;
+      const { translation } = prefetch;
+      prefetch = null;
+      prefetchHits += 1;
+      // applyLineTranslations drops the row from `pending` before its first
+      // await, so no new request can pick it up meanwhile.
+      void applyLineTranslations([[lineId, entry]], [translation]);
+      return;
+    }
+  }
+
   function scheduleLines(wait = TRANSLATION_LINE_DEBOUNCE_MS) {
     if (!isApiEnabled() || !sessionActive()) return;
     collectPending();
-    if (pending.size === 0) return;
+    reusePrefetched();
+    if (waitingEntries().length === 0) return;
     if (retryTimer) return;
-    if (flushTimer || flushPromise) return;
+    if (flushTimer || workers.size >= TRANSLATION_LINE_CONCURRENCY) return;
     flushTimer = setTimer(() => {
       flushTimer = null;
       void flushLines();
@@ -356,6 +412,8 @@ export function createTranslationScheduler(deps) {
     let nextRetryAttempts = Infinity;
     for (const [lineId, entry] of entries) {
       if (startGeneration !== generation) return;
+      // A prefetched buffer translation already finished this row.
+      if (pending.get(lineId) !== entry) continue;
       entry.attempts += 1;
       if (!retryable || entry.attempts >= TRANSLATION_LINE_MAX_ATTEMPTS) {
         if (entry.fallback) {
@@ -407,7 +465,7 @@ export function createTranslationScheduler(deps) {
    */
   async function requestBatch(entries, excludeIds, config, startGeneration) {
     const controller = new AbortController();
-    lineAbort = controller;
+    lineAborts.add(controller);
     let result;
     try {
       result = await guardedTranslate({
@@ -448,7 +506,7 @@ export function createTranslationScheduler(deps) {
       await handleFailure(entries, error);
       return { failed: true };
     } finally {
-      if (lineAbort === controller) lineAbort = null;
+      lineAborts.delete(controller);
     }
     if (startGeneration !== generation) return null;
     lastError = "";
@@ -456,32 +514,61 @@ export function createTranslationScheduler(deps) {
     return result;
   }
 
-  async function flushLines() {
-    if (flushPromise) return flushPromise;
+  /**
+   * Starts flush workers up to TRANSLATION_LINE_CONCURRENCY while rows wait,
+   * and resolves when every running worker has finished.
+   */
+  function flushLines() {
+    collectPending();
+    reusePrefetched();
+    while (
+      workers.size < TRANSLATION_LINE_CONCURRENCY &&
+      waitingEntries().length > 0 &&
+      sessionActive() &&
+      isApiEnabled()
+    ) {
+      const before = workers.size;
+      startWorker();
+      // A worker that found nothing to send (only held fragments) is done.
+      if (workers.size === before) break;
+    }
+    return Promise.all([...workers]).then(() => undefined);
+  }
+
+  function startWorker() {
     const startGeneration = generation;
+    let claimed = false;
     const promise = (async () => {
       for (let round = 0; round < MAX_FLUSH_ROUNDS; round += 1) {
         if (!sessionActive() || startGeneration !== generation || !isApiEnabled()) {
           return;
         }
         collectPending();
-        if (pending.size === 0) return;
+        const waiting = waitingEntries();
+        if (waiting.length === 0) return;
         // Fragments are translated together with the rows that complete them;
         // a trailing fragment is held briefly instead of becoming an orphan
         // sentence ("他找到了。" with no object on screen).
-        const plan = planTranslationBatch([...pending.entries()], {
+        const plan = planTranslationBatch(waiting, {
           maxLines: TRANSLATION_LINE_BATCH_SIZE,
           now: now()
         });
         const entries = plan.batch;
         if (entries.length === 0) return;
+        claimed = true;
         const batchIds = new Set(entries.map(([lineId]) => lineId));
         const config = getConfig();
         if (!config.enabled) {
           await handleFailure(entries, codedError(config.issue || msg("translation_disabled"), "config"));
           return;
         }
-        const result = await requestBatch(entries, batchIds, config, startGeneration);
+        for (const [, entry] of entries) entry.inFlight = true;
+        let result;
+        try {
+          result = await requestBatch(entries, batchIds, config, startGeneration);
+        } finally {
+          for (const [, entry] of entries) entry.inFlight = false;
+        }
         if (!result || result.failed) return;
         // Halves that failed armed the retry timer; honour its delay.
         if (result.split) {
@@ -494,9 +581,6 @@ export function createTranslationScheduler(deps) {
             outcome.emptyEntries,
             codedError(msg("translation_empty_translation"), "empty_translation")
           );
-          if (pending.size > 0 && sessionActive() && !retryTimer) {
-            scheduleLines(LINE_FOLLOW_UP_DELAY_MS);
-          }
           return;
         }
         if (outcome.applied === 0) {
@@ -514,20 +598,22 @@ export function createTranslationScheduler(deps) {
         }
       }
     })();
-    flushPromise = promise;
-    try {
-      await promise;
-    } finally {
-      if (flushPromise === promise) flushPromise = null;
+    workers.add(promise);
+    const release = () => {
+      workers.delete(promise);
       if (
-        pending.size > 0 &&
+        waitingEntries().length > 0 &&
         sessionActive() &&
         !retryTimer &&
         startGeneration === generation
       ) {
         scheduleLines(LINE_FOLLOW_UP_DELAY_MS);
       }
-    }
+    };
+    void promise.then(release, release);
+    // The planning above ran synchronously; a worker that claimed no rows
+    // has already finished and must not count against the limit.
+    if (!claimed) workers.delete(promise);
     return promise;
   }
 
@@ -542,21 +628,20 @@ export function createTranslationScheduler(deps) {
     collectPending();
     while (now() < deadline && startGeneration === generation && isApiEnabled()) {
       collectPending();
-      if (pending.size === 0 && !flushPromise) break;
+      if (pending.size === 0 && workers.size === 0) break;
       const remaining = Math.max(0, deadline - now());
-      await Promise.race([flushPromise || flushLines(), delay(Math.min(remaining, 600))]);
+      await Promise.race([flushLines(), delay(Math.min(remaining, 600))]);
       if (pending.size === 0) break;
       await delay(30);
     }
-    const inFlight = flushPromise;
-    if (inFlight) {
-      await Promise.race([inFlight, delay(1200)]);
+    if (workers.size > 0) {
+      await Promise.race([Promise.all([...workers]), delay(1200)]);
     }
-    if (flushPromise) {
+    if (workers.size > 0) {
       // Abort a request that outlived the stop deadline; otherwise it could
       // finish after the summary and be discarded.
       abortLine();
-      await Promise.race([flushPromise, delay(500)]);
+      await Promise.race([Promise.all([...workers]), delay(500)]);
     }
     if (startGeneration === generation) await applyPendingFallbacks();
   }
@@ -567,14 +652,18 @@ export function createTranslationScheduler(deps) {
     clearTimer(retryTimer);
     flushTimer = null;
     retryTimer = null;
-    flushPromise = null;
+    workers.clear();
     abortLine();
     pending.clear();
     failed.clear();
     lastError = "";
     cooldown.reset();
     buffer.reset();
-    if (!keepUsage) usage = emptyUsage();
+    if (!keepUsage) {
+      usage = emptyUsage();
+      prefetchHits = 0;
+    }
+    prefetch = null;
     refreshSummary();
   }
 
@@ -637,7 +726,9 @@ export function createTranslationScheduler(deps) {
         pending: new Map([...pending].map(([id, entry]) => [id, { ...entry }])),
         failed: new Map(failed),
         generation,
-        lineInFlight: Boolean(flushPromise),
+        lineInFlight: workers.size > 0,
+        lineWorkers: workers.size,
+        prefetchHits,
         lineTimer: Boolean(flushTimer),
         retryTimer: Boolean(retryTimer),
         cooldownMs: cooldown.remainingMs(),
