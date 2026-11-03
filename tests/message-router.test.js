@@ -32,6 +32,7 @@ const EXPECTED_POLICIES = {
   "show-overlay": "any",
   "hide-overlay": "any",
   "content-ready": "any",
+  "caption-resync": "any",
   "probe-services": "any"
 };
 
@@ -53,6 +54,7 @@ const ROUTE_SERVICE = {
   "show-overlay": "saveSettings",
   "hide-overlay": "saveSettings",
   "content-ready": "acknowledgeContentReady",
+  "caption-resync": "resyncCaptions",
   "probe-services": "probeServices"
 };
 

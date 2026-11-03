@@ -82,6 +82,7 @@ const dispatch = createMessageDispatcher({
     openMonitorWindow: () => views.openMonitorWindow(),
     refreshOverlay: () => views.refreshOverlay(),
     acknowledgeContentReady: (sender) => views.acknowledgeContentReady(sender),
+    resyncCaptions: (request) => views.resyncCaptions(request),
     probeServices: () => probeServices({ ...settings.current })
   }
 });

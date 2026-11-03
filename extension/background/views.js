@@ -3,7 +3,7 @@ import {
   applyOverlayFailure,
   settingsForCaptions
 } from "../lib/caption-utils.js";
-import { safeClone } from "./runtime-store.js";
+import { createCaptionDeltaEncoder } from "../lib/caption-delta.js";
 
 export const MONITOR_URL = "subtitle/subtitle.html";
 const MONITOR_BOUNDS = Object.freeze({ width: 1160, height: 760, left: 80, top: 60 });
@@ -11,18 +11,26 @@ const MONITOR_BOUNDS = Object.freeze({ width: 1160, height: 760, left: 80, top: 
 /**
  * Everything the worker pushes outward: broadcasts to extension pages, the
  * caption overlay in the captured tab, the action badge and the monitor
- * window. Extension pages get the full snapshot; the tab only ever gets
- * settingsForCaptions, never the custom glossary or API keys.
+ * window. The tab only ever gets settingsForCaptions, never the custom
+ * glossary or API keys.
+ *
+ * Caption rows travel as deltas (lib/caption-delta.js), one stream for the
+ * extension pages and one for the captured tab; a receiver that sees a gap
+ * asks for a resync and the next message of that stream is full.
  *
  * @param {{ store: any, settings: any, ready: () => Promise<void> }} deps
  */
 export function createViews({ store, settings, ready }) {
+  const extensionCaptions = createCaptionDeltaEncoder();
+  const tabCaptions = createCaptionDeltaEncoder();
+
   async function broadcastToExtension(message) {
     try {
       await chrome.runtime.sendMessage({
         target: "extension-view",
         ...message,
-        state: store.snapshot()
+        state: store.metaSnapshot(),
+        caption: extensionCaptions.encode(store.state.current)
       });
     } catch {
       // No extension view is open.
@@ -54,7 +62,7 @@ export function createViews({ store, settings, ready }) {
         wsConnected: state.wsConnected,
         updatedAt: state.updatedAt,
         overlayError: state.overlayError || "",
-        current: safeClone(state.current)
+        caption: tabCaptions.encode(state.current)
       },
       settings: settingsForCaptions(settings.current)
     });
@@ -102,11 +110,14 @@ export function createViews({ store, settings, ready }) {
       // A content script that threw during startup has no listener yet; the
       // sendMessage rejection is the only signal the worker ever gets, so
       // treat it as an injection failure instead of swallowing it.
+      // A fresh overlay holds nothing, so its stream restarts with a full message.
+      tabCaptions.reset();
       const response = await chrome.tabs.sendMessage(tabId, {
         target: "content",
         type: "init",
         settings: settingsForCaptions(settings.current),
-        state: store.snapshot()
+        state: store.metaSnapshot(),
+        caption: tabCaptions.encode(store.state.current)
       });
       if (response && response.ok === false) {
         throw new Error(response.error || "浮层初始化被拒绝");
@@ -182,6 +193,23 @@ export function createViews({ store, settings, ready }) {
     }
   }
 
+  /**
+   * A receiver missed a caption message. Only the captured tab may resync
+   * the tab stream; any other web page gets nothing.
+   * @param {{ fromExtensionPage: boolean, sender: any }} request
+   */
+  async function resyncCaptions({ fromExtensionPage, sender }) {
+    if (fromExtensionPage) {
+      extensionCaptions.reset();
+      await broadcastToExtension({ type: "caption-state", lineCount: store.state.lineCount });
+      return true;
+    }
+    if (!sender?.tab?.id || sender.tab.id !== store.state.tabId) return false;
+    tabCaptions.reset();
+    await broadcastCaptionState();
+    return true;
+  }
+
   async function notifyHistoryChanged(sessionId) {
     await chrome.storage.local.set({ [HISTORY_CHANGED_KEY]: Date.now() });
     await broadcastToExtension({ type: "history-changed", sessionId });
@@ -197,6 +225,7 @@ export function createViews({ store, settings, ready }) {
     refreshOverlay,
     acknowledgeContentReady,
     openMonitorWindow,
-    notifyHistoryChanged
+    notifyHistoryChanged,
+    resyncCaptions
   };
 }

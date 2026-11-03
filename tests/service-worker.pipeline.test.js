@@ -4,6 +4,7 @@ import test from "node:test";
 import { installChromeMock, waitFor } from "./helpers/chrome-mock.js";
 import { installFakeIndexedDb } from "./helpers/fake-indexeddb.js";
 import { deferred, startMockApi } from "./helpers/mock-translation-api.js";
+import { applyCaptionMessage } from "../extension/lib/caption-delta.js";
 
 // Drives the real worker through runtime messages: a popup starts and stops
 // the capture, the "offscreen document" reports transcripts, and a local mock
@@ -89,9 +90,16 @@ test("API mode strips fillers from the prompt, polishes the reply and keeps the 
   assert.equal(state.current.displayCaption.translation, "译:Hello world, this is the opening sentence.");
   assert.equal(state.translation.usage.requests, 1);
 
-  // The overlay received the translated caption through caption-state.
+  // The overlay rebuilds the translated caption from the tab's delta stream.
+  let overlayCaptions = null;
+  for (const { message } of mock.contentMessages()) {
+    const caption = message?.caption || message?.payload?.caption;
+    if (caption) overlayCaptions = applyCaptionMessage(overlayCaptions, caption);
+  }
+  assert.ok(overlayCaptions, "the tab stream never had a gap");
+  assert.equal(overlayCaptions.current.lines[0].translation, "译:Hello world, this is the opening sentence.");
   const lastCaption = mock.contentMessages("caption-state").at(-1).message;
-  assert.equal(lastCaption.payload.current.lines[0].translation, "译:Hello world, this is the opening sentence.");
+  assert.equal("current" in lastCaption.payload, false, "rows travel only as deltas");
   assert.equal("customGlossary" in lastCaption.settings, false);
 
   const stopped = await mock.sendToBackground({ target: "background", type: "stop-capture" });

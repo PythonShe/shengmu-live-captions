@@ -1,9 +1,9 @@
 (() => {
   // 5 -> 6 (0.5.5): stale-slot rework (the previous translation stays at full
   // brightness and a corner dot marks the wait). 6 -> 7: the wheel listener is
-  // bound only while the pointer is over the captions. An instance of an older
-  // version is rebuilt, not reused, so open tabs drop the always-on listener.
-  const OVERLAY_VERSION = 7;
+  // bound only while the pointer is over the captions. 7 -> 8: caption rows
+  // arrive as deltas. An instance of an older version is rebuilt, not reused.
+  const OVERLAY_VERSION = 8;
   const existing = globalThis.__shengmuCaptionOverlay;
   if (existing?.version === OVERLAY_VERSION && existing.refresh) {
     existing.refresh();
@@ -1356,6 +1356,53 @@
 
   // Single entry point for runtime-state replacement so every path (message or
   // refresh response) applies the same session-switch cleanup.
+  // Caption rows arrive as deltas (lib/caption-delta.js). This is a verbatim
+  // copy of applyCaptionMessage there, since a classic script cannot import;
+  // tests/caption-delta.test.js runs both on the same cases.
+  function applyCaptionMessage(held, message) {
+    if (!message) return held ? { ...held, changed: [] } : null;
+    if (message.full) {
+      return { seq: message.seq, current: message.full, changed: message.full.lines || [] };
+    }
+    const delta = message.delta;
+    if (!delta || !held || held.seq !== message.baseSeq) return null;
+    const byId = new Map();
+    for (const line of held.current?.lines || []) {
+      if (line?.id) byId.set(line.id, line);
+    }
+    for (const line of delta.lines) byId.set(line.id, line);
+    const lines = [];
+    for (const id of delta.lineIds) {
+      const line = byId.get(id);
+      if (!line) return null;
+      lines.push(line);
+    }
+    return { seq: message.seq, current: { ...delta.fields, lines }, changed: delta.lines };
+  }
+
+  let captionHeld = null;
+  let lastCaptionResyncAt = -Infinity;
+
+  function applyCaption(message) {
+    if (!message) return;
+    const next = applyCaptionMessage(captionHeld, message);
+    if (!next) {
+      // Missed a message: ask for a full one, at most once a second.
+      const now = performance.now();
+      if (now - lastCaptionResyncAt < 1000) return;
+      lastCaptionResyncAt = now;
+      chrome.runtime
+        .sendMessage({ target: "background", type: "caption-resync" })
+        .catch((error) => console.warn("声幕字幕重同步失败", error));
+      return;
+    }
+    captionHeld = { seq: next.seq, current: next.current };
+  }
+
+  function withCaptions(next) {
+    return { ...next, current: captionHeld?.current ?? next?.current ?? runtimeState?.current };
+  }
+
   function setRuntimeState(next) {
     const previousSessionId = runtimeState?.sessionId || null;
     runtimeState = next;
@@ -1368,14 +1415,13 @@
     if (message.settings) {
       settings = { ...settings, ...message.settings };
     }
+    applyCaption(message.caption || message.payload?.caption);
     if (message.state) {
-      setRuntimeState(message.state);
+      setRuntimeState(withCaptions(message.state));
     }
     if (message.type === "caption-state" && message.payload) {
-      setRuntimeState({
-        ...(runtimeState || {}),
-        ...message.payload
-      });
+      const { caption: _caption, ...meta } = message.payload;
+      setRuntimeState(withCaptions({ ...(runtimeState || {}), ...meta }));
     }
     render();
   }
@@ -1410,7 +1456,14 @@
       });
       if (response?.ok) {
         if (response.settings) settings = { ...settings, ...response.settings };
-        if (response.state) setRuntimeState(response.state);
+        if (response.state) {
+          // A full snapshot outside the delta sequence: render it, and let
+          // the next delta's gap trigger a resync.
+          if (!captionHeld && response.state.current) {
+            captionHeld = { seq: Number.NaN, current: response.state.current };
+          }
+          setRuntimeState(withCaptions(response.state));
+        }
         render();
       }
     } catch {

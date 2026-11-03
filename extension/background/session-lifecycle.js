@@ -49,7 +49,6 @@ export function createSessionLifecycle({ store, settings, views, offscreen, hist
     await store.persist();
     await views.broadcastToExtension({
       type: "caption-state",
-      current: safeClone(store.state.current),
       ...extra,
       lineCount: store.state.lineCount
     });
