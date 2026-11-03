@@ -15,17 +15,17 @@ Core design notes (Chinese, upstream-owned): `paseo/01-translation-api-design.md
 ## 1. Commands
 
 ```sh
-npm ci                       # dev tooling only (ESLint, TypeScript); the extension has no runtime node_modules
-npm run verify               # gate: check + lint + typecheck + test, must pass before every commit
-npm run check                # node --check over every .js/.mjs (scripts/check-syntax.mjs)
-npm run lint                 # ESLint, per-layer globals (eslint.config.js)
-npm run typecheck            # tsc --checkJs over extension/lib only (tsconfig.json), no emit
-npm test                     # node:test, pure Node
-npm run smoke                # headless Chrome loads the unpacked extension over CDP (scripts/smoke-extension.mjs)
+pnpm install                 # dev tooling only (ESLint, TypeScript); the extension has no runtime node_modules
+pnpm run verify              # gate: check + lint + typecheck + test, must pass before every commit
+pnpm run check               # node --check over every .js/.mjs (scripts/check-syntax.mjs)
+pnpm run lint                # ESLint, per-layer globals (eslint.config.js)
+pnpm run typecheck           # tsc --checkJs over extension/lib only (tsconfig.json), no emit
+pnpm test                    # node:test, pure Node
+pnpm run smoke               # headless Chrome loads the unpacked extension over CDP (scripts/smoke-extension.mjs)
 node paseo/mock-openai-server.mjs   # OpenAI-compatible mock at http://127.0.0.1:8787/v1, no key needed
 ```
 
-- The repo uses npm, not pnpm: upstream documents npm and commits `package-lock.json`.
+- pnpm only, pinned by `packageManager` in `package.json` (`corepack enable` picks it up); `pnpm-lock.yaml` is generated, never hand-edited. The switch from npm also goes upstream.
 - CI (`.github/workflows/ci.yml`) runs `verify` and `smoke` on every push and PR. Run `smoke` locally after touching paths, the manifest, page HTML or worker startup; it needs Chrome (`CHROME_PATH` overrides discovery).
 - Test coverage: `extension/lib/` is unit-tested; `background/service-worker.js` is imported by `tests/service-worker.integration.test.js` against a mocked `chrome` (settings, security, glossary paths only, not the caption pipeline). `popup.js`, `subtitle.js`, `content-overlay.js`, `offscreen.js`, `history-db.js` and `server.mjs` have no unit tests; lint, `check` and `smoke` are their net. `tests/extension-paths.test.js` resolves every manifest, HTML, import and `chrome.*` path.
 - Lint layering: `extension/lib/` sees only the web APIs Node also has (no `chrome`, `window`, `document`), so `no-undef` enforces purity; `storage/` adds IndexedDB only; `content/`, `offscreen/offscreen.js` and `pcm-worklet.js` are classic scripts. Intentional control-character regexes carry an `eslint-disable-next-line ... -- reason`.
