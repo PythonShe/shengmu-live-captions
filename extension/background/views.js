@@ -173,25 +173,31 @@ export function createViews({ store, settings, ready }) {
     return tabs.find((tab) => (tab.url || "").startsWith(monitorUrl)) || null;
   }
 
+  /**
+   * @param {{ welcome?: boolean, focus?: boolean }} [options] focus: false
+   *   opens the window behind the current one, for the start of a capture,
+   *   where the user keeps watching the tab and reads the page overlay.
+   */
   async function openMonitorWindow(options = {}) {
     await ready();
+    const focused = options.focus !== false;
     const query = options.welcome ? "?welcome=1" : "";
     const url = chrome.runtime.getURL(`${MONITOR_URL}${query}`);
     const existing = await findMonitorTab();
     if (existing?.id) {
-      await chrome.windows.update(existing.windowId, { focused: true });
+      if (focused) await chrome.windows.update(existing.windowId, { focused: true });
       if (existing.url !== url && existing.id) {
         await chrome.tabs.update(existing.id, { url, active: true });
       }
       return existing;
     }
     try {
-      return await chrome.windows.create({ url, type: "popup", focused: true, ...MONITOR_BOUNDS });
+      return await chrome.windows.create({ url, type: "popup", focused, ...MONITOR_BOUNDS });
     } catch (error) {
       // Chrome rejects bounds that leave less than half the window on screen
       // (small or scaled displays); let it pick a placement instead.
       if (!/bounds/i.test(String(error?.message))) throw error;
-      return chrome.windows.create({ url, type: "popup", focused: true });
+      return chrome.windows.create({ url, type: "popup", focused });
     }
   }
 
