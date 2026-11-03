@@ -1,20 +1,23 @@
 export const OFFSCREEN_URL = "offscreen/offscreen.html";
-
-function delay(ms) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
+// offscreen.js reports ready as soon as its message listener exists, which on
+// a warm browser takes a few milliseconds. The timeout only matters when the
+// document is slow to load (cold start, busy machine); on expiry the worker
+// sends anyway, which is what the fixed 120 ms delay this replaces always did.
+export const OFFSCREEN_READY_TIMEOUT_MS = 2000;
 
 /**
  * The worker's side of the offscreen capture document: create it on demand,
- * talk to it, and tell it to stop. The document itself is
- * offscreen/offscreen.js.
+ * wait until it can receive messages, talk to it, and tell it to stop. The
+ * document itself is offscreen/offscreen.js.
  */
 export function createOffscreenClient({
   runtime = chrome.runtime,
-  offscreen = chrome.offscreen
+  offscreen = chrome.offscreen,
+  readyTimeoutMs = OFFSCREEN_READY_TIMEOUT_MS
 } = {}) {
+  let creating = null;
+  let settleReady = null;
+
   async function hasDocument() {
     const contexts = await runtime.getContexts({
       contextTypes: ["OFFSCREEN_DOCUMENT"],
@@ -23,14 +26,53 @@ export function createOffscreenClient({
     return contexts.length > 0;
   }
 
-  async function ensureDocument() {
-    if (await hasDocument()) return;
-    await offscreen.createDocument({
-      url: OFFSCREEN_URL,
-      reasons: ["USER_MEDIA", "AUDIO_PLAYBACK"],
-      justification: "Capture one tab, play its audio, and stream PCM to local captions."
+  /** Resolves true when the document reports ready, false on timeout. */
+  function waitForReady() {
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => settle(false), readyTimeoutMs);
+      function settle(ready) {
+        clearTimeout(timer);
+        if (settleReady === settle) settleReady = null;
+        resolve(ready);
+      }
+      settleReady = settle;
     });
-    await delay(120);
+  }
+
+  async function createIfMissing() {
+    if (await hasDocument()) return;
+    // Armed before createDocument: the document can report ready before the
+    // create promise settles.
+    const ready = waitForReady();
+    try {
+      await offscreen.createDocument({
+        url: OFFSCREEN_URL,
+        reasons: ["USER_MEDIA", "AUDIO_PLAYBACK"],
+        justification: "Capture one tab, play its audio, and stream PCM to local captions."
+      });
+    } catch (error) {
+      settleReady?.(false);
+      throw error;
+    }
+    if (!(await ready)) {
+      console.warn("声幕音频采集页面未报告就绪，继续尝试连接", { timeoutMs: readyTimeoutMs });
+    }
+  }
+
+  // Chrome allows one offscreen document per extension, so concurrent callers
+  // share a single creation.
+  function ensureDocument() {
+    if (!creating) {
+      creating = createIfMissing().finally(() => {
+        creating = null;
+      });
+    }
+    return creating;
+  }
+
+  /** The document's "offscreen-ready" message: its listener is registered. */
+  function markReady() {
+    settleReady?.(true);
   }
 
   async function send(message) {
@@ -53,5 +95,5 @@ export function createOffscreenClient({
     }
   }
 
-  return { hasDocument, ensureDocument, send, stopCapture };
+  return { hasDocument, ensureDocument, markReady, send, stopCapture };
 }

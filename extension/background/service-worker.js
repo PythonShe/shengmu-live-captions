@@ -73,6 +73,7 @@ const dispatch = createMessageDispatcher({
     handleStatusReport: (message) => lifecycle.handleStatusReport(message),
     handleTranscriptUpdate: (message) => lifecycle.handleTranscriptUpdate(message),
     handleAudioStats: (message) => lifecycle.handleAudioStats(message),
+    offscreenReady: () => offscreen.markReady(),
     snapshot: () => store.snapshot(),
     publicSettings: () => settingsForBroadcast(settings.current),
     saveSettings,
