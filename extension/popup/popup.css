@@ -587,7 +587,8 @@ output {
   padding-bottom: 4px;
 }
 
-.advanced label:not(.switch-row) {
+.advanced label:not(.switch-row),
+#bailianFields > label {
   display: block;
   margin: 10px 0 5px;
   color: var(--muted);
@@ -640,6 +641,11 @@ output {
   font-size: 9px;
   line-height: 1.5;
   overflow-wrap: anywhere;
+}
+
+.field-hint .text-button {
+  padding: 0;
+  font-size: inherit;
 }
 
 /* The overlay switch stays on when injection fails, so the failure has to be

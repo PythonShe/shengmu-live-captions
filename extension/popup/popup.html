@@ -185,9 +185,11 @@
             </div>
             <label for="translationModel">模型</label>
             <input id="translationModel" type="text" spellcheck="false">
-            <label for="translationApiKey">API Key</label>
-            <input id="translationApiKey" type="password" spellcheck="false" autocomplete="off" placeholder="留空则不修改已保存的 Key">
-            <p id="translationKeyHint" class="field-hint"></p>
+            <div id="translationKeyField">
+              <label for="translationApiKey">API Key</label>
+              <input id="translationApiKey" type="password" spellcheck="false" autocomplete="off" placeholder="留空则不修改已保存的 Key">
+              <p id="translationKeyHint" class="field-hint"></p>
+            </div>
           </div>
           <label class="switch-row">
             <span>
