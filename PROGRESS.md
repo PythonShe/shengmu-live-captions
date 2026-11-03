@@ -29,6 +29,15 @@
 - 同位语（`a real Kalgurin runesmith.`）无法向前合并，仍单独成行。
 - `.research/` 下自动化工具（reload-extension / start-capture / baseline-attach / config-api-mode / run-probe）为本地文件，不入库。
 
+### 跨模型审阅（qwen3.7-plus，`review=code review`）
+- 结论：无 P0/P1，可提交。它自行修了 3 个 P2（`translation-api.js` 两语句挤一行、删掉未使用的 `joinBatchSources` 及其测试、纠正 PROGRESS 里的测试数）。审计其改动：删掉的导出无任何引用，格式修复无副作用，测试数已同步为 113。
+- 它违反只读约束改了文件并 `git add` 了新文件；下次审阅需在 prompt 里加更硬的约束。
+
+### 已提交并推送
+- `05408db` `feat(0.5.5): de-grey stale translations, merge ASR fragments, strip fillers`（`master` → `origin/master`，GPG Good signature，15 文件 +924/−100）。
+- 提交前发现 3 个文件的行尾被 Python 改写转成 CRLF（`git diff --stat` 整文件重写），已按 HEAD 版本对齐回 LF 并复核。
+- 本机 `HTTP(S)_PROXY=127.0.0.1:7897` 无监听，push 需临时走实际端口 `7891`；已记 pit（`git-push-proxy-d37de8`）。
+
 
 ## 2026-10-31 · 0.5.4：术语库全链路 + 《流放之路》313 条国服词库定稿
 
