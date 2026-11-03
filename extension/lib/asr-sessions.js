@@ -10,6 +10,7 @@
  * recognizer and imports this module dynamically.
  */
 
+import { mergeCaptionFragments, normalizeCaptionLines, parseTimecode } from "./caption-utils.js";
 import { msg } from "./i18n-message.js";
 
 /** Rows resent with each message; older ones already reached history. */
@@ -26,6 +27,35 @@ export function formatTimecode(seconds) {
 
 function clean(value) {
   return String(value ?? "").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Cuts a full window where a merged sentence starts. The reducer merges the
+ * rows of every message afresh, so dropping only the first row of a sentence
+ * would turn its remaining rows into a new sentence with a new id, repeated in
+ * history and translated again. Merging runs left to right and looks only at
+ * the current sentence, so dropping whole sentences leaves the others as they
+ * were. Noise rows never reach the reducer's merge and are dropped outright.
+ * @template {{ start: string }} Row
+ * @param {Row[]} rows
+ * @param {number} limit
+ * @returns {Row[]}
+ */
+function trimToSentenceStart(rows, limit) {
+  if (rows.length <= limit) return rows;
+  const centis = (/** @type {string} */ start) => Math.round(parseTimecode(start) * 100);
+  const { lines } = normalizeCaptionLines({ lines: rows });
+  const alive = new Set(lines.map((line) => centis(line.start)));
+  const kept = rows.filter((row) => alive.has(centis(row.start)));
+  let index = 0;
+  let lastSentence = 0;
+  for (const sentence of mergeCaptionFragments(lines)) {
+    if (kept.length - index <= limit) return kept.slice(index);
+    lastSentence = index;
+    index += sentence.fragmentLines;
+  }
+  // One sentence longer than the limit stays whole; merging caps its rows.
+  return kept.slice(lastSentence);
 }
 
 /**
@@ -55,7 +85,7 @@ export function createLineAccumulator({ limit = ASR_MESSAGE_LINE_LIMIT } = {}) {
       lastStart = Math.round(start * 100) / 100;
       const end = Math.max(Number(endSeconds) || 0, lastStart);
       lines.push({ speaker: 1, text: value, start: formatTimecode(lastStart), end: formatTimecode(end) });
-      if (lines.length > limit) lines = lines.slice(-limit);
+      lines = trimToSentenceStart(lines, limit);
       return true;
     },
     /** @param {string} text The sentence still being recognized. */

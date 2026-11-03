@@ -12,6 +12,7 @@ import {
   speechPhrases
 } from "../extension/lib/asr-sessions.js";
 import { parseTimecode } from "../extension/lib/caption-utils.js";
+import { reduceTranscriptUpdate, rememberLine } from "../extension/lib/transcript-reducer.js";
 import { renderZh } from "./helpers/i18n.js";
 
 test("formatTimecode round-trips through the reducer's parser", () => {
@@ -27,15 +28,56 @@ test("the accumulator keeps starts strictly increasing, windows rows and clears 
   const lines = createLineAccumulator({ limit: 2 });
   lines.interim("hello wor");
   assert.equal(lines.message().buffer_transcription, "hello wor");
-  assert.equal(lines.final("hello world", 1, 2), true);
+  assert.equal(lines.final("this first complete sentence is long enough.", 1, 2), true);
   assert.equal(lines.message().buffer_transcription, "");
   assert.equal(lines.final("  ", 3, 4), false);
-  lines.final("same start", 1, 1.5);
-  lines.final("third", 5, 6);
+  lines.final("this complete sentence starts at the same time.", 1, 1.5);
+  lines.final("this complete sentence comes a good while later.", 5, 6);
   const { lines: rows } = lines.message();
-  assert.deepEqual(rows.map((row) => row.text), ["same start", "third"]);
+  assert.deepEqual(rows.map((row) => row.text), [
+    "this complete sentence starts at the same time.",
+    "this complete sentence comes a good while later."
+  ]);
   assert.equal(rows[0].start, "0:00:01.01", "a repeated start moves past the previous one");
   assert.equal(rows[0].end, "0:00:01.50");
+});
+
+test("a full window never cuts through a sentence the reducer merged", () => {
+  const accumulator = createLineAccumulator({ limit: 6 });
+  const knownLines = new Map();
+  const state = { startedAt: 1000, current: { lines: [] } };
+  // Records history on every update, as the worker does.
+  const update = () => {
+    const next = reduceTranscriptUpdate(
+      state,
+      { data: accumulator.message(), sessionId: "s", epochId: "e", epochStartedAt: 1000 },
+      { knownLines, useApi: true, now: 1 }
+    );
+    state.current = next.patch.current;
+    for (const line of next.historyLines) knownLines.set(line.id, rememberLine(line));
+  };
+  // Every pair is one sentence in two rows: a trailing "the" leaves it open.
+  for (let index = 0; index < 20; index += 1) {
+    accumulator.final(`so in part ${index} we are going to check out the`, index * 4, index * 4 + 1);
+    update();
+    accumulator.final(`boss arena number ${index} and see what it drops today.`, index * 4 + 1, index * 4 + 2);
+    update();
+  }
+  const sources = [...knownLines.values()].map((line) => line.source);
+  assert.equal(sources.length, 20, "one history row per sentence");
+  for (let index = 0; index < 20; index += 1) {
+    assert.equal(
+      sources[index],
+      `so in part ${index} we are going to check out the boss arena number ${index} and see what it drops today.`
+    );
+  }
+  assert.ok(accumulator.message().lines.length <= 6);
+});
+
+test("noise rows never hold a full window open", () => {
+  const accumulator = createLineAccumulator({ limit: 4 });
+  for (let index = 0; index < 50; index += 1) accumulator.final("...", index, index + 0.5);
+  assert.ok(accumulator.message().lines.length <= 4);
 });
 
 test("speechPhrases keeps the primary English spelling once, in priority order", () => {
