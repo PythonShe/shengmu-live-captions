@@ -127,6 +127,12 @@ export const MESSAGE_ROUTES = Object.freeze({
       return { ok: true, state: services.snapshot(), settings: services.publicSettings() };
     }
   },
+  "caption-resync": {
+    allow: "any",
+    handler: async ({ services, sender, fromExtensionPage }) => ({
+      ok: await services.resyncCaptions({ fromExtensionPage, sender })
+    })
+  },
   "probe-services": {
     allow: "any",
     handler: async ({ services }) => ({ ok: true, services: await services.probeServices() })

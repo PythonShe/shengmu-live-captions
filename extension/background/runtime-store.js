@@ -38,6 +38,12 @@ export function createRuntimeStore({
     };
   }
 
+  /** The state without caption rows; rows travel as caption deltas. */
+  function metaSnapshot() {
+    const { current: _current, ...meta } = state;
+    return safeClone(meta);
+  }
+
   async function persist(immediate = false) {
     if (!immediate) {
       clearTimeout(persistTimer);
@@ -78,6 +84,7 @@ export function createRuntimeStore({
       return state;
     },
     snapshot,
+    metaSnapshot,
     persist,
     rehydrate
   };

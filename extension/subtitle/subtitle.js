@@ -16,6 +16,7 @@ import {
   getHistorySession,
   listHistorySessions
 } from "../storage/history-db.js";
+import { createCaptionReceiver, upsertTailLines } from "../lib/caption-delta.js";
 import {
   DISPLAY_MODE_LABELS,
   DISPLAY_MODE_ORDER,
@@ -73,6 +74,11 @@ let sessions = [];
 let selectedSessionId = null;
 let selectedSession = null;
 let allLines = [];
+const captions = createCaptionReceiver({
+  requestResync: () => {
+    void chrome.runtime.sendMessage({ target: "background", type: "caption-resync" });
+  }
+});
 let visibleCount = PAGE_SIZE;
 let transcriptQuery = "";
 let sessionQuery = "";
@@ -122,9 +128,10 @@ function selectedIsLive() {
   );
 }
 
+// Broadcast state carries no caption rows; they arrive as caption deltas.
 function applyRuntimeState(nextState) {
   if (!nextState) return;
-  runtimeState = nextState;
+  runtimeState = { ...nextState, current: captions.current ?? runtimeState?.current };
 }
 
 function renderLiveCard() {
@@ -532,10 +539,14 @@ function renderAll() {
   scheduleTranscriptRender(0);
 }
 
-function mergeRuntimeTranscript() {
+// `changed` is the delta's changed rows: in a long session the full merge
+// re-sorts up to 20000 rows on every caption message, the tail upsert only
+// touches the rows that moved.
+function mergeRuntimeTranscript(changed = null) {
   if (!selectedIsLive() || !runtimeState?.current) return;
   const lines = runtimeState.current.lines || [];
-  if (lines.length > 0) {
+  const upserted = Boolean(changed) && upsertTailLines(allLines, changed, 20000);
+  if (!upserted && lines.length > 0) {
     allLines = mergeCaptionLines(allLines, lines, 20000);
   }
   if (selectedSession) {
@@ -904,20 +915,27 @@ chrome.runtime.onMessage.addListener((message) => {
   if (message.settings) {
     settings = normalizeSettings(message.settings);
   }
+  // Every broadcast type carries the caption stream, so rows that changed
+  // under a status or audio-stats message must be merged here too.
+  const changedLines = captions.apply(message.caption);
   if (message.state) {
     applyRuntimeState(message.state);
   }
+  if (changedLines?.length && message.type !== "caption-state") {
+    mergeRuntimeTranscript(changedLines);
+    scheduleTranscriptRender(80);
+  }
 
   if (message.type === "caption-state") {
-    if (message.current) {
+    if (changedLines) {
       runtimeState = {
         ...(runtimeState || {}),
-        current: message.current,
+        current: captions.current,
         wsConnected: true,
         status: runtimeState?.active ? "capturing" : runtimeState?.status
       };
     }
-    mergeRuntimeTranscript();
+    mergeRuntimeTranscript(changedLines);
     renderLiveCard();
     renderControlDeck();
     renderHeader();
@@ -969,7 +987,10 @@ async function initializeView() {
       target: "background",
       type: "get-state"
     });
-    if (response?.state) runtimeState = response.state;
+    if (response?.state) {
+      runtimeState = response.state;
+      captions.seed(response.state.current);
+    }
     if (response?.settings) settings = normalizeSettings(response.settings);
     await loadSessions();
     showWelcomeIfEmpty();

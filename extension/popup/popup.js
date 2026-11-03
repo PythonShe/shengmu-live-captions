@@ -17,6 +17,7 @@ import {
   TRANSLATION_PROVIDERS,
   normalizeTranslationBaseUrl
 } from "../lib/translation-api.js";
+import { createCaptionReceiver } from "../lib/caption-delta.js";
 import {
   DISPLAY_MODE_LABELS,
   DISPLAY_MODE_ORDER,
@@ -104,6 +105,11 @@ const LOCAL_POLL_MS = 2500;
 
 let activeTab = null;
 let runtimeState = null;
+const captions = createCaptionReceiver({
+  requestResync: () => {
+    void chrome.runtime.sendMessage({ target: "background", type: "caption-resync" });
+  }
+});
 let settings = normalizeSettings(DEFAULT_SETTINGS);
 let busy = false;
 let localPollTimer = null;
@@ -763,6 +769,7 @@ async function refresh() {
   ]);
   activeTab = tabs[0] || null;
   runtimeState = response?.state || null;
+  captions.seed(runtimeState?.current);
   settings = normalizeSettings(response?.settings || DEFAULT_SETTINGS);
   render();
 }
@@ -1287,7 +1294,11 @@ elements.exportGlossaryCsvButton.addEventListener("click", () => {
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message?.target !== "extension-view") return;
-  if (message.state) runtimeState = message.state;
+  captions.apply(message.caption);
+  // Broadcast state carries no caption rows; they arrive as caption deltas.
+  if (message.state) {
+    runtimeState = { ...message.state, current: captions.current ?? runtimeState?.current };
+  }
   if (message.settings) settings = normalizeSettings(message.settings);
   if (["session-state", "status", "caption-state", "session-ended"].includes(message.type)) {
     render();
