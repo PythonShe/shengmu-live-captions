@@ -10,6 +10,7 @@ import {
   normalizeTranslationSettings,
   parseTranslationOutput,
   recentTranslationContext,
+  resetTranslationRequestShapeCache,
   resolveTranslationConfig,
   testTranslationConnection,
   translateTexts,
@@ -666,6 +667,80 @@ test("testTranslationConnection performs a real round trip", async () => {
     assert.equal(result.translation, "你好，欢迎来到今天的直播。");
     assert.ok(result.latencyMs >= 0);
   } finally {
+    await server.close();
+  }
+});
+
+test("translateTexts learns the request shape and skips failed round trips next time", async () => {
+  resetTranslationRequestShapeCache();
+  // Rejects thinking, then temperature, then max_tokens, one field per call.
+  const server = await startServer(({ response, body }) => {
+    const reject = (message) => {
+      response.writeHead(400, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({ error: { message } }));
+    };
+    if ("thinking" in body) return reject("unknown parameter: thinking");
+    if ("temperature" in body) return reject("temperature is not supported");
+    if ("max_tokens" in body) return reject("use max_completion_tokens instead of max_tokens");
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(successBody(["你好。"]));
+  });
+  try {
+    const first = await translateTexts({
+      texts: ["Hello."],
+      config: deepseekConfig(server.url)
+    });
+    assert.deepEqual(first.translations, ["你好。"]);
+    assert.equal(server.requests.length, 4);
+
+    // Same endpoint and model with a different key still reuses the shape.
+    await translateTexts({
+      texts: ["Hello."],
+      config: deepseekConfig(server.url, {
+        translationApiKeys: { deepseek: "another-key" }
+      })
+    });
+    assert.equal(server.requests.length, 5);
+    const last = server.requests.at(-1).body;
+    assert.equal("thinking" in last, false);
+    assert.equal("max_tokens" in last, false);
+    assert.equal("temperature" in last, false);
+    assert.ok(last.max_completion_tokens);
+
+    resetTranslationRequestShapeCache();
+    await translateTexts({
+      texts: ["Hello."],
+      config: deepseekConfig(server.url)
+    });
+    assert.equal(server.requests.length, 9);
+  } finally {
+    resetTranslationRequestShapeCache();
+    await server.close();
+  }
+});
+
+test("the learned request shape is per endpoint and model", async () => {
+  resetTranslationRequestShapeCache();
+  const server = await startServer(({ response, body }) => {
+    if ("thinking" in body) {
+      response.writeHead(400, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({ error: { message: "unknown parameter: thinking" } }));
+      return;
+    }
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(successBody(["你好。"]));
+  });
+  try {
+    await translateTexts({ texts: ["Hi."], config: deepseekConfig(server.url) });
+    assert.equal(server.requests.length, 2);
+    // A different model on the same endpoint starts from the defaults again.
+    await translateTexts({
+      texts: ["Hi."],
+      config: deepseekConfig(server.url, { translationModel: "other-model" })
+    });
+    assert.equal(server.requests.length, 4);
+  } finally {
+    resetTranslationRequestShapeCache();
     await server.close();
   }
 });
