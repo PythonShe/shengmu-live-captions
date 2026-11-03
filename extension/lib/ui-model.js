@@ -1,9 +1,19 @@
 // Presentation vocabulary shared by the popup and the transcript page, so the
 // two surfaces cannot word the same capture state differently. Pure: no
-// chrome.*, no DOM. The injected overlay is a classic script and cannot import
-// this module; tests/ui-model.test.js pins its copies to the values here.
+// chrome.*, no DOM, so wording goes through an injected `t` (chrome.i18n on
+// the pages, the zh_CN catalog in tests). The injected overlay is a classic
+// script and cannot import this module; tests/ui-model.test.js pins its
+// copies to the values here.
 
 import { DISPLAY_MODES } from "./caption-utils.js";
+
+/**
+ * messages.json key and $1..$9 params to text.
+ * @typedef {(key: string, ...params: unknown[]) => string} Translate
+ */
+
+/** @type {Translate} */
+const keyOnly = (key) => key;
 
 /**
  * @typedef {object} CapturePresentation
@@ -18,23 +28,23 @@ import { DISPLAY_MODES } from "./caption-utils.js";
 /** Display modes in toolbar cycle order, derived from the settings source. */
 export const DISPLAY_MODE_ORDER = Object.freeze([...DISPLAY_MODES]);
 
-/** @type {Readonly<Record<string, string>>} */
+/** @type {Readonly<Record<string, string>>} message keys */
 export const DISPLAY_MODE_LABELS = Object.freeze({
-  bilingual: "中英双语",
-  dual: "双行译文（上句+当前句）",
-  chinese: "仅中文",
-  english: "仅英文"
+  bilingual: "display_mode_bilingual",
+  dual: "display_mode_dual",
+  chinese: "display_mode_chinese",
+  english: "display_mode_english"
 });
 
 /**
- * Compact labels for the overlay toolbar button.
+ * Message keys of the compact labels for the overlay toolbar button.
  * @type {Readonly<Record<string, string>>}
  */
 export const DISPLAY_MODE_SHORT_LABELS = Object.freeze({
-  bilingual: "双语",
-  dual: "双行",
-  chinese: "中文",
-  english: "英文"
+  bilingual: "display_mode_short_bilingual",
+  dual: "display_mode_short_dual",
+  chinese: "display_mode_short_chinese",
+  english: "display_mode_short_english"
 });
 
 export const FONT_SIZE_MIN = 20;
@@ -59,33 +69,36 @@ export function clampFontSize(value) {
 
 /**
  * @param {any} state runtime state broadcast by the worker
+ * @param {Translate} [t]
  * @returns {CapturePresentation}
  */
-export function capturePresentation(state) {
+export function capturePresentation(state, t = keyOnly) {
   const cause = state?.detail || "";
   if (!state?.active) {
     if (state?.status === "error") {
+      const label = t("status_error");
       return {
-        label: "采集异常",
-        summary: cause || "采集异常",
-        detail: cause || "等待标签页音频",
+        label,
+        summary: cause || label,
+        detail: cause || t("status_waiting_audio"),
         dotClass: "warning",
         ratio: ""
       };
     }
     if (state?.status === "incomplete") {
+      const label = t("status_incomplete");
       return {
-        label: "已停止，存在缺译",
-        summary: cause || "已停止，存在缺译",
-        detail: cause || "等待标签页音频",
+        label,
+        summary: cause || label,
+        detail: cause || t("status_waiting_audio"),
         dotClass: "warning",
         ratio: ""
       };
     }
     return {
-      label: "准备就绪",
-      summary: "准备就绪",
-      detail: cause || "等待标签页音频",
+      label: t("status_ready"),
+      summary: t("status_ready"),
+      detail: cause || t("status_waiting_audio"),
       dotClass: "",
       ratio: ""
     };
@@ -95,21 +108,21 @@ export function capturePresentation(state) {
   const connected = Boolean(state.wsConnected);
   /** @type {Record<string, string>} */
   const labels = {
-    starting: "正在建立音频采集",
-    capturing: connected ? "实时翻译中" : "等待字幕服务",
-    reconnecting: "字幕服务重连中",
-    finished: "正在收尾",
-    error: "采集异常",
-    stopped: "已停止"
+    starting: "status_starting",
+    capturing: connected ? "status_live" : "status_waiting_service",
+    reconnecting: "status_reconnecting",
+    finished: "status_finishing",
+    error: "status_error",
+    stopped: "status_stopped"
   };
   /** @type {Record<string, string>} */
   const details = {
-    starting: "正在连接标签页音频",
-    capturing: "仅采集当前标签页",
-    reconnecting: "正在自动重连",
-    error: "请重新开始"
+    starting: "status_detail_starting",
+    capturing: "status_detail_capturing",
+    reconnecting: "status_detail_reconnecting",
+    error: "status_detail_error"
   };
-  const label = labels[status] || cause || status;
+  const label = labels[status] ? t(labels[status]) : cause || status;
   /** @type {"" | "live" | "warning"} */
   let dotClass = "";
   if (status === "capturing") dotClass = connected ? "live" : "warning";
@@ -119,28 +132,28 @@ export function capturePresentation(state) {
   return {
     label,
     summary: status === "error" ? cause || label : label,
-    detail: cause || details[status] || "",
+    detail: cause || (details[status] ? t(details[status]) : ""),
     dotClass,
     ratio: state.audio?.deliveredRatio
-      ? `音频 ${Math.round(state.audio.deliveredRatio * 100)}%`
+      ? t("status_audio_ratio", Math.round(state.audio.deliveredRatio * 100))
       : ""
   };
 }
 
 /**
- * Compact status for the overlay's tight toolbar chip.
+ * Message key of the compact status for the overlay's tight toolbar chip.
  * @param {any} state
  * @returns {string}
  */
 export function overlayStatusLabel(state) {
   if (!state?.active) {
-    return state?.status === "incomplete" ? "有缺译" : "已停止";
+    return state?.status === "incomplete" ? "overlay_status_incomplete" : "overlay_status_stopped";
   }
-  if (state.status === "reconnecting") return "重连中";
-  if (state.status === "starting") return "准备中";
-  if (state.status === "error") return "异常";
-  if (state.wsConnected) return "实时";
-  return "等待服务";
+  if (state.status === "reconnecting") return "overlay_status_reconnecting";
+  if (state.status === "starting") return "overlay_status_starting";
+  if (state.status === "error") return "overlay_status_error";
+  if (state.wsConnected) return "overlay_status_live";
+  return "overlay_status_waiting";
 }
 
 /**
@@ -156,11 +169,13 @@ export function formatBytes(bytes) {
 
 /**
  * @param {number} timestamp epoch milliseconds
+ * @param {Translate} [t]
+ * @param {string} [locale] BCP 47; the runtime's default when omitted
  * @returns {string}
  */
-export function formatDate(timestamp) {
-  if (!timestamp) return "未知时间";
-  return new Intl.DateTimeFormat("zh-CN", {
+export function formatDate(timestamp, t = keyOnly, locale = undefined) {
+  if (!timestamp) return t("date_unknown");
+  return new Intl.DateTimeFormat(locale, {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
@@ -171,16 +186,17 @@ export function formatDate(timestamp) {
 
 /**
  * @param {number} milliseconds
+ * @param {Translate} [t]
  * @returns {string}
  */
-export function formatDuration(milliseconds) {
+export function formatDuration(milliseconds, t = keyOnly) {
   const seconds = Math.max(0, Math.round((Number(milliseconds) || 0) / 1000));
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const remaining = seconds % 60;
-  if (hours > 0) return `${hours} 小时 ${minutes} 分`;
-  if (minutes > 0) return `${minutes} 分 ${remaining} 秒`;
-  return `${remaining} 秒`;
+  if (hours > 0) return t("duration_hours_minutes", hours, minutes);
+  if (minutes > 0) return t("duration_minutes_seconds", minutes, remaining);
+  return t("duration_seconds", remaining);
 }
 
 /**

@@ -1,4 +1,5 @@
 import { lineNeedsTranslation } from "../lib/caption-utils.js";
+import { errorText, t } from "./i18n.js";
 import { HistoryWriteQueue } from "../lib/history-write-queue.js";
 import { rememberLine } from "../lib/transcript-reducer.js";
 import {
@@ -50,8 +51,10 @@ export function createHistorySync({ store, views }) {
       if (isCurrentSession) {
         if (lastWriteError) {
           lastWriteError = "";
-          if (store.state.detail.startsWith("字幕历史写入失败")) {
-            store.state.detail = "字幕历史已恢复写入";
+          // The retry text ends with the error ($1), so its empty rendering is the
+          // prefix; it survives a worker restart, unlike a remembered string.
+          if (store.state.detail.startsWith(t("history_write_retrying", ""))) {
+            store.state.detail = t("history_write_recovered");
           }
         }
         await store.persist(true);
@@ -61,10 +64,10 @@ export function createHistorySync({ store, views }) {
   }
 
   function handleWriteError(error) {
-    lastWriteError = error?.message || String(error);
+    lastWriteError = errorText(error);
     console.error("声幕历史字幕写入失败", error);
     if (!store.state.active) return;
-    store.state.detail = `字幕历史写入失败，正在重试：${lastWriteError}`;
+    store.state.detail = t("history_write_retrying", lastWriteError);
     store.state.updatedAt = Date.now();
     void store.persist();
     void views.broadcastToExtension({

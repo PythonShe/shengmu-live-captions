@@ -182,7 +182,12 @@ test("health, cors and the host / origin / fetch-site guards", async (t) => {
   }
   const rebinding = await ctx.call({ headers: { host: `evil.example:${ctx.port}` } });
   assert.equal(rebinding.status, 403);
-  assert.deepEqual(rebinding.json, { ok: false, error: "只接受扩展页面调用" });
+  assert.deepEqual(rebinding.json, {
+    ok: false,
+    error: "只接受扩展页面调用",
+    errorCode: "server_forbidden_origin",
+    errorParams: []
+  });
   assert.equal((await ctx.call({ headers: { host: "127.0.0.1:1" } })).status, 403);
   assert.equal((await ctx.call({ headers: { origin: "https://evil.example" } })).status, 403);
   assert.equal((await ctx.call({ headers: { "sec-fetch-site": "cross-site" } })).status, 403);
@@ -198,9 +203,16 @@ test("health, cors and the host / origin / fetch-site guards", async (t) => {
   const missing = await ctx.call({ path: "/nope" });
   assert.equal(missing.status, 404);
   assert.equal(missing.json.ok, false);
+  assert.equal(missing.json.errorCode, "server_unknown_route");
+  assert.deepEqual(missing.json.errorParams, ["GET /nope"]);
   const badJson = await ctx.call({ method: "POST", path: "/start", body: "{nope" });
   assert.equal(badJson.status, 500);
   assert.equal(badJson.json.error, "请求体不是合法 JSON");
+  assert.equal(badJson.json.errorCode, "server_body_invalid_json");
+  const tooLarge = await ctx.call({ method: "POST", path: "/start", body: JSON.stringify({ pad: "x".repeat(20000) }) });
+  assert.equal(tooLarge.status, 500);
+  assert.equal(tooLarge.json.error, "请求体过大");
+  assert.equal(tooLarge.json.errorCode, "server_body_too_large");
 });
 
 test("status and models report the local tiers", async (t) => {
@@ -208,6 +220,7 @@ test("status and models report the local tiers", async (t) => {
   const status = await ctx.call({ path: "/status" });
   assert.equal(status.json.ok, true);
   assert.equal(status.json.job.state, "idle");
+  assert.equal(status.json.job.messageKey, "");
   assert.equal(status.json.download, null);
   assert.equal(status.json.services.asr.port, ctx.ports.asr);
   assert.equal(status.json.services.asr.online, false);
@@ -219,17 +232,34 @@ test("status and models report the local tiers", async (t) => {
     ["2b-iq4xs", false]
   ]);
   assert.equal(models.json.models.translation[1].pageUrl, "https://huggingface.co/IndexTeam/Index-Translate-2B-GGUF");
+  assert.deepEqual(models.json.models.translation[0].note, {
+    key: "server_model_note_best_quality",
+    params: ["5.4 GiB"]
+  });
   assert.deepEqual(models.json.models.asr.map((entry) => [entry.id, entry.cached]), [
     ["large-v3-turbo", false],
     ["medium", false]
   ]);
+  const turbo = models.json.models.asr[0];
+  assert.equal(turbo.sizeLabel, "约 1.6 GB");
+  assert.deepEqual(turbo.sizeNote, { key: "server_approx_size", params: ["1.6 GB"] });
+  assert.deepEqual(turbo.note, { key: "server_asr_note_default", params: [] });
 
   const missing = await ctx.call({ method: "POST", path: "/start", body: { translationModel: "2b-iq4xs", asrModel: "medium" } });
   assert.equal(missing.status, 409);
   assert.equal(missing.json.needsDownload, "2b-iq4xs");
+  assert.equal(missing.json.error, "本地翻译模型尚未下载：Index-Translate-2B.IQ4_XS.gguf");
+  assert.equal(missing.json.errorCode, "server_translation_model_missing");
+  assert.deepEqual(missing.json.errorParams, ["Index-Translate-2B.IQ4_XS.gguf"]);
   assert.match(missing.json.downloadUrl, /Index-Translate-2B-GGUF\/resolve\/main\/Index-Translate-2B\.IQ4_XS\.gguf$/);
   const unknown = await ctx.call({ method: "POST", path: "/start", body: { asrModel: "tiny" } });
   assert.equal(unknown.status, 400);
+  assert.equal(unknown.json.error, "未知的 ASR 模型");
+  assert.equal(unknown.json.errorCode, "server_unknown_asr_model");
+  assert.deepEqual(unknown.json.errorParams, []);
+  const unknownTranslation = await ctx.call({ method: "POST", path: "/start", body: { asrModel: "medium", translationModel: "x" } });
+  assert.equal(unknownTranslation.status, 400);
+  assert.equal(unknownTranslation.json.errorCode, "server_unknown_translation_model");
 });
 
 test("start follows the translation mode and restarts WLK on mode or glossary changes", async (t) => {
@@ -243,9 +273,18 @@ test("start follows the translation mode and restarts WLK on mode or glossary ch
   const statuses = [first.status, second.status].sort();
   assert.deepEqual(statuses, [200, 409]);
   const accepted = first.status === 200 ? first : second;
+  const refused = first.status === 200 ? second : first;
+  assert.equal(refused.json.errorCode, "server_job_busy");
+  assert.deepEqual(refused.json.errorParams, ["starting"]);
   assert.equal(accepted.json.job.state, "starting");
   assert.equal(accepted.json.job.translationMode, "asr-only");
+  assert.equal(accepted.json.job.message, "正在启动 ASR large-v3-turbo（API 翻译，不启动本地翻译模型）");
+  assert.equal(accepted.json.job.messageKey, "server_job_starting_asr_only");
+  assert.deepEqual(accepted.json.job.messageParams, ["large-v3-turbo"]);
   let status = await finished(ctx);
+  assert.equal(status.job.message, "本地服务已就绪");
+  assert.equal(status.job.messageKey, "server_job_ready");
+  assert.deepEqual(status.job.messageParams, []);
   assert.equal(status.services.asr.online, true);
   assert.equal(status.services.translation.online, false);
   assert.equal(ctx.llamaRecords().length, 0);
@@ -253,7 +292,10 @@ test("start follows the translation mode and restarts WLK on mode or glossary ch
   const asrOnlyPid = readPidFile(ctx.runtime, "wlk").pid;
 
   // server mode: the local model starts and WLK restarts to translate.
-  assert.equal((await start({ ...serverMode, glossary: "Chaos Orb -> 混沌石" })).status, 200);
+  const serverStart = await start({ ...serverMode, glossary: "Chaos Orb -> 混沌石" });
+  assert.equal(serverStart.status, 200);
+  assert.equal(serverStart.json.job.messageKey, "server_job_starting");
+  assert.deepEqual(serverStart.json.job.messageParams, ["Index-Translate-9B Q4_K_M", "large-v3-turbo"]);
   status = await finished(ctx);
   assert.equal(status.services.translation.online, true);
   assert.equal(status.services.translation.model, "Index-Translate-9B");
@@ -294,6 +336,8 @@ test("start follows the translation mode and restarts WLK on mode or glossary ch
   assert.equal(stopped.status, 200);
   assert.equal(stopped.json.ok, true);
   assert.equal(stopped.json.job.state, "idle");
+  assert.equal(stopped.json.job.message, "已停止");
+  assert.equal(stopped.json.job.messageKey, "server_job_stopped");
   assert.equal(await isPortListening(ctx.ports.asr), false);
   assert.equal(readPidFile(ctx.runtime, "wlk"), null);
 });
@@ -330,6 +374,9 @@ test("a failing launch surfaces as a job error with the reason", async (t) => {
     return json.job.state === "error" ? json : null;
   }, "job error");
   assert.match(status.job.message, /^启动失败：WhisperLiveKit did not become ready .*exited with code 3/);
+  assert.equal(status.job.messageKey, "server_job_start_failed");
+  assert.equal(status.job.messageParams.length, 1);
+  assert.equal(`启动失败：${status.job.messageParams[0]}`, status.job.message);
   assert.equal(status.job.exitCode, 1);
   assert.ok(status.logTail.some((line) => line.includes("failing on purpose")));
 });
@@ -367,11 +414,16 @@ test("download resumes through fetch, guards concurrency and blocks stop", async
   assert.equal(begin.status, 200);
   assert.equal(begin.json.download.state, "downloading");
   assert.equal(begin.json.download.totalBytes, payload.length);
+  assert.equal(begin.json.download.errorCode, "");
   const again = await ctx.call({ method: "POST", path: "/download", body: { translationModel: "2b-iq4xs" } });
   assert.equal(again.status, 409);
+  assert.equal(again.json.error, "正在下载 2b-iq4xs");
+  assert.equal(again.json.errorCode, "server_download_busy_model");
+  assert.deepEqual(again.json.errorParams, ["2b-iq4xs"]);
   const stop = await ctx.call({ method: "POST", path: "/stop" });
   assert.equal(stop.status, 409);
   assert.equal(stop.json.error, "模型下载中，请稍后再停止");
+  assert.equal(stop.json.errorCode, "server_stop_blocked_by_download");
 
   release();
   const done = await waitFor(async () => {
@@ -387,5 +439,31 @@ test("download resumes through fetch, guards concurrency and blocks stop", async
 
   const cached = await ctx.call({ method: "POST", path: "/download", body: { translationModel: "2b-iq4xs" } });
   assert.equal(cached.json.download.state, "done");
-  assert.equal((await ctx.call({ method: "POST", path: "/download", body: { translationModel: "x" } })).status, 400);
+  const unknown = await ctx.call({ method: "POST", path: "/download", body: { translationModel: "x" } });
+  assert.equal(unknown.status, 400);
+  assert.equal(unknown.json.errorCode, "server_unknown_translation_model");
+});
+
+test("a short download reports the size mismatch as a coded error", async (t) => {
+  const hf = http.createServer((req, res) => {
+    // HEAD promises 2048 bytes, GET delivers 1024.
+    res.writeHead(200, { "content-length": req.method === "HEAD" ? 2048 : 1024 });
+    res.end(req.method === "HEAD" ? undefined : Buffer.alloc(1024, 1));
+  });
+  await new Promise((resolve) => {
+    hf.listen(0, "127.0.0.1", resolve);
+  });
+  t.after(() => {
+    hf.closeAllConnections();
+    hf.close();
+  });
+  const ctx = await launch(t, { env: { HF_ENDPOINT: `http://127.0.0.1:${hf.address().port}` } });
+  assert.equal((await ctx.call({ method: "POST", path: "/download", body: { translationModel: "2b-iq4xs" } })).status, 200);
+  const failed = await waitFor(async () => {
+    const { json } = await ctx.call({ path: "/status" });
+    return json.download?.state === "error" ? json.download : null;
+  }, "download error");
+  assert.equal(failed.error, "下载大小不符（期望 2048，实际 1024）");
+  assert.equal(failed.errorCode, "server_download_size_mismatch");
+  assert.deepEqual(failed.errorParams, ["2048", "1024"]);
 });

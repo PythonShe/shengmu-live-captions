@@ -17,6 +17,9 @@ import {
   listHistorySessions
 } from "../storage/history-db.js";
 import { createCaptionReceiver, upsertTailLines } from "../lib/caption-delta.js";
+import { localizePage, renderMessage, t } from "../ui/i18n.js";
+
+const UI_LOCALE = chrome.i18n.getUILanguage();
 import {
   DISPLAY_MODE_LABELS,
   DISPLAY_MODE_ORDER,
@@ -99,7 +102,7 @@ let followFrame = 0;
 let sessionListSignature = "";
 
 elements.displayMode.replaceChildren(
-  ...DISPLAY_MODE_ORDER.map((mode) => new Option(DISPLAY_MODE_LABELS[mode], mode))
+  ...DISPLAY_MODE_ORDER.map((mode) => new Option(t(DISPLAY_MODE_LABELS[mode]), mode))
 );
 
 function showToast(message) {
@@ -136,37 +139,40 @@ function applyRuntimeState(nextState) {
 
 function renderLiveCard() {
   const active = Boolean(runtimeState?.active);
-  const presentation = capturePresentation(runtimeState);
+  const presentation = capturePresentation(runtimeState, t);
   elements.liveDot.className = `live-dot ${presentation.dotClass}`.trim();
   elements.liveStatus.textContent = presentation.label;
   elements.liveTime.textContent = active ? formatElapsed(runtimeState.startedAt) : "";
   elements.liveTitle.textContent = active
-    ? runtimeState.tabTitle || "当前直播"
-    : selectedSession?.title || "当前没有字幕任务";
+    ? runtimeState.tabTitle || t("subtitle_current_stream")
+    : selectedSession?.title || t("subtitle_no_task");
   elements.liveDetail.textContent = active
     ? runtimeState.detail || hostnameFromUrl(runtimeState.tabUrl)
-    : "在直播页面点击扩展图标开始字幕。";
+    : t("subtitle_start_hint");
   elements.focusLiveTab.disabled = !active || !runtimeState.tabId;
   elements.focusLiveTab.style.opacity = elements.focusLiveTab.disabled ? "0.45" : "";
 }
 
 function renderControlDeck() {
-  const presentation = capturePresentation(runtimeState);
+  const presentation = capturePresentation(runtimeState, t);
   elements.captureDot.className = `capture-dot ${presentation.dotClass}`.trim();
   elements.captureStatus.textContent = presentation.label;
   elements.captureDetail.textContent = presentation.detail;
   elements.displayMode.value = settings.displayMode;
-  elements.toggleOverlay.textContent = `浮层：${settings.overlayEnabled ? "开" : "关"}`;
+  elements.toggleOverlay.textContent = t(
+    "subtitle_overlay_state",
+    settings.overlayEnabled ? t("subtitle_on") : t("subtitle_off")
+  );
   elements.stopCapture.disabled = !runtimeState?.active;
 
   const ratio = runtimeState?.audio?.deliveredRatio;
   elements.audioHealth.textContent = ratio
-    ? `音频采集完整度 ${Math.round(ratio * 100)}%`
+    ? t("subtitle_audio_health", Math.round(ratio * 100))
     : runtimeState?.active
-      ? "等待音频统计"
-      : "等待音频";
+      ? t("subtitle_waiting_audio_stats")
+      : t("subtitle_waiting_audio");
   const warning =
-    runtimeState?.current?.translationError ||
+    renderMessage(runtimeState?.current?.translationError) ||
     (["error", "incomplete"].includes(runtimeState?.status)
       ? runtimeState.detail
       : "");
@@ -177,26 +183,25 @@ function renderControlDeck() {
 function renderHeader() {
   const session = selectedSession;
   if (!session) {
-    elements.sessionTitle.textContent = "实时字幕与翻译记录";
-    elements.sessionMeta.textContent =
-      "选择左侧场次查看历史，或开始一个新的直播字幕任务。";
+    elements.sessionTitle.textContent = t("subtitle_default_title");
+    elements.sessionMeta.textContent = t("subtitle_default_meta");
     elements.deleteSession.hidden = true;
     return;
   }
-  elements.sessionTitle.textContent = session.title || "未命名直播";
+  elements.sessionTitle.textContent = session.title || t("popup_untitled_stream");
   const start = session.startedAt || 0;
   const end = session.endedAt || (selectedIsLive() ? Date.now() : start);
   const count = selectedIsLive()
     ? Math.max(allLines.length, runtimeState.lineCount || 0)
     : Math.max(allLines.length, session.lineCount || 0);
   const pieces = [
-    hostnameFromUrl(session.url) || "本地页面",
-    formatDate(start),
-    formatDuration(Math.max(0, end - start)),
-    `${count} 条字幕`
+    hostnameFromUrl(session.url) || t("subtitle_local_page"),
+    formatDate(start, t, UI_LOCALE),
+    formatDuration(Math.max(0, end - start), t),
+    t("subtitle_line_count", count)
   ];
   if (session.translationMissing > 0) {
-    pieces.push(`${session.translationMissing} 条缺译`);
+    pieces.push(t("subtitle_missing_count", session.translationMissing));
   }
   elements.sessionMeta.textContent = pieces.filter(Boolean).join(" · ");
   elements.deleteSession.hidden = selectedIsLive();
@@ -235,8 +240,8 @@ function renderSessionList() {
     const empty = document.createElement("div");
     empty.className = "rail-empty";
     empty.textContent = sessions.length
-      ? "没有匹配的场次。"
-      : "还没有字幕记录。开始一次实时翻译后，场次会自动保存在这里。";
+      ? t("subtitle_no_matching_sessions")
+      : t("subtitle_no_sessions");
     elements.sessionList.replaceChildren(empty);
     return;
   }
@@ -255,15 +260,15 @@ function renderSessionList() {
     const head = document.createElement("span");
     head.className = "session-card-head";
     const title = document.createElement("strong");
-    title.textContent = session.title || "未命名直播";
+    title.textContent = session.title || t("popup_untitled_stream");
     const date = document.createElement("span");
     date.className = "session-card-date";
-    date.textContent = formatDate(session.startedAt);
+    date.textContent = formatDate(session.startedAt, t, UI_LOCALE);
     head.append(title, date);
 
     const preview = document.createElement("p");
     preview.className = "session-card-preview";
-    preview.textContent = session.preview || "尚无稳定字幕";
+    preview.textContent = session.preview || t("subtitle_no_preview");
 
     const foot = document.createElement("span");
     foot.className = "session-card-foot";
@@ -274,14 +279,14 @@ function renderSessionList() {
       foot.append(live);
     }
     const count = document.createElement("span");
-    count.textContent = `${session.lineCount || 0} 条`;
+    count.textContent = t("subtitle_session_count", session.lineCount || 0);
     const source = document.createElement("span");
-    source.textContent = hostnameFromUrl(session.url) || "本地";
+    source.textContent = hostnameFromUrl(session.url) || t("subtitle_local");
     foot.append(count);
     if (session.translationMissing > 0) {
       const missing = document.createElement("span");
       missing.className = "mini-warning";
-      missing.textContent = `缺译 ${session.translationMissing}`;
+      missing.textContent = t("subtitle_session_missing", session.translationMissing);
       foot.append(missing);
     }
     foot.append(source);
@@ -336,7 +341,7 @@ function updateLineView(view, line, isLatest) {
   view.signature = signature;
   view.time.textContent = line.start
     ? formatClock(line.start)
-    : formatDate(line.updatedAt);
+    : formatDate(line.updatedAt, t, UI_LOCALE);
   view.translation.textContent = line.translation || line.source || "";
   view.source.textContent = line.source || "";
   view.article.classList.toggle("is-latest", Boolean(isLatest));
@@ -476,10 +481,10 @@ function renderTranscript() {
   syncTranscriptLines(visibleLines, selectedIsLive(), latestId);
   elements.loadEarlier.hidden =
     Boolean(transcriptQuery) || filtered.length <= visibleCount;
-  elements.loadEarlier.textContent = `载入更早的字幕（还有 ${Math.max(
-    0,
-    filtered.length - visibleCount
-  )} 条）`;
+  elements.loadEarlier.textContent = t(
+    "subtitle_load_older_count",
+    Math.max(0, filtered.length - visibleCount)
+  );
 
   const bufferSource = cleanText(runtimeState?.current?.bufferSource);
   const bufferTranslation = cleanText(runtimeState?.current?.bufferTranslation);
@@ -493,9 +498,9 @@ function renderTranscript() {
   elements.interimTranslation.textContent = bufferTranslation;
   if (bufferIdle) {
     if (settings.displayMode === "english") {
-      elements.interimSource.textContent = "等待下一句…";
+      elements.interimSource.textContent = t("subtitle_waiting_next");
     } else {
-      elements.interimTranslation.textContent = "等待下一句…";
+      elements.interimTranslation.textContent = t("subtitle_waiting_next");
     }
   }
   const sourceVisible =
@@ -507,17 +512,17 @@ function renderTranscript() {
   elements.emptyTranscript.hidden = filtered.length > 0 || !elements.interimCard.hidden;
   if (!elements.emptyTranscript.hidden) {
     elements.emptyTranscript.querySelector("span").textContent = transcriptQuery
-      ? "没有匹配字幕"
-      : "暂无字幕";
+      ? t("subtitle_no_matches")
+      : t("subtitle_no_lines");
     elements.emptyTranscript.querySelector("p").textContent = transcriptQuery
-      ? "换一个关键词，或清空搜索查看整场记录。"
-      : "当前场次还没有稳定句子。语音开始后，字幕会自动出现在这里。";
+      ? t("subtitle_no_matches_hint")
+      : t("subtitle_no_lines_hint");
   }
 
   elements.lineCount.textContent =
     transcriptQuery && filtered.length > MAX_SEARCH_RESULTS
-      ? `显示最近 ${MAX_SEARCH_RESULTS} / ${filtered.length} 条匹配`
-      : `${filtered.length} 条字幕`;
+      ? t("subtitle_search_limited", MAX_SEARCH_RESULTS, filtered.length)
+      : t("subtitle_line_count", filtered.length);
   if (shouldFollow) {
     followLatest = true;
     scheduleFollowScroll();
@@ -573,7 +578,7 @@ async function loadSessions(options = {}) {
       id: runtimeState.sessionId,
       startedAt: runtimeState.startedAt,
       endedAt: null,
-      title: runtimeState.tabTitle || "当前直播",
+      title: runtimeState.tabTitle || t("subtitle_current_stream"),
       url: runtimeState.tabUrl,
       lineCount: runtimeState.lineCount || 0,
       preview: "",
@@ -628,7 +633,7 @@ async function selectSession(sessionId, options = {}) {
   mergeRuntimeTranscript();
   followLatest = true;
   renderAll();
-  announce(`已打开场次：${nextSession?.title || "未命名直播"}，${allLines.length} 条字幕`);
+  announce(t("subtitle_opened_session", nextSession?.title || t("popup_untitled_stream"), allLines.length));
   if (options.scrollToLatest !== false) {
     requestAnimationFrame(() => {
       elements.transcriptViewport.scrollTop =
@@ -681,8 +686,8 @@ async function stopCapture() {
       target: "background",
       type: "stop-capture"
     });
-    if (!response?.ok) throw new Error(response?.error || "停止失败");
-    showToast("已停止当前字幕采集。");
+    if (!response?.ok) throw new Error(response?.error || t("popup_stop_capture_failed"));
+    showToast(t("subtitle_stopped"));
     await loadSessions();
   } catch (error) {
     showToast(error?.message || String(error));
@@ -697,7 +702,7 @@ async function focusLiveTab() {
     await chrome.tabs.update(tab.id, { active: true });
     await chrome.windows.update(tab.windowId, { focused: true });
   } catch {
-    showToast("直播标签页已关闭或无法访问。");
+    showToast(t("subtitle_tab_gone"));
   }
 }
 
@@ -721,12 +726,12 @@ async function toggleOverlay() {
     type: "toggle-overlay"
   });
   if (!response?.ok) {
-    showToast(response?.error || "无法切换页面浮层。");
+    showToast(response?.error || t("subtitle_overlay_toggle_failed"));
     return;
   }
   settings = normalizeSettings(response.settings);
   renderControlDeck();
-  showToast(response.enabled ? "页面浮层已开启。" : "页面浮层已隐藏。");
+  showToast(response.enabled ? t("subtitle_overlay_shown") : t("subtitle_overlay_hidden"));
 }
 
 function transcriptPlainText() {
@@ -760,7 +765,7 @@ function fallbackCopy(text) {
 async function copyTranscript() {
   const text = transcriptPlainText();
   if (!text) {
-    showToast("当前场次没有可复制的字幕。");
+    showToast(t("subtitle_nothing_to_copy"));
     return;
   }
   try {
@@ -769,27 +774,27 @@ async function copyTranscript() {
     } else {
       fallbackCopy(text);
     }
-    showToast("字幕已复制到剪贴板。");
+    showToast(t("subtitle_copied"));
   } catch {
     fallbackCopy(text);
-    showToast("字幕已复制到剪贴板。");
+    showToast(t("subtitle_copied"));
   }
 }
 
 async function exportSrt() {
   if (!selectedSession || allLines.length === 0) {
-    showToast("当前场次没有可导出的字幕。");
+    showToast(t("subtitle_nothing_to_export"));
     return;
   }
   const content = buildSrt(allLines);
   if (!content) {
-    showToast("字幕内容为空，无法导出。");
+    showToast(t("subtitle_export_empty"));
     return;
   }
   const blob = new Blob([content], { type: "application/x-subrip;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const filename = `${safeFileStem(selectedSession.title)}-${safeFileStem(
-    formatDate(selectedSession.startedAt)
+    formatDate(selectedSession.startedAt, t, UI_LOCALE)
   )}.srt`;
   if (chrome.downloads?.download) {
     try {
@@ -801,7 +806,7 @@ async function exportSrt() {
       });
       if (Number.isInteger(downloadId)) {
         setTimeout(() => URL.revokeObjectURL(url), 60_000);
-        showToast("SRT 字幕已保存到下载目录。");
+        showToast(t("subtitle_srt_saved"));
         return;
       }
     } catch {
@@ -813,14 +818,14 @@ async function exportSrt() {
   anchor.download = filename;
   anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 3000);
-  showToast("SRT 字幕已导出。");
+  showToast(t("subtitle_srt_exported"));
 }
 
 async function removeSelectedSession() {
   if (!selectedSessionId || selectedIsLive()) return;
   const sessionId = selectedSessionId;
-  const title = selectedSession?.title || "这个场次";
-  if (!confirm(`删除「${title}」及其全部字幕记录？此操作不可撤销。`)) return;
+  const title = selectedSession?.title || t("subtitle_this_session");
+  if (!confirm(t("subtitle_confirm_delete", title))) return;
   if (selectedSessionId !== sessionId) return;
   await deleteHistorySession(sessionId);
   if (selectedSessionId !== sessionId) return;
@@ -828,23 +833,23 @@ async function removeSelectedSession() {
   selectedSession = null;
   allLines = [];
   await loadSessions();
-  showToast("场次已删除。");
+  showToast(t("subtitle_session_deleted"));
 }
 
 async function clearAllHistory() {
   if (runtimeState?.active) {
-    showToast("请先停止当前字幕，再清空历史。");
+    showToast(t("subtitle_stop_before_clear"));
     return;
   }
   if (!sessions.length) return;
-  if (!confirm("清空全部字幕场次？此操作不可撤销。")) return;
+  if (!confirm(t("subtitle_confirm_clear"))) return;
   await clearHistory();
   sessions = [];
   selectedSessionId = null;
   selectedSession = null;
   allLines = [];
   renderAll();
-  showToast("全部字幕历史已清空。");
+  showToast(t("subtitle_history_cleared"));
 }
 
 function showWelcomeIfEmpty() {
@@ -905,7 +910,7 @@ elements.transcriptSearch.addEventListener("input", () => {
     scheduleTranscriptRender(0);
     if (transcriptQuery) {
       const matches = filteredTranscriptLines().length;
-      announce(matches ? `找到 ${matches} 条匹配字幕` : "没有匹配字幕");
+      announce(matches ? t("subtitle_found_matches", matches) : t("subtitle_no_matches"));
     }
   }, 120);
 });
@@ -960,7 +965,7 @@ chrome.runtime.onMessage.addListener((message) => {
   } else if (message.type === "session-ended") {
     renderAll();
     void loadSessions().then(reloadSelectedLines);
-    showToast(message.detail || "字幕采集已结束。");
+    showToast(message.detail || t("subtitle_capture_ended"));
   } else if (message.type === "history-changed") {
     void loadSessions().then(reloadSelectedLines);
   } else if (message.type === "line-count") {
@@ -996,7 +1001,7 @@ async function initializeView() {
     showWelcomeIfEmpty();
     renderAll();
   } catch (error) {
-    showToast(`无法读取字幕状态：${error?.message || error}`);
+    showToast(t("subtitle_state_read_failed", error?.message || error));
   }
 }
 
@@ -1007,4 +1012,6 @@ setInterval(() => {
   }
 }, 1000);
 
+localizePage();
+document.title = t("subtitle_page_title");
 void initializeView();

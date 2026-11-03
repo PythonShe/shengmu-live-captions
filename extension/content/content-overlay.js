@@ -3,7 +3,7 @@
   // brightness and a corner dot marks the wait). 6 -> 7: the wheel listener is
   // bound only while the pointer is over the captions. 7 -> 8: caption rows
   // arrive as deltas. An instance of an older version is rebuilt, not reused.
-  const OVERLAY_VERSION = 8;
+  const OVERLAY_VERSION = 9;
   const existing = globalThis.__shengmuCaptionOverlay;
   if (existing?.version === OVERLAY_VERSION && existing.refresh) {
     existing.refresh();
@@ -117,24 +117,35 @@
     return location.hostname || "local";
   }
 
+  // chrome.i18n; this classic script cannot import ui/i18n.js.
+  function t(key, ...params) {
+    return chrome.i18n.getMessage(key, params.map((param) => String(param ?? ""))) || key;
+  }
+
+  // For catalog text placed in the shadow root's markup.
+  function escapeHtml(text) {
+    return String(text).replace(/[&<>"]/g, (char) => `&#${char.charCodeAt(0)};`);
+  }
+
+  // Both return message keys, mirrored by ui-model.js (tests compare them).
   function currentModeLabel() {
     return {
-      bilingual: "双语",
-      dual: "双行",
-      chinese: "中文",
-      english: "英文"
-    }[settings.displayMode] || "双语";
+      bilingual: "display_mode_short_bilingual",
+      dual: "display_mode_short_dual",
+      chinese: "display_mode_short_chinese",
+      english: "display_mode_short_english"
+    }[settings.displayMode] || "display_mode_short_bilingual";
   }
 
   function statusLabel() {
     if (!runtimeState?.active) {
-      return runtimeState?.status === "incomplete" ? "有缺译" : "已停止";
+      return runtimeState?.status === "incomplete" ? "overlay_status_incomplete" : "overlay_status_stopped";
     }
-    if (runtimeState.status === "reconnecting") return "重连中";
-    if (runtimeState.status === "starting") return "准备中";
-    if (runtimeState.status === "error") return "异常";
-    if (runtimeState.wsConnected) return "实时";
-    return "等待服务";
+    if (runtimeState.status === "reconnecting") return "overlay_status_reconnecting";
+    if (runtimeState.status === "starting") return "overlay_status_starting";
+    if (runtimeState.status === "error") return "overlay_status_error";
+    if (runtimeState.wsConnected) return "overlay_status_live";
+    return "overlay_status_waiting";
   }
 
   function buildOverlay() {
@@ -525,21 +536,21 @@
         }
       </style>
       <section class="stage" aria-live="polite" hidden>
-        <button class="drag-handle" type="button" aria-label="拖动字幕位置"></button>
+        <button class="drag-handle" type="button" aria-label="${escapeHtml(t("overlay_drag"))}"></button>
         <div class="history" hidden>
           <div class="history-list"></div>
           <div class="history-meta"></div>
         </div>
         <div class="caption-stack">
-          <div class="toolbar" role="toolbar" aria-label="字幕控制">
+          <div class="toolbar" role="toolbar" aria-label="${escapeHtml(t("overlay_toolbar"))}">
             <span class="live-chip">声幕</span>
             <span class="status-text"></span>
             <span class="divider"></span>
-            <button type="button" data-action="mode" title="切换字幕显示模式">双语</button>
-            <button type="button" data-action="smaller" title="缩小字幕">A−</button>
-            <button type="button" data-action="larger" title="放大字幕">A＋</button>
-            <button type="button" data-action="monitor" title="打开字幕与历史窗口">记录</button>
-            <button type="button" data-action="close" title="隐藏页面浮层">×</button>
+            <button type="button" data-action="mode" title="${escapeHtml(t("overlay_mode_title"))}">${escapeHtml(t(currentModeLabel()))}</button>
+            <button type="button" data-action="smaller" title="${escapeHtml(t("overlay_smaller"))}">A−</button>
+            <button type="button" data-action="larger" title="${escapeHtml(t("overlay_larger"))}">A＋</button>
+            <button type="button" data-action="monitor" title="${escapeHtml(t("overlay_monitor_title"))}">${escapeHtml(t("overlay_monitor"))}</button>
+            <button type="button" data-action="close" title="${escapeHtml(t("overlay_close_title"))}">×</button>
           </div>
           <div class="caption-shell">
             <div class="prev-translation"><span class="caption-text"></span></div>
@@ -804,7 +815,7 @@
     if (!stage) return;
     stage.style.setProperty("--translation-size", `${settings.fontSize}px`);
     stage.style.setProperty("--overlay-opacity", String(settings.opacity));
-    modeButton.textContent = currentModeLabel();
+    modeButton.textContent = t(currentModeLabel());
   }
 
   // Caption text is laid out by the browser, so the target width is measured on
@@ -1111,8 +1122,8 @@
     if (stage) stage.style.opacity = "1";
     chipElement.textContent =
       scrollBack < maxScrollBack()
-        ? `历史 ${entries.length} 条 · 向上查看更多`
-        : `历史 ${entries.length} 条 · 向下滚回实时`;
+        ? t("overlay_history_more", entries.length)
+        : t("overlay_history_back", entries.length);
   }
 
   function stageRect() {
@@ -1276,7 +1287,7 @@
     const active = Boolean(runtimeState?.active);
     const caption = latestCaption();
     stage.classList.toggle("ended", !active);
-    statusElement.textContent = statusLabel();
+    statusElement.textContent = t(statusLabel());
 
     if (!active && !caption.source && !caption.translation) {
       stage.hidden = true;

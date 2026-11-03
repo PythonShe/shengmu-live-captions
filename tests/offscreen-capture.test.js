@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
+import { i18nMock } from "./helpers/i18n.js";
 
 // offscreen.js is a classic script for a browser document, so it runs here in
 // a vm context with stand-ins for tab capture, Web Audio and the WebSocket.
@@ -89,6 +90,7 @@ function loadOffscreen() {
   const stream = { getAudioTracks: () => [track], getTracks: () => [track] };
   const context = vm.createContext({
     chrome: {
+      i18n: i18nMock,
       runtime: {
         // Real files, so the dynamic imports of the non-WLK backends resolve.
         getURL: (path) => new URL(`../extension/${path}`, import.meta.url).href,

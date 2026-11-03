@@ -20,6 +20,12 @@ export const DEFAULT_PORTS = Object.freeze({
   control: 8014
 });
 
+// Notes are chrome.i18n messages ({ key, params }) the popup renders with
+// renderMessage; their text lives in the extension's _locales.
+function modelNote(key, ...params) {
+  return Object.freeze({ key, params: Object.freeze(params) });
+}
+
 export const TRANSLATION_MODELS = Object.freeze([
   Object.freeze({
     id: "9b-q4km",
@@ -29,7 +35,7 @@ export const TRANSLATION_MODELS = Object.freeze([
     subdir: "index-translate-9b",
     repo: "IndexTeam/Index-Translate-9B-GGUF",
     approxBytes: 5780090304,
-    note: "5.4 GiB · 质量最好"
+    note: modelNote("server_model_note_best_quality", "5.4 GiB")
   }),
   Object.freeze({
     id: "2b-iq4xs",
@@ -39,7 +45,7 @@ export const TRANSLATION_MODELS = Object.freeze([
     subdir: "index-translate-2b",
     repo: "IndexTeam/Index-Translate-2B-GGUF",
     approxBytes: 1234377216,
-    note: "1.15 GiB · 省显存"
+    note: modelNote("server_model_note_low_vram", "1.15 GiB")
   })
 ]);
 
@@ -50,8 +56,8 @@ export const ASR_MODELS = Object.freeze([
   Object.freeze({
     id: "large-v3-turbo",
     label: "large-v3-turbo",
-    sizeLabel: "约 1.6 GB",
-    note: "精度最好（默认）",
+    approxSize: "1.6 GB",
+    note: modelNote("server_asr_note_default"),
     hfRepo: {
       "faster-whisper": "mobiuslabsgmbh/faster-whisper-large-v3-turbo",
       "mlx-whisper": "mlx-community/whisper-large-v3-turbo"
@@ -61,8 +67,8 @@ export const ASR_MODELS = Object.freeze([
   Object.freeze({
     id: "medium",
     label: "medium",
-    sizeLabel: "约 1.5 GB",
-    note: "更快更省显存，精度略降",
+    approxSize: "1.5 GB",
+    note: modelNote("server_asr_note_faster"),
     hfRepo: {
       "faster-whisper": "Systran/faster-whisper-medium",
       "mlx-whisper": "mlx-community/whisper-medium-mlx"

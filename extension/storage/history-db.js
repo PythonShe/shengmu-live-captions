@@ -55,7 +55,7 @@ export async function createHistorySession(metadata) {
     startedAt: metadata.startedAt,
     endedAt: metadata.endedAt || null,
     updatedAt: metadata.updatedAt || metadata.startedAt,
-    title: metadata.title || "未命名直播",
+    title: metadata.title || "",
     url: metadata.url || "",
     tabId: metadata.tabId ?? null,
     wsUrl: metadata.wsUrl || "",

@@ -65,7 +65,7 @@ const logTail = [];
 let job = {
   state: "idle",
   action: "",
-  message: "",
+  ...jobText("", ""),
   startedAt: null,
   finishedAt: null,
   exitCode: null
@@ -96,6 +96,28 @@ function sanitizeWlkGlossary(value) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, MAX_WLK_GLOSSARY_CHARS);
+}
+
+// The popup renders errorCode / messageKey through chrome.i18n. `error` and
+// `message` stay Chinese for scripts/services.mjs and extension builds that
+// predate the keys. An empty code means the text is not ours to translate.
+function errorFields(error, errorCode = "", ...errorParams) {
+  return { error, errorCode, errorParams: errorParams.map(String) };
+}
+
+function failure(error, errorCode, ...errorParams) {
+  return { ok: false, ...errorFields(error, errorCode, ...errorParams) };
+}
+
+function jobText(message, messageKey, ...messageParams) {
+  return { message, messageKey, messageParams: messageParams.map(String) };
+}
+
+class RequestError extends Error {
+  constructor(message, errorCode) {
+    super(message);
+    this.errorCode = errorCode;
+  }
 }
 
 function pushLog(line) {
@@ -136,7 +158,7 @@ async function readJsonBody(req, limitBytes = 16 * 1024) {
   let size = 0;
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > limitBytes) throw new Error("请求体过大");
+    if (size > limitBytes) throw new RequestError("请求体过大", "server_body_too_large");
     chunks.push(chunk);
   }
   if (!chunks.length) return {};
@@ -144,7 +166,7 @@ async function readJsonBody(req, limitBytes = 16 * 1024) {
     const parsed = JSON.parse(Buffer.concat(chunks).toString("utf8"));
     return parsed && typeof parsed === "object" ? parsed : {};
   } catch {
-    throw new Error("请求体不是合法 JSON");
+    throw new RequestError("请求体不是合法 JSON", "server_body_invalid_json");
   }
 }
 
@@ -279,7 +301,9 @@ function listModels() {
       id: model.id,
       label: model.label,
       cached: asrCacheInfo(model),
-      sizeLabel: model.sizeLabel,
+      // sizeLabel is the pre-i18n Chinese text; sizeNote is its message.
+      sizeLabel: `约 ${model.approxSize}`,
+      sizeNote: { key: "server_approx_size", params: [model.approxSize] },
       note: model.note
     }))
   };
@@ -321,9 +345,10 @@ async function runStopServices() {
 
 async function handleStart(payload) {
   if (startPending || job.state === "starting" || job.state === "stopping") {
+    const busyState = startPending ? "starting" : job.state;
     return {
       status: 409,
-      body: { ok: false, error: `已有任务在进行：${startPending ? "starting" : job.state}` }
+      body: failure(`已有任务在进行：${busyState}`, "server_job_busy", busyState)
     };
   }
   startPending = true;
@@ -337,7 +362,7 @@ async function handleStart(payload) {
 async function startServices(payload, generation) {
   const asrModel = resolveAsrModel(payload.asrModel);
   if (!asrModel) {
-    return { status: 400, body: { ok: false, error: "未知的 ASR 模型" } };
+    return { status: 400, body: failure("未知的 ASR 模型", "server_unknown_asr_model") };
   }
   // In "api" mode with a working key the extension translates with its own
   // provider, so the local llama.cpp server would only burn the VRAM the ASR
@@ -349,15 +374,18 @@ async function startServices(payload, generation) {
   const translationModel = resolveTranslationModel(payload.translationModel);
   if (!asrOnly) {
     if (!translationModel) {
-      return { status: 400, body: { ok: false, error: "未知的本地翻译模型" } };
+      return { status: 400, body: failure("未知的本地翻译模型", "server_unknown_translation_model") };
     }
     const modelPath = translationModelPath(CONFIG, translationModel);
     if (!fileExists(modelPath)) {
       return {
         status: 409,
         body: {
-          ok: false,
-          error: `本地翻译模型尚未下载：${translationModel.file}`,
+          ...failure(
+            `本地翻译模型尚未下载：${translationModel.file}`,
+            "server_translation_model_missing",
+            translationModel.file
+          ),
           needsDownload: translationModel.id,
           downloadUrl: translationModelUrls(CONFIG, translationModel).downloadUrl
         }
@@ -384,13 +412,13 @@ async function startServices(payload, generation) {
 
   if (asrOnly) {
     if (translationOnline) {
-      const failure = await stopServicesOrFail(
+      const stopFailure = await stopServicesOrFail(
         "API 翻译模式：停止本地翻译服务，把显存让给 ASR"
       );
-      if (failure) {
+      if (stopFailure) {
         return {
           status: 500,
-          body: { ok: false, error: `停止旧服务失败：${failure}` }
+          body: failure(`停止旧服务失败：${stopFailure}`, "server_stop_old_failed", stopFailure)
         };
       }
     }
@@ -398,13 +426,13 @@ async function startServices(payload, generation) {
     const modelMismatch =
       status.translation.online && status.translation.model !== translationModel.alias;
     if (modelMismatch || (!status.translation.online && translationOnline)) {
-      const failure = await stopServicesOrFail(
+      const stopFailure = await stopServicesOrFail(
         `停止旧翻译服务（当前 ${status.translation.model || "未知"}）`
       );
-      if (failure) {
+      if (stopFailure) {
         return {
           status: 500,
-          body: { ok: false, error: `停止旧服务失败：${failure}` }
+          body: failure(`停止旧服务失败：${stopFailure}`, "server_stop_old_failed", stopFailure)
         };
       }
     }
@@ -441,7 +469,7 @@ async function startServices(payload, generation) {
   }
 
   if (generation !== stopGeneration) {
-    return { status: 409, body: { ok: false, error: "启动已被停止请求取消" } };
+    return { status: 409, body: failure("启动已被停止请求取消", "server_start_cancelled") };
   }
 
   job = {
@@ -449,9 +477,18 @@ async function startServices(payload, generation) {
     action: "start",
     translationMode: asrOnly ? "asr-only" : "translation",
     glossarySignature: desiredGlossary,
-    message: asrOnly
-      ? `正在启动 ASR ${asrModel.label}（API 翻译，不启动本地翻译模型）`
-      : `正在启动 ${translationModel.label} + ${asrModel.label}`,
+    ...(asrOnly
+      ? jobText(
+          `正在启动 ASR ${asrModel.label}（API 翻译，不启动本地翻译模型）`,
+          "server_job_starting_asr_only",
+          asrModel.label
+        )
+      : jobText(
+          `正在启动 ${translationModel.label} + ${asrModel.label}`,
+          "server_job_starting",
+          translationModel.label,
+          asrModel.label
+        )),
     startedAt: Date.now(),
     finishedAt: null,
     exitCode: null
@@ -468,14 +505,26 @@ async function startServices(payload, generation) {
         if (job !== startedJob) return;
         startedWlkMode = job.translationMode || null;
         startedGlossarySignature = job.glossarySignature ?? "";
-        job = { ...job, state: "finished", message: "本地服务已就绪", finishedAt: Date.now(), exitCode: 0 };
+        job = {
+          ...job,
+          state: "finished",
+          ...jobText("本地服务已就绪", "server_job_ready"),
+          finishedAt: Date.now(),
+          exitCode: 0
+        };
       },
       (error) => {
         if (job !== startedJob) return;
         const message = error?.message || String(error);
         pushLog(message);
         appendJobLog([message]);
-        job = { ...job, state: "error", message: `启动失败：${message}`, finishedAt: Date.now(), exitCode: 1 };
+        job = {
+          ...job,
+          state: "error",
+          ...jobText(`启动失败：${message}`, "server_job_start_failed", message),
+          finishedAt: Date.now(),
+          exitCode: 1
+        };
       }
     )
     .finally(() => {
@@ -490,10 +539,10 @@ async function startServices(payload, generation) {
 
 async function handleStop() {
   if (job.state === "stopping") {
-    return { status: 409, body: { ok: false, error: "正在停止中" } };
+    return { status: 409, body: failure("正在停止中", "server_stop_in_progress") };
   }
   if (downloadPending || download?.state === "downloading") {
-    return { status: 409, body: { ok: false, error: "模型下载中，请稍后再停止" } };
+    return { status: 409, body: failure("模型下载中，请稍后再停止", "server_stop_blocked_by_download") };
   }
   stopGeneration += 1;
   // A start that is still running would re-create the services after the stop
@@ -507,7 +556,7 @@ async function handleStop() {
   job = {
     state: "stopping",
     action: "stop",
-    message: "正在停止本地服务",
+    ...jobText("正在停止本地服务", "server_job_stopping"),
     startedAt: Date.now(),
     finishedAt: null,
     exitCode: null
@@ -519,21 +568,30 @@ async function handleStop() {
     startedWlkMode = null;
     startedGlossarySignature = null;
   }
+  const stopError = String(result.error || result.code);
   job = {
     ...job,
     state: result.ok ? "idle" : "error",
-    message: result.ok ? "已停止" : `停止失败：${result.error || result.code}`,
+    ...(result.ok
+      ? jobText("已停止", "server_job_stopped")
+      : jobText(`停止失败：${stopError}`, "server_job_stop_failed", stopError)),
     finishedAt: Date.now(),
     exitCode: result.code ?? null
   };
-  return { status: 200, body: { ok: result.ok, job, error: result.ok ? undefined : job.message } };
+  const body = result.ok
+    ? { ok: true, job }
+    : { ...failure(job.message, job.messageKey, ...job.messageParams), job };
+  return { status: 200, body };
 }
 
 async function startDownload(payload) {
   if (downloadPending || download?.state === "downloading") {
+    const modelId = download?.modelId || "";
     return {
       status: 409,
-      body: { ok: false, error: `正在下载 ${download?.modelId || ""}`.trim() }
+      body: modelId
+        ? failure(`正在下载 ${modelId}`, "server_download_busy_model", modelId)
+        : failure("正在下载", "server_download_busy")
     };
   }
   downloadPending = true;
@@ -544,20 +602,26 @@ async function startDownload(payload) {
   }
 }
 
-function downloadErrorMessage(error) {
+// Failures other than these two carry download.mjs's own text and no code.
+function downloadErrorFields(error) {
   if (error instanceof DownloadError && error.code === "size-mismatch") {
-    return `下载大小不符（期望 ${error.expected}，实际 ${error.actual}）`;
+    return errorFields(
+      `下载大小不符（期望 ${error.expected}，实际 ${error.actual}）`,
+      "server_download_size_mismatch",
+      error.expected,
+      error.actual
+    );
   }
   if (error instanceof DownloadError && error.code === "rename") {
-    return `保存失败：${error.message}`;
+    return errorFields(`保存失败：${error.message}`, "server_download_save_failed", error.message);
   }
-  return error?.message || String(error);
+  return errorFields(error?.message || String(error));
 }
 
 async function beginDownload(payload) {
   const model = resolveTranslationModel(payload.translationModel);
   if (!model) {
-    return { status: 400, body: { ok: false, error: "未知的本地翻译模型" } };
+    return { status: 400, body: failure("未知的本地翻译模型", "server_unknown_translation_model") };
   }
   const targetPath = translationModelPath(CONFIG, model);
   if (fileExists(targetPath)) {
@@ -566,7 +630,7 @@ async function beginDownload(payload) {
       state: "done",
       receivedBytes: fileSize(targetPath),
       totalBytes: fileSize(targetPath),
-      error: "",
+      ...errorFields(""),
       startedAt: Date.now(),
       finishedAt: Date.now()
     };
@@ -583,7 +647,7 @@ async function beginDownload(payload) {
     state: "downloading",
     receivedBytes: fileSize(partPath),
     totalBytes,
-    error: "",
+    ...errorFields(""),
     startedAt: Date.now(),
     finishedAt: null
   };
@@ -603,7 +667,7 @@ async function beginDownload(payload) {
           state: "done",
           receivedBytes: fileSize(targetPath),
           totalBytes: fileSize(targetPath),
-          error: "",
+          ...errorFields(""),
           finishedAt: Date.now()
         };
       },
@@ -614,7 +678,7 @@ async function beginDownload(payload) {
           ...download,
           state: "error",
           receivedBytes: fileSize(partPath),
-          error: downloadErrorMessage(error),
+          ...downloadErrorFields(error),
           finishedAt: Date.now()
         };
       }
@@ -651,7 +715,7 @@ async function handleRequest(req, res) {
     !originAllowed(origin) ||
     (!origin && fetchSite && fetchSite === "cross-site");
   if (blocked) {
-    return sendJson(res, 403, { ok: false, error: "只接受扩展页面调用" });
+    return sendJson(res, 403, failure("只接受扩展页面调用", "server_forbidden_origin"));
   }
   if (origin) {
     res.setHeader("access-control-allow-origin", origin);
@@ -705,15 +769,15 @@ async function handleRequest(req, res) {
       const result = await startDownload(body);
       return sendJson(res, result.status, result.body);
     }
-    return sendJson(res, 404, { ok: false, error: `未知接口：${route}` });
+    return sendJson(res, 404, failure(`未知接口：${route}`, "server_unknown_route", route));
   } catch (error) {
-    return sendJson(res, 500, { ok: false, error: error?.message || String(error) });
+    return sendJson(res, 500, failure(error?.message || String(error), error?.errorCode));
   }
 }
 
 const server = http.createServer((req, res) => {
   void handleRequest(req, res).catch((error) => {
-    sendJson(res, 500, { ok: false, error: error?.message || String(error) });
+    sendJson(res, 500, failure(error?.message || String(error)));
   });
 });
 

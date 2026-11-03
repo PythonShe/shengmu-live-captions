@@ -64,7 +64,7 @@ export default [
     languageOptions: { globals: { ...globals.serviceworker, ...chrome } }
   },
   {
-    files: ["extension/popup/**/*.js", "extension/subtitle/**/*.js"],
+    files: ["extension/popup/**/*.js", "extension/subtitle/**/*.js", "extension/ui/**/*.js"],
     languageOptions: { globals: { ...globals.browser, ...chrome } }
   },
   {

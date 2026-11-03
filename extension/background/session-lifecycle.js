@@ -3,6 +3,7 @@ import { translationConfigIssue } from "../lib/translation-api.js";
 import { linesChangedSince, reduceTranscriptUpdate } from "../lib/transcript-reducer.js";
 import { TRANSLATION_STOP_TIMEOUT_MS } from "../lib/translation-scheduler.js";
 import { requireLocalTranslation } from "./diagnostics.js";
+import { errorText, render, t } from "./i18n.js";
 import { safeClone } from "./runtime-store.js";
 
 /** An error stop gives in-flight translations less time than a user stop. */
@@ -82,7 +83,7 @@ export function createSessionLifecycle({
     const metadata = {
       id: sessionId,
       startedAt,
-      title: message.tabTitle || "未命名直播",
+      title: message.tabTitle || t("popup_untitled_stream"),
       url: message.tabUrl || "",
       tabId: message.targetTabId ?? null,
       wsUrl,
@@ -101,7 +102,7 @@ export function createSessionLifecycle({
     store.replace({
       active: true,
       status: "starting",
-      detail: "正在建立音频采集",
+      detail: t("status_starting"),
       sessionId,
       tabId: message.targetTabId ?? null,
       tabTitle: metadata.title,
@@ -128,7 +129,7 @@ export function createSessionLifecycle({
     try {
       wsUrl = normalizeWsUrl(message.wsUrl || settings.current.wsUrl);
     } catch (error) {
-      throw new Error(error?.message || String(error), { cause: error });
+      throw new Error(errorText(error), { cause: error });
     }
     await settings.update({ wsUrl });
 
@@ -136,9 +137,7 @@ export function createSessionLifecycle({
     if (translation.mode === "api") {
       const issue = translationConfigIssue(translation);
       if (issue) {
-        throw new Error(
-          `${issue}。请在扩展控制面板的“翻译引擎”中完成配置，或切换为本地服务端。`
-        );
+        throw new Error(t("session_translation_config_issue", render(issue)));
       }
     } else {
       await requireLocalTranslation();
@@ -147,7 +146,7 @@ export function createSessionLifecycle({
     if (asr.backend === "bailian") {
       const apiKey = settings.bailianApiKey();
       if (!apiKey) {
-        throw new Error("尚未填写阿里云百炼 API Key（语音识别与通义千问翻译共用），请在扩展控制面板中填写。");
+        throw new Error(t("session_bailian_key_missing"));
       }
       await asrAuth.grant(asr.url, apiKey);
     }
@@ -169,9 +168,9 @@ export function createSessionLifecycle({
         streamId: message.streamId,
         asr
       });
-      if (!result?.ok) throw new Error(result?.error || "音频采集启动失败");
+      if (!result?.ok) throw new Error(result?.error || t("session_capture_start_failed"));
     } catch (error) {
-      await finalize("error", error?.message || String(error), { quiet: true });
+      await finalize("error", errorText(error), { quiet: true });
       throw error;
     }
 
@@ -183,7 +182,7 @@ export function createSessionLifecycle({
       try {
         await views.openMonitorWindow();
       } catch (error) {
-        warning = `字幕窗口未能自动打开：${error?.message || error}`;
+        warning = t("session_monitor_open_failed", errorText(error));
         store.state.detail = warning;
         store.state.updatedAt = Date.now();
         await store.persist(true);
@@ -220,7 +219,7 @@ export function createSessionLifecycle({
           await history.flush(true);
         } catch (error) {
           finalStatus = "error";
-          finalDetail = `字幕历史写入失败：${error?.message || error}`;
+          finalDetail = t("session_history_write_failed", errorText(error));
         }
 
         if (sessionId) {
@@ -231,7 +230,7 @@ export function createSessionLifecycle({
             preview = summary.preview || preview;
             if (translationMissing > 0 && finalStatus === "stopped") {
               finalStatus = "incomplete";
-              finalDetail = `${finalDetail}；${translationMissing} 条字幕缺少译文`;
+              finalDetail = t("session_detail_missing_translations", finalDetail, translationMissing);
             }
             await history.updateSession(sessionId, {
               endedAt: Date.now(),
@@ -242,7 +241,7 @@ export function createSessionLifecycle({
             });
           } catch (error) {
             finalStatus = "error";
-            finalDetail = `字幕历史收尾失败：${error?.message || error}`;
+            finalDetail = t("session_history_finish_failed", errorText(error));
           }
         }
       } finally {
@@ -294,7 +293,7 @@ export function createSessionLifecycle({
       // Kept in runtime state: if the worker is recycled before the offscreen
       // "stopped" report arrives, that report still ends the session with the
       // reason the user saw (tab closed, fatal error) instead of a generic one.
-      store.state.pendingStopDetail = options.detail || "标签页音频采集已停止";
+      store.state.pendingStopDetail = options.detail || t("session_capture_stopped");
       await store.persist(true);
     }
     await offscreen.stopCapture();
@@ -306,7 +305,7 @@ export function createSessionLifecycle({
     }
     await finalize(
       options.status || "stopped",
-      store.state.pendingStopDetail || options.detail || "标签页音频采集已停止",
+      store.state.pendingStopDetail || options.detail || t("session_capture_stopped"),
       { quiet: options.quiet === true }
     );
     return { ok: true };
@@ -332,12 +331,12 @@ export function createSessionLifecycle({
     if (status.state === "error" && status.fatal && store.state.active) {
       await stop({
         status: "error",
-        detail: status.detail || "字幕服务发生致命错误"
+        detail: status.detail || t("session_fatal_error")
       });
       return;
     }
     if (status.state === "stopped" && store.state.active) {
-      await finalize("stopped", store.state.pendingStopDetail || status.detail || "采集已停止");
+      await finalize("stopped", store.state.pendingStopDetail || status.detail || t("session_capture_stopped_short"));
     }
   }
 
@@ -392,7 +391,7 @@ export function createSessionLifecycle({
     } catch {
       return;
     }
-    const title = String(tab.title || store.state.tabTitle || "未命名直播");
+    const title = String(tab.title || store.state.tabTitle || t("popup_untitled_stream"));
     const url = String(tab.url || store.state.tabUrl || "");
     if (title === store.state.tabTitle && url === store.state.tabUrl) return;
 
@@ -431,7 +430,7 @@ export function createSessionLifecycle({
       await history.flush(false);
     }
     if (!(await offscreen.hasDocument())) {
-      await finalize("error", "浏览器后台采集页面已中断，请重新开始", { quiet: true });
+      await finalize("error", t("session_offscreen_lost"), { quiet: true });
     } else if (settings.apiTranslationActive()) {
       // None of the translation queue or its timers survive a restart; the
       // scheduler rebuilds them from the restored runtime rows.

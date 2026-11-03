@@ -8,6 +8,10 @@ import {
   createMessageDispatcher,
   isExtensionPageSender
 } from "../extension/background/message-router.js";
+import { i18nMock, zh } from "./helpers/i18n.js";
+
+// The router renders its errors with chrome.i18n.
+globalThis.chrome = { i18n: i18nMock };
 
 const EXTENSION_ID = "test-extension";
 const ORIGIN = `chrome-extension://${EXTENSION_ID}/`;
@@ -125,7 +129,7 @@ test("the dispatcher enforces each policy for every kind of sender", async () =>
       } else if (policy === "offscreen") {
         assert.deepEqual(response, { ok: false, error: `未知消息：${type}` }, `${type} from ${kind}`);
       } else if (!allowed) {
-        assert.deepEqual(response, { ok: false, error: EXTENSION_ONLY_ERROR }, `${type} from ${kind}`);
+        assert.deepEqual(response, { ok: false, error: zh(EXTENSION_ONLY_ERROR) }, `${type} from ${kind}`);
       }
     }
   }

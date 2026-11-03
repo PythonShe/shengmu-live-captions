@@ -2,6 +2,8 @@
 // Every call that reaches the outside world is recorded so tests can assert on
 // broadcasts, tab messages and offscreen traffic without a browser.
 
+import { i18nMock } from "./i18n.js";
+
 export const EXTENSION_ID = "test-extension";
 export const EXTENSION_ORIGIN = `chrome-extension://${EXTENSION_ID}/`;
 export const POPUP_SENDER = Object.freeze({ url: `${EXTENSION_ORIGIN}popup/popup.html` });
@@ -45,6 +47,7 @@ export function createChromeMock() {
   };
 
   const chrome = {
+    i18n: i18nMock,
     runtime: {
       id: EXTENSION_ID,
       getURL: (path) => `${EXTENSION_ORIGIN}${path}`,

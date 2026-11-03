@@ -18,6 +18,7 @@ import {
   normalizeTranslationBaseUrl
 } from "../lib/translation-api.js";
 import { createCaptionReceiver } from "../lib/caption-delta.js";
+import { localizePage, renderMessage, t } from "../ui/i18n.js";
 import {
   DISPLAY_MODE_LABELS,
   DISPLAY_MODE_ORDER,
@@ -212,7 +213,7 @@ function populateDisplayModes() {
   elements.fontSize.min = String(FONT_SIZE_MIN);
   elements.fontSize.max = String(FONT_SIZE_MAX);
   elements.displayMode.replaceChildren(
-    ...DISPLAY_MODE_ORDER.map((mode) => new Option(DISPLAY_MODE_LABELS[mode], mode))
+    ...DISPLAY_MODE_ORDER.map((mode) => new Option(t(DISPLAY_MODE_LABELS[mode]), mode))
   );
 }
 
@@ -222,12 +223,12 @@ function render() {
   const displayTab = runtimeState?.active
     ? { title: runtimeState.tabTitle, url: runtimeState.tabUrl }
     : activeTab;
-  elements.tabTitle.textContent = displayTab?.title || "没有可用的标签页";
+  elements.tabTitle.textContent = displayTab?.title || t("popup_no_tab");
   elements.tabUrl.textContent = displayTab?.url
     ? hostnameFromUrl(displayTab.url) || displayTab.url
-    : "请先打开直播或视频页面";
+    : t("popup_open_stream_first");
 
-  const presentation = capturePresentation(runtimeState);
+  const presentation = capturePresentation(runtimeState, t);
   // Same-text writes still replace the node and make screen readers repeat the
   // status, and render() runs on every broadcast.
   if (elements.statusLabel.textContent !== presentation.summary) {
@@ -248,7 +249,7 @@ function render() {
   elements.livePreview.hidden = !preview;
 
   const active = Boolean(runtimeState?.active);
-  elements.primaryLabel.textContent = active ? "停止当前字幕" : "开始实时翻译";
+  elements.primaryLabel.textContent = active ? t("popup_stop") : t("popup_start");
   elements.primaryButton.classList.toggle("stop", active);
   // aria-busy instead of disabled: a disabled button drops keyboard focus
   // mid-action. The click handler ignores presses while busy.
@@ -288,7 +289,7 @@ function renderOverlayHint() {
       : "";
   elements.overlayHint.hidden = !failure;
   elements.overlayHintText.textContent = failure
-    ? `页面浮层没有生效：${failure}（若刚更新过扩展，请在 chrome://extensions 重新加载并刷新标签页）`
+    ? t("popup_overlay_failed", failure)
     : "";
 }
 
@@ -321,8 +322,8 @@ function renderSpeechSettings() {
   elements.bailianFields.hidden = backend !== "bailian";
   elements.bailianRegion.value = settings.bailianRegion;
   elements.bailianKeyHint.textContent = settings.translationApiKeyConfigured?.bailian
-    ? "Key 已保存，语音识别与通义千问翻译共用。"
-    : "按秒计费，Key 同时可用于通义千问翻译。";
+    ? t("popup_bailian_key_saved")
+    : t("popup_bailian_key_hint");
   const unsupported =
     (backend === "chrome" && ["missing", "unavailable"].includes(builtinSupport.speech)) ||
     (settings.translationProvider === "chrome" &&
@@ -330,7 +331,7 @@ function renderSpeechSettings() {
       ["missing", "unavailable"].includes(builtinSupport.translator));
   elements.builtinSupportHint.hidden = !unsupported;
   elements.builtinSupportHint.textContent = unsupported
-    ? "这个 Chrome 不支持本机识别或内置翻译（需要 Chrome 138 以上的桌面版），请改用阿里云百炼或填写 DeepSeek Key。"
+    ? t("popup_builtin_unsupported")
     : "";
 }
 
@@ -344,12 +345,12 @@ async function ensureBuiltinTranslator() {
   if (!globalThis.Translator) return;
   const availability = await globalThis.Translator.availability(BUILTIN_LANGUAGES);
   if (availability === "available" || availability === "unavailable") return;
-  elements.statusLabel.textContent = "正在下载 Chrome 翻译模型";
+  elements.statusLabel.textContent = t("popup_downloading_translator");
   const translator = await globalThis.Translator.create({
     ...BUILTIN_LANGUAGES,
     monitor(monitor) {
       monitor.addEventListener("downloadprogress", (event) => {
-        elements.statusLabel.textContent = `正在下载 Chrome 翻译模型 ${Math.round(event.loaded * 100)}%`;
+        elements.statusLabel.textContent = t("popup_downloading_translator_progress", Math.round(event.loaded * 100));
       });
     }
   });
@@ -365,13 +366,14 @@ function renderTranslationSettings() {
     settings.translationApiKeyConfigured?.[provider.id]
   );
   const builtin = Boolean(provider.builtin);
+  const providerLabel = t(`provider_${provider.id}`);
   elements.remoteTranslationFields.hidden = builtin;
   elements.translationBaseUrlField.hidden = provider.id === "bailian";
   // One Bailian key serves both halves; the speech section already asks for it.
   elements.translationKeyField.hidden =
     provider.id === "bailian" && settings.asrBackend === "bailian";
   elements.translationNudge.hidden = !builtin;
-  elements.testTranslationButton.textContent = builtin ? "测试内置翻译" : "测试翻译 API";
+  elements.testTranslationButton.textContent = builtin ? t("popup_test_builtin") : t("popup_test_api");
   elements.translationMode.value = settings.translationMode;
   elements.translationProvider.value = provider.id;
   setFieldValue(elements.translationBaseUrl, settings.translationBaseUrl);
@@ -380,31 +382,31 @@ function renderTranslationSettings() {
     settings.translationTranslatePartial;
   elements.apiTranslationFields.hidden = settings.translationMode !== "api";
   elements.translationKeyHint.textContent = configured
-    ? `${provider.label} Key 已保存在本机扩展存储中`
+    ? t("popup_key_saved", providerLabel)
     : provider.requiresApiKey
-      ? `${provider.label} 需要 API Key；以明文保存在本机扩展存储，不会同步到云端`
-      : "自定义服务可以不填 Key";
+      ? t("popup_key_required", providerLabel)
+      : t("popup_key_optional");
   elements.clearTranslationKey.hidden = !configured;
 
   const translationState = runtimeState?.translation;
   const usage = translationState?.usage;
   let usageText;
   if (settings.translationMode === "server") {
-    usageText = "本地服务端模式：译文由 WhisperLiveKit 生成。";
+    usageText = t("popup_usage_server");
   } else if (builtin) {
-    usageText = provider.label;
+    usageText = providerLabel;
   } else if (usage?.requests > 0) {
     const tokens =
       (Number(usage.promptTokens) || 0) +
       (Number(usage.completionTokens) || 0);
     usageText =
-      `${provider.label} · ${settings.translationModel} · ` +
-      `本次 ${usage.requests} 次请求 / ${tokens} tokens`;
+      `${providerLabel} · ${settings.translationModel} · ` +
+      t("popup_usage_requests", usage.requests, tokens);
   } else {
-    usageText = `${provider.label} · ${settings.translationModel || "未填模型"}`;
+    usageText = `${providerLabel} · ${settings.translationModel || t("popup_no_model")}`;
   }
   if (translationState?.error) {
-    usageText += ` · ${String(translationState.error).slice(0, 90)}`;
+    usageText += ` · ${renderMessage(translationState.error).slice(0, 90)}`;
   }
   elements.translationUsage.textContent = usageText;
 }
@@ -430,15 +432,12 @@ function computeGlossarySummary(draftSettings) {
   const effective = resolveEffectiveGlossary(draftSettings);
   let summary;
   if (effective.enabled) {
-    summary =
-      `已生效 ${effective.entries.length} 条术语` +
-      `（内置 ${effective.presetCount} · 自定义 ${effective.customCount}）`;
+    summary = t("popup_glossary_active", effective.entries.length, effective.presetCount, effective.customCount);
     if (effective.domainHint) {
-      summary += ` · 领域：${effective.domainHint}`;
+      summary += ` · ${t("popup_glossary_domain", effective.domainHint)}`;
     }
   } else {
-    summary =
-      `术语库已关闭（已保存内置 ${effective.presetCount} · 自定义 ${effective.customCount}）`;
+    summary = t("popup_glossary_off", effective.presetCount, effective.customCount);
   }
   const exportable =
     effective.entries.length > 0 ||
@@ -465,7 +464,7 @@ function renderGlossarySettings() {
   elements.glossaryPresetPoe.checked = poeChecked;
   elements.glossaryDomainHint.placeholder = poeChecked
     ? GLOSSARY_PRESETS.poe.domainHint
-    : "例如：Path of Exile (流放之路) 游戏直播";
+    : t("popup_domain_placeholder");
   if (!domainHintSaver.busy()) {
     setFieldValue(
       elements.glossaryDomainHint,
@@ -484,6 +483,12 @@ function renderGlossarySettings() {
   });
 }
 
+/** The control service's error: by code when it sent one, else its text. */
+function localErrorText(payload) {
+  if (payload?.errorCode) return t(payload.errorCode, ...(payload.errorParams || []));
+  return payload?.error || "";
+}
+
 async function localRequest(path, { timeoutMs = 6000, ...init } = {}) {
   const response = await fetch(`${LOCAL_SERVICE_URL}${path}`, {
     ...init,
@@ -497,7 +502,7 @@ async function localRequest(path, { timeoutMs = 6000, ...init } = {}) {
   }
   if (!response.ok || payload?.ok === false) {
     const error = new Error(
-      payload?.error || `本地控制服务返回 HTTP ${response.status}`
+      localErrorText(payload) || t("popup_local_http_error", response.status)
     );
     error.payload = payload;
     throw error;
@@ -537,7 +542,7 @@ function syncModelSelects() {
     : "offline";
   if (signature !== localSelectsSignature) {
     localSelectsSignature = signature;
-    const fallback = local.serviceOnline ? "没有可用模型" : "控制服务未连接";
+    const fallback = local.serviceOnline ? t("popup_no_models") : t("popup_control_offline");
     fillModelSelect(
       elements.localTranslationModel,
       local.models?.translation || [],
@@ -594,23 +599,23 @@ function renderLocal() {
   const usesApiTranslation =
     settings.translationMode === "api" && apiKeyConfigured;
 
-  let badgeLabel = "控制服务未连接";
+  let badgeLabel = t("popup_control_offline");
   let badgeClass = "warning";
   if (local.serviceOnline) {
     if (job?.state === "starting") {
-      badgeLabel = "启动中";
+      badgeLabel = t("popup_badge_starting");
       badgeClass = "warning";
     } else if (job?.state === "error") {
-      badgeLabel = "启动失败";
+      badgeLabel = t("popup_badge_failed");
       badgeClass = "warning";
     } else if (
       services?.asr?.online &&
       (usesApiTranslation || services?.translation?.online)
     ) {
-      badgeLabel = usesApiTranslation ? "ASR 在线" : "全部在线";
+      badgeLabel = usesApiTranslation ? t("popup_badge_asr_online") : t("popup_badge_all_online");
       badgeClass = "online";
     } else {
-      badgeLabel = "控制服务已连接";
+      badgeLabel = t("popup_badge_connected");
       badgeClass = "";
     }
   }
@@ -619,24 +624,24 @@ function renderLocal() {
 
   const asrOnline = Boolean(services?.asr?.online);
   elements.localAsrState.textContent = asrOnline
-    ? `在线 · ${services.asr.port}`
+    ? t("popup_online_at", services.asr.port)
     : jobRunning
-      ? "启动中…"
-      : "未连接";
+      ? t("popup_starting_ellipsis")
+      : t("local_not_connected");
   elements.localAsrState.className = `local-state ${
     asrOnline ? "online" : jobRunning ? "" : "warning"
   }`.trim();
 
   const translationOnline = Boolean(services?.translation?.online);
   if (usesApiTranslation) {
-    elements.localTranslationState.textContent = "由 API 翻译，不启动本地模型";
+    elements.localTranslationState.textContent = t("popup_translation_by_api");
     elements.localTranslationState.className = "local-state";
   } else {
     elements.localTranslationState.textContent = translationOnline
-      ? `在线 · ${services.translation.model || "已就绪"}`
+      ? t("popup_online_at", services.translation.model || t("popup_ready"))
       : jobRunning
-        ? "启动中…"
-        : "未连接";
+        ? t("popup_starting_ellipsis")
+        : t("local_not_connected");
     elements.localTranslationState.className = `local-state ${
       translationOnline ? "online" : jobRunning ? "" : "warning"
     }`.trim();
@@ -644,36 +649,34 @@ function renderLocal() {
 
   syncModelSelects();
 
-  let hint = "";
+  const hints = [];
+  const asrHint = () =>
+    asrModel.cached
+      ? t("popup_hint_asr_cached", asrModel.label)
+      : t("popup_hint_asr_download", asrModel.label, renderMessage(asrModel.sizeNote || asrModel.sizeLabel));
   if (!local.serviceOnline) {
-    hint = "启动本地控制服务后，可以在这里一键拉起 ASR 与本地翻译模型。";
+    hints.push(t("popup_hint_service_offline"));
   } else if (usesApiTranslation) {
-    hint = "API 翻译模式只需本地 ASR：启动后不占用显存跑翻译模型，显存与算力全部留给识别。";
-    if (asrModel) {
-      hint += asrModel.cached
-        ? `；ASR ${asrModel.label} 已缓存`
-        : `；ASR ${asrModel.label} 首次启动会自动下载（${asrModel.sizeLabel}）`;
-    }
+    hints.push(t("popup_hint_api_mode"));
+    if (asrModel) hints.push(asrHint());
   } else if (translationModel) {
-    hint = translationModel.exists
-      ? `翻译模型已就绪：${formatBytes(translationModel.bytes)}`
-      : `翻译模型未下载：${translationModel.file}`;
-    if (asrModel) {
-      hint += asrModel.cached
-        ? `；ASR ${asrModel.label} 已缓存`
-        : `；ASR ${asrModel.label} 首次启动会自动下载（${asrModel.sizeLabel}）`;
-    }
+    hints.push(
+      translationModel.exists
+        ? t("popup_hint_model_ready", formatBytes(translationModel.bytes))
+        : t("popup_hint_model_missing", translationModel.file)
+    );
+    if (asrModel) hints.push(asrHint());
     const runningModel = services?.translation?.online
       ? services.translation.model
       : "";
     if (runningModel && runningModel !== translationModel.alias) {
-      hint += `；当前运行 ${runningModel}，点“一键启动”会切换到所选模型`;
+      hints.push(t("popup_hint_model_switch", runningModel));
     }
     if (settings.translationMode === "api") {
-      hint += "；API Key 未配置，本地模型将作为兜底翻译";
+      hints.push(t("popup_hint_local_fallback"));
     }
   }
-  elements.localModelHint.textContent = hint;
+  elements.localModelHint.textContent = hints.join(t("hint_separator"));
 
   const needsDownload = Boolean(
     local.serviceOnline &&
@@ -683,14 +686,14 @@ function renderLocal() {
   );
   elements.localMissingBox.hidden = !needsDownload;
   if (needsDownload) {
-    elements.localMissingText.textContent =
-      `本地未找到 ${translationModel.file}（${translationModel.note}）。` +
-      "可以点“下载模型”由本地服务代下，或从下载页手动获取后放到 " +
-      `${translationModel.path}`;
+    elements.localMissingText.textContent = t(
+      "popup_model_missing",
+      translationModel.file,
+      renderMessage(translationModel.note),
+      translationModel.path
+    );
     elements.localDownloadPage.href = translationModel.pageUrl;
-    elements.localDownloadButton.textContent = `下载 ${formatBytes(
-      translationModel.bytes
-    )}`;
+    elements.localDownloadButton.textContent = t("popup_download_size", formatBytes(translationModel.bytes));
     elements.localDownloadButton.disabled =
       local.busy || activeDownload?.state === "downloading";
   }
@@ -709,17 +712,18 @@ function renderLocal() {
     elements.localProgress.hidden = false;
     elements.localProgressBar.style.width = `${(ratio * 100).toFixed(1)}%`;
     elements.localProgressText.hidden = false;
-    elements.localProgressText.textContent = `${formatBytes(
-      activeDownload.receivedBytes
-    )} / ${total > 0 ? formatBytes(total) : "未知大小"}（${Math.round(
-      ratio * 100
-    )}%）`;
+    elements.localProgressText.textContent = t(
+      "popup_download_progress",
+      formatBytes(activeDownload.receivedBytes),
+      total > 0 ? formatBytes(total) : t("popup_unknown_size"),
+      Math.round(ratio * 100)
+    );
   } else {
     elements.localProgress.hidden = true;
     elements.localProgressBar.style.width = "0";
     elements.localProgressText.hidden = !downloadError;
     if (downloadError) {
-      elements.localProgressText.textContent = `下载失败：${activeDownload.error}`;
+      elements.localProgressText.textContent = t("popup_download_failed", localErrorText(activeDownload));
     }
   }
 
@@ -729,11 +733,13 @@ function renderLocal() {
     message = "";
   }
   if (!message && job?.message) {
-    message = job.message;
+    const jobText = renderMessage(job.messageKey ? { key: job.messageKey, params: job.messageParams } : job.message);
+    message = jobText;
     if (job.state === "starting" && job.startedAt) {
-      message += `（${Math.round((Date.now() - job.startedAt) / 1000)} 秒）`;
+      message += t("popup_seconds_suffix", Math.round((Date.now() - job.startedAt) / 1000));
     }
-    if (job.state === "error") message = `启动失败：${job.message}`;
+    // Keyed job messages already say what failed (server_job_*_failed).
+    if (job.state === "error" && !job.messageKey) message = t("popup_start_failed", jobText);
   }
   elements.localJobMessage.textContent = message;
   elements.localJobMessage.hidden = !message;
@@ -768,22 +774,22 @@ function renderLocal() {
  */
 async function startControlServiceNatively() {
   local.busy = true;
-  setLocalNotice("正在启动本地控制服务…");
+  setLocalNotice(t("popup_starting_control_service"));
   renderLocal();
   try {
     const granted = await chrome.permissions.request({ permissions: ["nativeMessaging"] });
-    if (!granted) throw new Error("需要允许扩展与本机程序通信，才能从这里启动本地服务");
+    if (!granted) throw new Error(t("popup_native_permission_denied"));
     const response = await chrome.runtime.sendNativeMessage(NATIVE_HOST_NAME, {
       type: "start-control-service"
     });
-    if (!response?.ok) throw new Error(response?.error || "本地控制服务没有启动");
-    setLocalNotice("本地控制服务已启动");
+    if (!response?.ok) throw new Error(response?.error || t("popup_control_service_not_started"));
+    setLocalNotice(t("popup_control_service_started"));
   } catch (error) {
     const message = error?.message || String(error);
     setLocalNotice(
       /not found|forbidden/i.test(message)
-        ? "还没装本地助手：在项目目录双击 install-windows.cmd（只需一次），然后再点这里"
-        : `启动失败：${message}`
+        ? t("popup_native_host_missing")
+        : t("popup_start_failed", message)
     );
   } finally {
     local.busy = false;
@@ -840,9 +846,13 @@ async function startLocalServices() {
       timeoutMs: 15000
     });
     local.status = { ...(local.status || {}), job: payload.job };
-    setLocalNotice(payload.job?.message || "已开始启动本地服务");
+    setLocalNotice(
+      payload.job?.messageKey
+        ? t(payload.job.messageKey, ...(payload.job.messageParams || []))
+        : payload.job?.message || t("popup_local_starting")
+    );
   } catch (error) {
-    setLocalNotice(`启动失败：${error.message}`);
+    setLocalNotice(t("popup_start_failed", error.message));
   } finally {
     local.busy = false;
     await pollLocal();
@@ -856,9 +866,9 @@ async function stopLocalServices() {
   renderLocal();
   try {
     await localRequest("/stop", { method: "POST", timeoutMs: 20000 });
-    setLocalNotice("已停止本地服务");
+    setLocalNotice(t("popup_local_stopped"));
   } catch (error) {
-    setLocalNotice(`停止失败：${error.message}`);
+    setLocalNotice(t("popup_stop_failed", error.message));
   } finally {
     local.busy = false;
     await pollLocal();
@@ -877,9 +887,9 @@ async function downloadLocalModel() {
       body: JSON.stringify({ translationModel: settings.localTranslationModel }),
       timeoutMs: 20000
     });
-    setLocalNotice("已开始下载模型");
+    setLocalNotice(t("popup_download_started"));
   } catch (error) {
-    setLocalNotice(`下载失败：${error.message}`);
+    setLocalNotice(t("popup_download_failed", error.message));
   } finally {
     local.busy = false;
     await pollLocal();
@@ -889,9 +899,9 @@ async function downloadLocalModel() {
 async function copyLocalServiceCommand() {
   try {
     await navigator.clipboard.writeText(LOCAL_SERVICE_COMMAND);
-    setLocalNotice("启动命令已复制");
+    setLocalNotice(t("popup_command_copied"));
   } catch (error) {
-    setLocalNotice(`复制失败：${error.message}`);
+    setLocalNotice(t("popup_copy_failed", error.message));
   }
   renderLocal();
 }
@@ -914,16 +924,16 @@ async function savePatch(patch) {
     type: "save-settings",
     settings: patch
   });
-  if (!response?.ok) throw new Error(response?.error || "保存设置失败");
+  if (!response?.ok) throw new Error(response?.error || t("popup_save_failed"));
   settings = normalizeSettings(response.settings);
   render();
 }
 
 async function startCapture() {
   setError();
-  if (!activeTab?.id) throw new Error("没有找到当前标签页");
+  if (!activeTab?.id) throw new Error(t("popup_tab_missing"));
   if (!/^https?:/i.test(activeTab.url || "")) {
-    throw new Error("此页面不支持标签页音频采集，请打开直播或视频网页");
+    throw new Error(t("popup_tab_unsupported"));
   }
   // Persist visible translation and glossary fields before starting: a click
   // blurs the active input, and an asynchronous change/debounce handler may
@@ -941,11 +951,11 @@ async function startCapture() {
     patch.translationProvider = provider;
     if (provider !== "bailian") {
       const baseUrl = normalizeTranslationBaseUrl(elements.translationBaseUrl.value);
-      if (!baseUrl) throw new Error("请填写翻译 API 地址");
+      if (!baseUrl) throw new Error(t("popup_base_url_required"));
       patch.translationBaseUrl = baseUrl;
     }
     patch.translationModel = elements.translationModel.value.trim();
-    if (!patch.translationModel) throw new Error("请填写翻译模型");
+    if (!patch.translationModel) throw new Error(t("popup_model_required"));
     const apiKey = elements.translationApiKey.value.trim();
     if (apiKey) patch.translationApiKeys = { [provider]: apiKey };
   }
@@ -965,11 +975,11 @@ async function startCapture() {
     type: "start-capture",
     streamId,
     targetTabId: activeTab.id,
-    tabTitle: activeTab.title || "未命名直播",
+    tabTitle: activeTab.title || t("popup_untitled_stream"),
     tabUrl: activeTab.url || "",
     wsUrl: settings.wsUrl
   });
-  if (!response?.ok) throw new Error(response?.error || "采集启动失败");
+  if (!response?.ok) throw new Error(response?.error || t("popup_capture_failed"));
   if (response.warning) {
     setError(response.warning);
     return;
@@ -982,7 +992,7 @@ async function stopCapture() {
     target: "background",
     type: "stop-capture"
   });
-  if (!response?.ok) throw new Error(response?.error || "停止失败");
+  if (!response?.ok) throw new Error(response?.error || t("popup_stop_capture_failed"));
   await refresh();
 }
 
@@ -1037,7 +1047,7 @@ elements.overlayRetry.addEventListener("click", async () => {
       type: "refresh-overlay"
     });
     if (!response?.ok) {
-      throw new Error(response?.error || "重新注入失败，请查看扩展 Service Worker 的控制台");
+      throw new Error(response?.error || t("popup_reinject_failed"));
     }
   } catch (error) {
     setError(error?.message || String(error));
@@ -1073,8 +1083,8 @@ elements.translationMode.addEventListener("change", () => {
       if (runtimeState?.active) {
         setError(
           next === "api"
-            ? "已切到 API 翻译：请停止并重新开始字幕，ASR 才会按新模式（不加载本地翻译模型）运行"
-            : "已切到本地服务端翻译：请停止并重新开始字幕，ASR 才会恢复本地翻译"
+            ? t("popup_switched_to_api")
+            : t("popup_switched_to_server")
         );
       }
     })
@@ -1084,7 +1094,7 @@ elements.translationMode.addEventListener("change", () => {
 elements.asrBackend.addEventListener("change", () => {
   void savePatch({ asrBackend: elements.asrBackend.value })
     .then(() => {
-      if (runtimeState?.active) setError("识别引擎将在下次开始字幕时生效");
+      if (runtimeState?.active) setError(t("popup_backend_next_start"));
       return pollLocal();
     })
     .catch((error) => setError(error.message));
@@ -1127,7 +1137,7 @@ elements.translationProvider.addEventListener("change", () => {
 elements.translationBaseUrl.addEventListener("change", () => {
   try {
     const url = normalizeTranslationBaseUrl(elements.translationBaseUrl.value);
-    if (!url) throw new Error("请填写翻译 API 地址");
+    if (!url) throw new Error(t("popup_base_url_required"));
     elements.translationBaseUrl.value = url;
     void savePatch({ translationBaseUrl: url }).catch((error) =>
       setError(error.message)
@@ -1176,7 +1186,7 @@ elements.translationTranslatePartial.addEventListener("change", () => {
 elements.testTranslationButton.addEventListener("click", async () => {
   elements.testTranslationButton.disabled = true;
   elements.translationTestResult.hidden = false;
-  elements.translationTestResult.textContent = "正在请求翻译...";
+  elements.translationTestResult.textContent = t("popup_requesting_translation");
   setError();
   try {
     const provider = elements.translationProvider.value;
@@ -1191,11 +1201,11 @@ elements.testTranslationButton.addEventListener("click", async () => {
     } else {
       if (provider !== "bailian") {
         const baseUrl = normalizeTranslationBaseUrl(elements.translationBaseUrl.value);
-        if (!baseUrl) throw new Error("请填写翻译 API 地址");
+        if (!baseUrl) throw new Error(t("popup_base_url_required"));
         patch.translationBaseUrl = baseUrl;
       }
       patch.translationModel = elements.translationModel.value.trim();
-      if (!patch.translationModel) throw new Error("请填写翻译模型");
+      if (!patch.translationModel) throw new Error(t("popup_model_required"));
     }
     const pendingKey = elements.translationApiKey.value.trim();
     if (pendingKey) {
@@ -1208,15 +1218,13 @@ elements.testTranslationButton.addEventListener("click", async () => {
       type: "test-translation-api"
     });
     if (!response?.ok) {
-      throw new Error(response?.error || "翻译 API 测试失败");
+      throw new Error(response?.error || t("popup_test_failed"));
     }
     const result = response.result;
     elements.translationTestResult.textContent =
-      `连接成功：${result.model} · ${result.latencyMs} ms · ${result.translation}`;
+      t("popup_test_ok", result.model, result.latencyMs, result.translation);
   } catch (error) {
-    elements.translationTestResult.textContent = `失败：${
-      error?.message || String(error)
-    }`;
+    elements.translationTestResult.textContent = t("popup_failed", error?.message || String(error));
   } finally {
     elements.testTranslationButton.disabled = false;
   }
@@ -1225,14 +1233,14 @@ elements.testTranslationButton.addEventListener("click", async () => {
 elements.probeButton.addEventListener("click", async () => {
   elements.probeButton.disabled = true;
   elements.serviceResults.hidden = false;
-  elements.serviceResults.textContent = "正在检查...";
+  elements.serviceResults.textContent = t("popup_checking_services");
   try {
     const response = await chrome.runtime.sendMessage({
       target: "background",
       type: "probe-services"
     });
-    if (!response?.ok) throw new Error(response?.error || "检查失败");
-    const labels = { asr: "ASR", translation: "翻译" };
+    if (!response?.ok) throw new Error(response?.error || t("popup_check_failed"));
+    const labels = { asr: "ASR", translation: t("popup_translation") };
     elements.serviceResults.replaceChildren(
       ...response.services.map((service) => {
         const row = document.createElement("span");
@@ -1296,7 +1304,7 @@ elements.startControlService.addEventListener("click", () => {
 });
 
 elements.retryLocalService.addEventListener("click", () => {
-  setLocalNotice("正在重新检测本地控制服务…");
+  setLocalNotice(t("popup_rechecking"));
   void pollLocal();
 });
 
@@ -1306,15 +1314,11 @@ function notifyGlossaryRuntimeEffect() {
     local.serviceOnline &&
     local.status?.services?.asr?.online
   ) {
-    setGlossaryActionHint(
-      "本地服务端翻译需点上方“一键启动”重载术语表；ASR 热词在下次开始字幕时生效"
-    );
+    setGlossaryActionHint(t("popup_glossary_reload_server"));
     return;
   }
   if (runtimeState?.active) {
-    setGlossaryActionHint(
-      "API 翻译已实时应用新术语；ASR 识别热词将在下次开始字幕时生效"
-    );
+    setGlossaryActionHint(t("popup_glossary_applied_api"));
     return;
   }
   setGlossaryActionHint("");
@@ -1383,14 +1387,12 @@ elements.importGlossaryInput.addEventListener("change", async () => {
   setError();
   try {
     if (file.size > 512 * 1024) {
-      throw new Error("术语文件过大（超过 512 KB），请精简后再导入");
+      throw new Error(t("popup_glossary_file_too_large"));
     }
     const rawText = await file.text();
     const imported = parseGlossaryText(rawText);
     if (imported.length === 0) {
-      throw new Error(
-        "未在文件中识别到有效术语（格式：英文 -> 中文 或 CSV source,target）"
-      );
+      throw new Error(t("popup_glossary_file_empty"));
     }
     const merged = collectGlossaryEntries({
       presetIds: [],
@@ -1412,9 +1414,7 @@ elements.importGlossaryInput.addEventListener("change", async () => {
         used += addition;
       }
       if (keptLines.length === 0) {
-        throw new Error(
-          "自定义术语已达 32 KB 上限，无法再导入，请先精简现有词条后重试"
-        );
+        throw new Error(t("popup_glossary_full"));
       }
       nextText = keptLines.join("\n");
       dropped = merged.length - keptLines.length;
@@ -1423,8 +1423,8 @@ elements.importGlossaryInput.addEventListener("change", async () => {
     await savePatch({ customGlossary: nextText });
     setGlossaryActionHint(
       dropped > 0
-        ? `已从 ${file.name} 识别 ${imported.length} 条；受 32 KB 上限限制仅保留前 ${nextText.split("\n").length} 条（丢弃 ${dropped} 条，原有词条优先）`
-        : `已从 ${file.name} 导入 ${imported.length} 条，自定义术语共 ${merged.length} 条`
+        ? t("popup_glossary_imported_truncated", file.name, imported.length, nextText.split("\n").length, dropped)
+        : t("popup_glossary_imported", file.name, imported.length, merged.length)
     );
   } catch (error) {
     setError(error?.message || String(error));
@@ -1442,7 +1442,7 @@ function downloadGlossaryFile(format) {
       ? effective.entries
       : parseGlossaryText(draft.customGlossary);
   if (entries.length === 0) {
-    setError("当前没有可导出的术语词条");
+    setError(t("popup_glossary_nothing_to_export"));
     return;
   }
   const isCsv = format === "csv";
@@ -1460,9 +1460,7 @@ function downloadGlossaryFile(format) {
   anchor.click();
   anchor.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-  setGlossaryActionHint(
-    `已导出 ${entries.length} 条术语（${isCsv ? "CSV" : "TXT"}）`
-  );
+  setGlossaryActionHint(t("popup_glossary_exported", entries.length, isCsv ? "CSV" : "TXT"));
 }
 
 elements.exportGlossaryTextButton.addEventListener("click", () => {
@@ -1490,6 +1488,7 @@ window.addEventListener("unhandledrejection", (event) => {
   setError(event.reason?.message || String(event.reason));
 });
 
+localizePage();
 void refresh()
   .then(() => Promise.all([pollLocal(), checkBuiltinSupport()]))
   .catch((error) => setError(error.message));

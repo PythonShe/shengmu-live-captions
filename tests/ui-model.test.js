@@ -17,6 +17,7 @@ import {
   nextDisplayMode,
   overlayStatusLabel
 } from "../extension/lib/ui-model.js";
+import { zh } from "./helpers/i18n.js";
 
 const overlaySource = readFileSync(
   new URL("../extension/content/content-overlay.js", import.meta.url),
@@ -60,25 +61,25 @@ test("font size bounds match normalizeSettings", () => {
 });
 
 test("capturePresentation words each state once", () => {
-  assert.equal(capturePresentation(null).label, "准备就绪");
+  assert.equal(capturePresentation(null, zh).label, "准备就绪");
   const stopped = { active: false, status: "incomplete", detail: "3 条缺译" };
-  assert.equal(capturePresentation(stopped).label, "已停止，存在缺译");
-  assert.equal(capturePresentation(stopped).summary, "3 条缺译");
-  assert.equal(capturePresentation(stopped).dotClass, "warning");
+  assert.equal(capturePresentation(stopped, zh).label, "已停止，存在缺译");
+  assert.equal(capturePresentation(stopped, zh).summary, "3 条缺译");
+  assert.equal(capturePresentation(stopped, zh).dotClass, "warning");
 
   const live = { active: true, status: "capturing", wsConnected: true };
-  assert.equal(capturePresentation(live).label, "实时翻译中");
-  assert.equal(capturePresentation(live).dotClass, "live");
+  assert.equal(capturePresentation(live, zh).label, "实时翻译中");
+  assert.equal(capturePresentation(live, zh).dotClass, "live");
   assert.equal(
-    capturePresentation({ ...live, wsConnected: false }).label,
+    capturePresentation({ ...live, wsConnected: false }, zh).label,
     "等待字幕服务"
   );
   assert.equal(
-    capturePresentation({ active: true, status: "reconnecting" }).detail,
+    capturePresentation({ active: true, status: "reconnecting" }, zh).detail,
     "正在自动重连"
   );
   assert.equal(
-    capturePresentation({ active: true, status: "error", detail: "boom" }).summary,
+    capturePresentation({ active: true, status: "error", detail: "boom" }, zh).summary,
     "boom"
   );
   assert.equal(
@@ -86,7 +87,7 @@ test("capturePresentation words each state once", () => {
       active: true,
       status: "capturing",
       audio: { deliveredRatio: 0.987 }
-    }).ratio,
+    }, zh).ratio,
     "音频 99%"
   );
 });
@@ -127,9 +128,9 @@ test("formatters", () => {
   assert.equal(formatBytes(0), "0 KB");
   assert.equal(formatBytes(5 * 1024 ** 2), "5 MB");
   assert.equal(formatBytes(1.5 * 1024 ** 3), "1.50 GB");
-  assert.equal(formatDuration(45_000), "45 秒");
-  assert.equal(formatDuration(125_000), "2 分 5 秒");
-  assert.equal(formatDuration(3_900_000), "1 小时 5 分");
+  assert.equal(formatDuration(45_000, zh), "45 秒");
+  assert.equal(formatDuration(125_000, zh), "2 分 5 秒");
+  assert.equal(formatDuration(3_900_000, zh), "1 小时 5 分");
   assert.equal(formatElapsed(0), "");
   assert.equal(formatElapsed(1_000, 66_000), "01:05");
   assert.equal(formatElapsed(1, 3_725_001), "1:02:05");

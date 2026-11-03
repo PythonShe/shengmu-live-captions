@@ -12,6 +12,7 @@ import {
   protectGlossaryTerms,
   restoreGlossaryTerms
 } from "./glossary.js";
+import { LocalizedError, isLocalMessage, msg } from "./i18n-message.js";
 
 export const DEFAULT_TRANSLATION_MODE = "api";
 // Fresh installs translate on-device with Chrome's built-in Translator, so
@@ -28,7 +29,6 @@ export const TRANSLATION_PROVIDERS = Object.freeze({
   // but literal quality and no context, so the popup suggests a key.
   chrome: Object.freeze({
     id: "chrome",
-    label: "Chrome 内置翻译（本机）",
     baseUrl: "",
     model: "builtin",
     requiresApiKey: false,
@@ -38,7 +38,6 @@ export const TRANSLATION_PROVIDERS = Object.freeze({
   }),
   deepseek: Object.freeze({
     id: "deepseek",
-    label: "DeepSeek",
     baseUrl: "https://api.deepseek.com/v1",
     model: "deepseek-chat",
     requiresApiKey: true,
@@ -47,7 +46,6 @@ export const TRANSLATION_PROVIDERS = Object.freeze({
   }),
   openai: Object.freeze({
     id: "openai",
-    label: "OpenAI",
     baseUrl: "https://api.openai.com/v1",
     model: "gpt-4o-mini",
     requiresApiKey: true,
@@ -58,7 +56,6 @@ export const TRANSLATION_PROVIDERS = Object.freeze({
   // fun-asr-realtime speech backend, so one key covers both halves.
   bailian: Object.freeze({
     id: "bailian",
-    label: "阿里云百炼（通义千问）",
     baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
     model: "qwen-plus",
     requiresApiKey: true,
@@ -67,7 +64,6 @@ export const TRANSLATION_PROVIDERS = Object.freeze({
   }),
   custom: Object.freeze({
     id: "custom",
-    label: "自定义 OpenAI 兼容",
     baseUrl: "http://127.0.0.1:11434/v1",
     model: "",
     requiresApiKey: false,
@@ -77,6 +73,15 @@ export const TRANSLATION_PROVIDERS = Object.freeze({
 });
 
 const PROVIDER_IDS = Object.keys(TRANSLATION_PROVIDERS);
+
+/**
+ * A provider's display name as a message (popup keys provider_<id>).
+ * @param {{ provider?: string }} [config]
+ */
+export function providerName(config) {
+  const id = config?.provider;
+  return id && id in TRANSLATION_PROVIDERS ? msg(`provider_${id}`) : msg("provider_generic");
+}
 
 // A Bailian key belongs to one region, and the speech backend's region
 // setting already says which, so the Qwen endpoint follows it rather than
@@ -151,7 +156,7 @@ export function parseRetryAfter(value, now = Date.now()) {
  */
 export class TranslationApiError extends Error {
   /**
-   * @param {string} message
+   * @param {import("./i18n-message.js").LocalMessage | string} message
    * @param {{code?: string, status?: number | null, cause?: unknown,
    *   retryAfterMs?: number | null}} [details]
    */
@@ -159,8 +164,10 @@ export class TranslationApiError extends Error {
     message,
     { code = "api_error", status = null, cause = null, retryAfterMs = null } = {}
   ) {
-    super(message);
+    super(isLocalMessage(message) ? message.key : message);
     this.name = "TranslationApiError";
+    // The user-facing text; see i18n-message.js errorMessage.
+    if (isLocalMessage(message)) this.localMessage = message;
     this.code = code;
     this.status = status;
     // Server-requested wait before retrying (429/503 Retry-After), or null.
@@ -218,13 +225,13 @@ export function normalizeTranslationBaseUrl(value, fallback = "") {
   try {
     url = new URL(withProtocol);
   } catch {
-    throw new Error("翻译 API 地址格式不正确");
+    throw new LocalizedError(msg("translation_url_invalid"));
   }
   if (!["http:", "https:"].includes(url.protocol)) {
-    throw new Error("翻译 API 地址必须以 http:// 或 https:// 开头");
+    throw new LocalizedError(msg("translation_url_protocol"));
   }
   if (url.username || url.password) {
-    throw new Error("翻译 API 地址不要包含用户名或密码，请使用 API Key");
+    throw new LocalizedError(msg("translation_url_credentials"));
   }
   url.search = "";
   url.hash = "";
@@ -290,7 +297,6 @@ export function resolveTranslationConfig(settings = {}) {
   }
   const config = {
     ...normalized,
-    providerLabel: preset.label,
     requiresApiKey: preset.requiresApiKey,
     builtin: Boolean(preset.builtin),
     disableThinking: preset.disableThinking || isDeepSeekEndpoint,
@@ -308,10 +314,10 @@ export function resolveTranslationConfig(settings = {}) {
 export function translationConfigIssue(config = {}) {
   if (config.mode !== "api") return "";
   if (!String(config.model || "").trim()) {
-    return "尚未填写翻译模型";
+    return msg("translation_model_missing");
   }
   if (config.requiresApiKey && !config.apiKey) {
-    return `尚未填写 ${config.providerLabel || "翻译 API"} 的 API Key`;
+    return msg("translation_key_missing", providerName(config));
   }
   if (config.apiKey && config.baseUrl) {
     try {
@@ -323,7 +329,7 @@ export function translationConfigIssue(config = {}) {
         host === "::1" ||
         /^127\./.test(host);
       if (url.protocol === "http:" && !loopback) {
-        return "配置了 API Key 时不能使用非本机 http:// 地址，请改用 https://";
+        return msg("translation_http_with_key");
       }
     } catch {
       // normalizeTranslationBaseUrl already validates the URL.
@@ -334,7 +340,7 @@ export function translationConfigIssue(config = {}) {
 
 export function chatCompletionsUrl(baseUrl) {
   const trimmed = String(baseUrl || "").trim().replace(/\/+$/, "");
-  if (!trimmed) throw new Error("翻译 API 地址为空");
+  if (!trimmed) throw new LocalizedError(msg("translation_url_empty"));
   if (/\/chat\/completions$/i.test(trimmed)) return trimmed;
   return `${trimmed}/chat/completions`;
 }
@@ -411,15 +417,15 @@ export function buildTranslationRequestBody({
   tokenField = "max_tokens"
 } = {}) {
   if (!Array.isArray(texts) || texts.length === 0) {
-    throw new TranslationApiError("没有需要翻译的文本", { code: "empty" });
+    throw new TranslationApiError(msg("translation_nothing_to_translate"), { code: "empty" });
   }
   const segments = texts.map((text) => String(text || "").trim());
   if (segments.some((text) => !text)) {
-    throw new TranslationApiError("存在空的翻译片段", { code: "empty" });
+    throw new TranslationApiError(msg("translation_empty_segment"), { code: "empty" });
   }
   const model = String(config?.model || "").trim();
   if (!model) {
-    throw new TranslationApiError("尚未填写翻译模型", { code: "config" });
+    throw new TranslationApiError(msg("translation_model_missing"), { code: "config" });
   }
   const effectiveEntries =
     Array.isArray(glossaryEntries) && glossaryEntries.length > 0
@@ -535,7 +541,7 @@ export function parseTranslationOutput(content, expectedCount) {
   const count = Math.max(0, Number(expectedCount) || 0);
   const raw = String(content ?? "").trim();
   if (!raw) {
-    throw new TranslationApiError("翻译 API 返回了空内容", {
+    throw new TranslationApiError(msg("translation_empty_response"), {
       code: "empty_response"
     });
   }
@@ -558,14 +564,14 @@ export function parseTranslationOutput(content, expectedCount) {
       /^\{/.test(stripped) ||
       (/^\[/.test(stripped) && !/^\[\s*\d{1,3}\]/.test(stripped));
     if (looksJson) {
-      throw new TranslationApiError("翻译 API 返回的 JSON 不完整或格式错误", {
+      throw new TranslationApiError(msg("translation_json_incomplete"), {
         code: "parse_error"
       });
     }
     parsed = parseNumberedLines(stripped);
   }
   if (!parsed || parsed.length === 0) {
-    throw new TranslationApiError("无法解析翻译 API 返回的内容", {
+    throw new TranslationApiError(msg("translation_unparsable"), {
       code: "parse_error"
     });
   }
@@ -574,13 +580,13 @@ export function parseTranslationOutput(content, expectedCount) {
   const extraContent = parsed.slice(count).some((item) => item);
   if (parsed.length < count || extraContent || (!fromJson && parsed.length !== count)) {
     throw new TranslationApiError(
-      `翻译 API 返回的条数不匹配（期望 ${count}，实际 ${parsed.length}）`,
+      msg("translation_count_mismatch", count, parsed.length),
       { code: "count_mismatch" }
     );
   }
   const result = parsed.slice(0, count);
   if (result.every((item) => !item)) {
-    throw new TranslationApiError("翻译 API 没有返回可用译文", {
+    throw new TranslationApiError(msg("translation_no_usable"), {
       code: "empty_translation"
     });
   }
@@ -602,33 +608,33 @@ function safeErrorMessage(status, bodyText) {
 /**
  * @param {number} status
  * @param {string} bodyText
- * @param {string} [providerLabel]
+ * @param {import("./i18n-message.js").LocalMessage | string} [provider] Display name.
  * @param {string | null} [retryAfterHeader] Raw Retry-After header value.
  */
 export function mapHttpError(
   status,
   bodyText,
-  providerLabel = "翻译 API",
+  provider = msg("provider_generic"),
   retryAfterHeader = null
 ) {
   const retryAfterMs =
     status === 429 || status === 503 ? parseRetryAfter(retryAfterHeader) : null;
   const detail = safeErrorMessage(status, bodyText);
-  const suffix = detail ? `：${detail}` : "";
+  const suffix = detail ? msg("detail_suffix", detail) : "";
   if (status === 401 || status === 403) {
     return new TranslationApiError(
-      `${providerLabel} API Key 无效或没有权限${suffix}`,
+      msg("translation_error_auth", provider, suffix),
       { code: "auth", status }
     );
   }
   if (status === 402) {
-    return new TranslationApiError(`${providerLabel} 账户余额不足${suffix}`, {
+    return new TranslationApiError(msg("translation_error_balance", provider, suffix), {
       code: "balance",
       status
     });
   }
   if (status === 429) {
-    return new TranslationApiError(`${providerLabel} 请求过于频繁${suffix}`, {
+    return new TranslationApiError(msg("translation_error_rate_limit", provider, suffix), {
       code: "rate_limit",
       status,
       retryAfterMs
@@ -636,18 +642,18 @@ export function mapHttpError(
   }
   if (status === 400 || status === 422) {
     return new TranslationApiError(
-      `${providerLabel} 拒绝了翻译请求${suffix}`,
+      msg("translation_error_bad_request", provider, suffix),
       { code: "bad_request", status }
     );
   }
   if (status >= 500) {
     return new TranslationApiError(
-      `${providerLabel} 服务暂时不可用（HTTP ${status}）${suffix}`,
+      msg("translation_error_server", provider, status, suffix),
       { code: "server", status, retryAfterMs }
     );
   }
   return new TranslationApiError(
-    `${providerLabel} 请求失败（HTTP ${status}）${suffix}`,
+    msg("translation_error_http", provider, status, suffix),
     { code: "http_error", status }
   );
 }
@@ -737,20 +743,18 @@ async function postChatCompletion({
   } catch (error) {
     if (timedOut) {
       throw new TranslationApiError(
-        `${config.providerLabel || "翻译 API"} 翻译请求超时（${Math.round(
-          timeoutMs / 1000
-        )} 秒）`,
+        msg("translation_timeout", providerName(config), Math.round(timeoutMs / 1000)),
         { code: "timeout", cause: error }
       );
     }
     if (isAbortError(error)) {
-      throw new TranslationApiError("翻译请求已取消", {
+      throw new TranslationApiError(msg("translation_aborted"), {
         code: "aborted",
         cause: error
       });
     }
     throw new TranslationApiError(
-      `无法连接 ${config.providerLabel} 翻译 API（网络或代理错误）`,
+      msg("translation_network", providerName(config)),
       { code: "network", cause: error }
     );
   } finally {
@@ -774,17 +778,17 @@ async function postChatCompletion({
  */
 async function translateWithBuiltin({ texts, entries, builtinTranslate, signal }) {
   if (typeof builtinTranslate !== "function") {
-    throw new TranslationApiError("当前环境无法使用 Chrome 内置翻译", { code: "builtin_unavailable" });
+    throw new TranslationApiError(msg("translation_builtin_unavailable"), { code: "builtin_unavailable" });
   }
   const startedAt = Date.now();
   const segments = texts.map((text) => String(text || "").trim());
   if (segments.length === 0 || segments.some((text) => !text)) {
-    throw new TranslationApiError("存在空的翻译片段", { code: "empty" });
+    throw new TranslationApiError(msg("translation_empty_segment"), { code: "empty" });
   }
   const protectedRows = segments.map((text) => protectGlossaryTerms(text, entries));
   const first = await builtinTranslate(protectedRows.map((row) => row.text), { signal });
   if (!Array.isArray(first) || first.length !== segments.length) {
-    throw new TranslationApiError("Chrome 内置翻译返回的条数不对", { code: "count_mismatch" });
+    throw new TranslationApiError(msg("translation_builtin_count"), { code: "count_mismatch" });
   }
   const translations = first.map((text, index) =>
     restoreGlossaryTerms(text, protectedRows[index].slots)
@@ -826,11 +830,11 @@ export async function translateTexts({
     ? { ...config, enabled: true }
     : config;
   if (!resolved?.model) {
-    throw new TranslationApiError("尚未配置翻译 API", { code: "config" });
+    throw new TranslationApiError(msg("translation_not_configured"), { code: "config" });
   }
   if (!resolved.enabled) {
     throw new TranslationApiError(
-      resolved.issue || "翻译 API 未启用",
+      resolved.issue || msg("translation_disabled"),
       { code: "config" }
     );
   }
@@ -842,7 +846,7 @@ export async function translateTexts({
     return translateWithBuiltin({ texts, entries, builtinTranslate, signal });
   }
   if (typeof fetchImpl !== "function") {
-    throw new TranslationApiError("当前环境不支持 fetch", { code: "config" });
+    throw new TranslationApiError(msg("translation_no_fetch"), { code: "config" });
   }
   const endpoint = chatCompletionsUrl(resolved.baseUrl);
   const startedAt = Date.now();
@@ -916,7 +920,7 @@ export async function translateTexts({
     throw mapHttpError(
       attempt.response.status,
       attempt.bodyText,
-      resolved.providerLabel || "翻译 API",
+      providerName(resolved),
       attempt.response.headers?.get?.("retry-after") ?? null
     );
   }
@@ -924,14 +928,14 @@ export async function translateTexts({
   try {
     data = JSON.parse(attempt.bodyText);
   } catch {
-    throw new TranslationApiError("翻译 API 返回了无法解析的 JSON", {
+    throw new TranslationApiError(msg("translation_bad_json"), {
       code: "parse_error"
     });
   }
   const finishReason = data?.choices?.[0]?.finish_reason;
   if (finishReason === "length") {
     throw new TranslationApiError(
-      "翻译 API 输出被截断，请减少批量或调大 max_tokens",
+      msg("translation_truncated"),
       { code: "truncated" }
     );
   }
@@ -941,11 +945,11 @@ export async function translateTexts({
   if (!content) {
     if (typeof message?.reasoning_content === "string" && message.reasoning_content) {
       throw new TranslationApiError(
-        "翻译模型只返回了思考内容，请关闭 thinking 模式或更换模型",
+        msg("translation_thinking_only"),
         { code: "thinking_only" }
       );
     }
-    throw new TranslationApiError("翻译 API 返回了空内容", {
+    throw new TranslationApiError(msg("translation_empty_response"), {
       code: "empty_response"
     });
   }
