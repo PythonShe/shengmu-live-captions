@@ -232,6 +232,24 @@ test("system prompt tells the model that segments are one continuous utterance",
   assert.match(system, /相邻的片段来自同一段连续语音/);
   assert.match(system, /不要把上一片段的意思再译一遍/);
   assert.match(system, /context 是紧邻的前文/);
+  assert.match(system, /7\. 输入中若有 partial 字段/);
+  assert.match(system, /8\. 输入中若有 domain 字段/);
+  assert.match(system, /9\. 输入中若有 glossary 字段/);
+});
+
+test("the system message is identical whatever partial, domain and glossary are", () => {
+  const config = deepseekConfig("https://api.deepseek.com/v1");
+  const glossaryEntries = [{ sources: ["Spirit"], target: "精魂" }];
+  const a = buildTranslationRequestBody({ texts: ["Hi."], config });
+  const b = buildTranslationRequestBody({
+    texts: ["Your spirit is low."],
+    config,
+    partial: true,
+    glossaryEntries,
+    domainHint: "Path of Exile"
+  });
+  assert.equal(a.messages[0].content, b.messages[0].content);
+  assert.notEqual(a.messages[1].content, b.messages[1].content);
 });
 
 test("custom provider pointed at DeepSeek also disables thinking", () => {
@@ -285,10 +303,11 @@ test("buildTranslationRequestBody injects only matched glossary terms and domain
   });
   const plainPayload = JSON.parse(plain.messages[1].content);
   assert.equal("glossary" in plainPayload, false);
-  assert.doesNotMatch(plain.messages[0].content, /glossary|当前直播领域/);
+  assert.equal("domain" in plainPayload, false);
+  assert.equal("partial" in plainPayload, false);
 
   // Matched segments inject only the hit entries (keyed by the ASR spelling)
-  // and append the domain/glossary rules to the system prompt.
+  // and add the partial/domain fields to the user payload.
   const matched = buildTranslationRequestBody({
     texts: ["Welcome to path of excel, your spirit is low."],
     config,
@@ -302,9 +321,9 @@ test("buildTranslationRequestBody injects only matched glossary terms and domain
     spirit: "精魂"
   });
   assert.equal("Chaos Orb" in matchedPayload.glossary, false);
-  assert.match(matched.messages[0].content, /7\. 当前输入是实时字幕里尚未定稿的半句/);
-  assert.match(matched.messages[0].content, /8\. 当前直播领域：Path of Exile \(流放之路\) 游戏直播/);
-  assert.match(matched.messages[0].content, /9\. 必须严格使用输入 glossary 中的术语译名/);
+  assert.match(matchedPayload.partial, /尚未定稿的半句/);
+  assert.equal(matchedPayload.domain, "Path of Exile (流放之路) 游戏直播");
+  assert.equal(matched.messages[0].content, plain.messages[0].content);
 });
 
 test("parseTranslationOutput rejects JSON with extra non-empty items", () => {

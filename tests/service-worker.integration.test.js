@@ -328,8 +328,8 @@ test("service worker injects active glossary and domain hint into API requests",
     assert.equal(response.ok, true);
     assert.equal(api.requests.length, 1);
     const [systemMsg, userMsg] = api.requests[0].body.messages;
-    assert.match(systemMsg.content, /Path of Exile \(流放之路\) 游戏直播/);
     const userPayload = JSON.parse(userMsg.content);
+    assert.match(userPayload.domain, /Path of Exile \(流放之路\) 游戏直播/);
     assert.deepEqual(userPayload.glossary, { "live stream": "直播间" });
 
     await sendToBackground({
@@ -344,7 +344,8 @@ test("service worker injects active glossary and domain hint into API requests",
     assert.equal(disabledResp.ok, true);
     assert.equal(api.requests.length, 2);
     const [disabledSys, disabledUser] = api.requests[1].body.messages;
-    assert.doesNotMatch(disabledSys.content, /当前直播领域/);
+    assert.equal(disabledSys.content, systemMsg.content);
+    assert.equal("domain" in JSON.parse(disabledUser.content), false);
     assert.equal("glossary" in JSON.parse(disabledUser.content), false);
   } finally {
     await api.close();
