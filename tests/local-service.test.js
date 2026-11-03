@@ -127,7 +127,13 @@ async function launch(t, { env: extraEnv = {}, models = [MODEL_9B] } = {}) {
     records: env.SHENGMU_STUB_RECORD_DIR,
     call: (options) => request(port, options),
     wlkRecords: () => readRecords(env.SHENGMU_STUB_RECORD_DIR, "wlk"),
-    llamaRecords: () => readRecords(env.SHENGMU_STUB_RECORD_DIR, "llama")
+    llamaRecords: () => readRecords(env.SHENGMU_STUB_RECORD_DIR, "llama"),
+    // The record of the WLK process the PID file points at now. Ordering by
+    // PID is not enough: Windows does not hand out PIDs in increasing order.
+    currentWlk: () => {
+      const { pid } = readPidFile(env.SHENGMU_RUNTIME_DIR, "wlk");
+      return readRecords(env.SHENGMU_STUB_RECORD_DIR, "wlk").find((record) => record.pid === pid);
+    }
   };
   t.after(async () => {
     const status = await ctx.call({ path: "/status" }).catch(() => null);
@@ -152,8 +158,7 @@ function readRecords(dir, kind) {
   return fs
     .readdirSync(dir)
     .filter((name) => name.startsWith(`${kind}-`))
-    .map((name) => JSON.parse(fs.readFileSync(path.join(dir, name), "utf8")))
-    .sort((a, b) => a.pid - b.pid);
+    .map((name) => JSON.parse(fs.readFileSync(path.join(dir, name), "utf8")));
 }
 
 const EXT = { origin: "chrome-extension://abcdefghijklmnop" };
@@ -256,7 +261,7 @@ test("start follows the translation mode and restarts WLK on mode or glossary ch
   const translatingPid = readPidFile(ctx.runtime, "wlk").pid;
   assert.notEqual(translatingPid, asrOnlyPid);
   assert.equal(isPidAlive(asrOnlyPid), false);
-  let wlk = ctx.wlkRecords().at(-1);
+  let wlk = ctx.currentWlk();
   assert.equal(wlk.argv[wlk.argv.indexOf("--openai-translation-glossary") + 1], "Chaos Orb -> 混沌石");
   assert.equal(wlk.argv[wlk.argv.indexOf("--openai-translation-model") + 1], "Index-Translate-9B");
 
@@ -272,7 +277,7 @@ test("start follows the translation mode and restarts WLK on mode or glossary ch
   await finished(ctx);
   const regloss = readPidFile(ctx.runtime, "wlk").pid;
   assert.notEqual(regloss, translatingPid);
-  wlk = ctx.wlkRecords().at(-1);
+  wlk = ctx.currentWlk();
   assert.equal(wlk.argv[wlk.argv.indexOf("--openai-translation-glossary") + 1], "Divine Orb -> 神圣石");
   assert.equal(isPidAlive(llamaPid), false);
   const relaunchedLlama = readPidFile(ctx.runtime, "llama-server").pid;
