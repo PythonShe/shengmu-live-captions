@@ -598,7 +598,9 @@ async function startDownload(payload) {
   const partPath = `${targetPath}.part`;
   const totalBytes = await runCurlHeadTotal(model.downloadUrl);
   const partBytes = fileSize(partPath);
-  if (partBytes > 0 && (partBytes === totalBytes || partBytes > totalBytes)) {
+  // totalBytes is 0 when the HEAD probe failed or timed out; a size check
+  // against 0 would wipe a resumable multi-GB .part, so only trust a real total.
+  if (partBytes > 0 && totalBytes > 0 && partBytes >= totalBytes) {
     // A finished or over-long leftover would make curl answer 416 forever.
     try {
       fs.rmSync(partPath, { force: true });
@@ -658,7 +660,16 @@ async function startDownload(payload) {
 
   child.on("exit", (code) => {
     clearInterval(timer);
-    if (code === 0) {
+    const partSize = fileSize(partPath);
+    if (code === 0 && totalBytes > 0 && partSize !== totalBytes) {
+      download = {
+        ...download,
+        state: "error",
+        receivedBytes: partSize,
+        error: `下载大小不符（期望 ${totalBytes}，实际 ${partSize}）`,
+        finishedAt: Date.now()
+      };
+    } else if (code === 0) {
       try {
         fs.renameSync(partPath, targetPath);
         download = {
