@@ -28,6 +28,7 @@ export function createChromeMock() {
   const tabMessages = [];
   const injections = [];
   const createdDocuments = [];
+  const createdWindows = [];
   const state = { offscreenOpen: false };
   // declarativeNetRequest session rules by id.
   const sessionRules = new Map();
@@ -95,7 +96,13 @@ export function createChromeMock() {
       get: async (tabId) => ({ id: tabId }),
       update: async () => ({})
     },
-    windows: { create: async () => ({}), update: async () => ({}) },
+    windows: {
+      create: async (options) => {
+        createdWindows.push(options);
+        return {};
+      },
+      update: async () => ({})
+    },
     offscreen: {
       createDocument: async (options) => {
         createdDocuments.push(options);
@@ -140,6 +147,7 @@ export function createChromeMock() {
     tabMessages,
     injections,
     createdDocuments,
+    createdWindows,
     sessionRules,
     state,
     hooks,

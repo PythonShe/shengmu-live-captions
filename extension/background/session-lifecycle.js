@@ -181,7 +181,7 @@ export function createSessionLifecycle({
     let warning = "";
     if (settings.current.openPanelOnStart) {
       try {
-        await views.openMonitorWindow();
+        await views.openMonitorWindow({ focus: false });
       } catch (error) {
         warning = t("session_monitor_open_failed", errorText(error));
         store.state.detail = warning;

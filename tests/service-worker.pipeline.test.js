@@ -258,6 +258,19 @@ test("a stop that arrives after the session ended does not finalize it again", a
   assert.equal(mock.sent.at(-1).type, "stop-capture");
 });
 
+test("starting a capture opens the transcript window behind the watched tab", async () => {
+  await configureApi({ openPanelOnStart: true });
+  mock.createdWindows.length = 0;
+  try {
+    await startSession();
+    assert.equal(mock.createdWindows.length, 1);
+    assert.equal(mock.createdWindows[0].focused, false);
+    await mock.sendToBackground({ target: "background", type: "stop-capture" });
+  } finally {
+    await configureApi();
+  }
+});
+
 function lastStartCapture() {
   return mock.sent.filter((message) => message?.target === "offscreen" && message.type === "start-capture").at(-1);
 }
