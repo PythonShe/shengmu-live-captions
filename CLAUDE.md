@@ -27,6 +27,14 @@ Chrome MV3 extension: `tabCapture` audio -> `offscreen` -> WhisperLiveKit ASR (`
 - Never hand-edit or clear `server.pid`, `.runtime/`, `logs/`, `chrome-profile/`, `*.part` or `.research/`.
 - A version bump updates `package.json` and `extension/manifest.json` together (a test enforces it).
 
+## i18n
+
+- UI text lives in `extension/_locales/{zh_CN,en,zh_TW}/messages.json`; zh_CN is `default_locale` and the HTML keeps its zh_CN text plus `data-i18n*` attributes. Add every new key to all three files: `tests/i18n-catalog.test.js` fails on unequal keys or `$n` params, a key the code names but the catalog lacks, and unused keys. Keys are lowercase snake_case (Chrome matches keys case-insensitively).
+- zh_TW is OpenCC `s2twp` output, then Chrome's own Taiwan terms (擴充功能, 權限, 即時, 「」); the brand stays 声幕.
+- `lib/` never builds UI text: it returns `msg(key, ...params)` (`lib/i18n-message.js`) or throws an error carrying one. The worker renders with `background/i18n.js`, pages with `ui/i18n.js`, and offscreen.js / content-overlay.js have inline copies. Runtime state (`detail`, `translationError`) holds rendered text.
+- `server.mjs` adds `errorCode` / `messageKey` next to its Chinese `error` / `message`; keep both, the CLI and older builds read the text.
+- The translation prompt, glossary data and the zh target language are not localized.
+
 ## Easy to break silently
 
 No test catches these; each one came from a real bug.
