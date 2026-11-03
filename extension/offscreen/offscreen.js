@@ -2,6 +2,12 @@ const TARGET_SAMPLE_RATE = 16000;
 const RECONNECT_DELAYS_MS = [1000, 2000, 4000, 8000, 15000, 30000];
 const SERVER_FINISH_TIMEOUT_MS = 10000;
 const FINAL_WRITE_TIMEOUT_MS = 5000;
+// Live packets are dropped while more than this is still queued on the
+// socket. PCM16 at 16 kHz is 32,000 bytes per second, so 64 KiB is about two
+// seconds of audio: a backlog that size already pushes captions past the
+// 1-3 s latency budget, and queueing more would only make them later (and
+// grow memory without bound) when WhisperLiveKit or the link falls behind.
+const WS_BUFFERED_LIMIT_BYTES = 64 * 1024;
 
 let sessionId = null;
 let targetTabId = null;
@@ -22,6 +28,8 @@ let pendingLength = 0;
 let packetSamples = TARGET_SAMPLE_RATE / 10;
 let captureStartedAt = 0;
 let capturedAudioSamples = 0;
+let droppedPackets = 0;
+let droppedSamples = 0;
 let latestAudioStats = null;
 let windowPeak = 0;
 let epochId = null;
@@ -182,9 +190,15 @@ function flushPackets(force) {
       audioContext.sampleRate,
       TARGET_SAMPLE_RATE
     );
-    if (resampled.length > 0) {
-      websocket.send(floatToPCM16(resampled));
+    if (resampled.length === 0) continue;
+    // The final flush on stop is never dropped: it carries the end of the
+    // last sentence. It is at most one packet, so it cannot grow the backlog.
+    if (!force && websocket.bufferedAmount > WS_BUFFERED_LIMIT_BYTES) {
+      droppedPackets += 1;
+      droppedSamples += resampled.length;
+      continue;
     }
+    websocket.send(floatToPCM16(resampled));
   }
 }
 
@@ -210,7 +224,12 @@ function updateAudioStats() {
     state: audioContext.state,
     trackState: track?.readyState || "",
     trackMuted: Boolean(track?.muted),
-    peak: Number(peak.toFixed(4))
+    peak: Number(peak.toFixed(4)),
+    // Audio withheld from the ASR because the socket was backed up; see
+    // WS_BUFFERED_LIMIT_BYTES.
+    droppedPackets,
+    droppedSeconds: Number((droppedSamples / TARGET_SAMPLE_RATE).toFixed(2)),
+    wsBufferedBytes: websocket?.bufferedAmount ?? 0
   };
   void sendToBackground("audio-stats", {
     sessionId,
@@ -423,6 +442,8 @@ async function startCapture(message) {
   requestedWsUrl = normalizeWsUrl(message.wsUrl);
   reconnectAttempts = 0;
   capturedAudioSamples = 0;
+  droppedPackets = 0;
+  droppedSamples = 0;
   latestAudioStats = null;
   windowPeak = 0;
   captureInfo = null;
