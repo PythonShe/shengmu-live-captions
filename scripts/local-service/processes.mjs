@@ -184,7 +184,7 @@ export function windowsKillCommand(pid) {
   return { command: "taskkill", args: ["/PID", String(pid), "/T", "/F"] };
 }
 
-function runQuiet(command, args) {
+export function runQuiet(command, args) {
   return new Promise((resolve) => {
     const child = spawn(command, args, { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
     let stdout = "";
