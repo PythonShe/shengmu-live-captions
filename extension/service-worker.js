@@ -1145,7 +1145,18 @@ async function resetSessionMemory() {
   knownLineSignatures.clear();
 }
 
-async function startSession(message) {
+// Two start requests (double click, popup plus shortcut) would both pass the
+// `active` check before either replaced runtimeState and leave an orphaned
+// session, so starts run one at a time and the later one wins.
+let startQueue = Promise.resolve();
+
+function startSession(message) {
+  const run = startQueue.then(() => startSessionNow(message));
+  startQueue = run.catch(() => {});
+  return run;
+}
+
+async function startSessionNow(message) {
   await initialize();
   if (runtimeState.active) {
     await stopSession({ quiet: true });
