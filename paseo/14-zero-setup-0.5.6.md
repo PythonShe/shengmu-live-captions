@@ -29,7 +29,7 @@ Node 下限定为 24.22.2（Node 24 LTS 当前最新版，旧版本有已公开�
 
 ### 1.3 门禁
 
-`pnpm run verify` = 全部脚本 `node --check` + ESLint（按层限定全局变量）+ `tsc --checkJs`（只查 `lib/`）+ 单元测试；`pnpm run smoke` 用无头 Chrome 加载扩展，检查后台、offscreen、面板、字幕页、浮层注入和本机消息助手的扩展 ID 查找。CI 在 Ubuntu、Windows、macOS（x64 与 arm64）跑 verify，在三个系统跑 smoke。单元测试从 0.5.5 的 113 项增加到 263 项。
+`pnpm run verify` = 全部脚本 `node --check` + ESLint（按层限定全局变量）+ `tsc --checkJs`（只查 `lib/`）+ 单元测试；`pnpm run smoke` 用无头 Chrome 加载扩展，检查后台、offscreen、面板、字幕页、浮层注入和本机消息助手的扩展 ID 查找。CI 在 Ubuntu、Windows、macOS（x64 与 arm64）跑 verify，在三个系统跑 smoke。单元测试从 0.5.5 的 113 项增加到 268 项。
 
 ## 2. 翻译链路
 
@@ -79,6 +79,8 @@ offscreen 文档按设置 `asrBackend` 选择后端，三者都适配成 Whisper
 | `bailian` | 阿里云百炼 `fun-asr-realtime`，WebSocket 双工协议，`task-started` 之后才送音频 | `context` 上下文提示（400 字符） |
 | `wlk` | 原 WhisperLiveKit 链路 | 不变 |
 
+`chrome` 与 `bailian` 每条消息重发最近 120 行，转写归并又在每条消息上重新计算，所以窗口只在归并后的句子开头截断：从句子中间截断，剩下的行会变成新句子（新 id），历史与导出重复，还会多翻译一次。
+
 百炼的 Key 不进消息：后台用 `declarativeNetRequest` 会话规则（id 8101）给握手请求加 `Authorization` 头，规则限定 `initiatorDomains` 为本扩展、`tabIds: [-1]`、资源类型 websocket；会话结束或开始失败都会撤销规则。
 
 Chrome 155 实测（offscreen 文档内）：
@@ -112,7 +114,7 @@ Chrome 155 实测（offscreen 文档内）：
 
 ### 3.5 新装默认值
 
-新装默认识别 `chrome`、翻译 `chrome`，开箱即用；已有安装由 `migrateLegacySettings` 保持原来的 WLK 与 API 设置不变。面板按所选后端只显示相关区块（本地模型、连接、翻译模式只在 WLK 下出现）。
+新装默认识别 `chrome`、翻译 `chrome`，开箱即用；已有安装由 `migrateLegacySettings` 保持原来的 WLK 与 API 设置不变。面板按所选后端只显示相关区块（本地模型、连接、翻译模式只在 WLK 下出现）。WLK 搭配 Chrome 内置翻译或无需 Key 的自定义端点时，同样只启动 ASR，不要求下载本地翻译模型；内置翻译在当前浏览器不可用时，本地模型仍作兜底。
 
 ## 4. 界面多语言
 
@@ -129,7 +131,7 @@ Chrome 155 实测（offscreen 文档内）：
 
 ## 5. 验证结果
 
-- `pnpm run verify`：85 个脚本语法检查通过，ESLint 与类型检查通过，单元测试 263 项全部通过。
+- `pnpm run verify`：85 个脚本语法检查通过，ESLint 与类型检查通过，单元测试 268 项全部通过。
 - `pnpm run smoke`：11 项检查全部通过。
 - CI：9 个任务（三系统 verify，含 macOS x64 与 arm64，以及三系统 smoke）通过。
 

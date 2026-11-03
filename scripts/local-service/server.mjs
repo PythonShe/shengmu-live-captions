@@ -364,11 +364,10 @@ async function startServices(payload, generation) {
   if (!asrModel) {
     return { status: 400, body: failure("未知的 ASR 模型", "server_unknown_asr_model") };
   }
-  // In "api" mode with a working key the extension translates with its own
-  // provider, so the local llama.cpp server would only burn the VRAM the ASR
+  // In "api" mode with a ready provider the extension translates by itself, so the local llama.cpp server would only burn the VRAM the ASR
   // needs and hand WhisperLiveKit a translation the extension discards. Start
-  // ASR only. Without an explicit `true` (old popup, no key, `server` mode) the
-  // local model is still the one producing Chinese, so it starts as usual.
+  // ASR only. Without an explicit `true` (old popup, provider not ready, `server`
+  // mode) the local model is still the one producing Chinese, so it starts as usual.
   const asrOnly =
     payload.translationMode === "api" && payload.apiTranslationConfigured === true;
   const translationModel = resolveTranslationModel(payload.translationModel);

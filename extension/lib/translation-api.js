@@ -282,6 +282,23 @@ export function normalizeTranslationSettings(value = {}) {
 }
 
 /**
+ * Whether API mode really translates in the extension, leaving the local
+ * translation model nothing to do. Takes page settings, which say only whether
+ * a key is configured, never the key.
+ * @param {any} settings
+ * @param {string} [builtinSupport] Translator.availability(), "missing" without the API
+ * @returns {boolean}
+ */
+export function translatesInExtension(settings = {}, builtinSupport = "") {
+  if (settings.translationMode !== "api") return false;
+  const provider = TRANSLATION_PROVIDERS[settings.translationProvider];
+  if (!provider) return false;
+  if (provider.builtin) return !["missing", "unavailable"].includes(builtinSupport);
+  if (provider.requiresApiKey) return Boolean(settings.translationApiKeyConfigured?.[provider.id]);
+  return Boolean(String(settings.translationModel || "").trim());
+}
+
+/**
  * The request fields that switch reasoning off, in each provider's dialect.
  * Subtitles need an answer in a few hundred milliseconds, not a plan.
  * @param {string} provider

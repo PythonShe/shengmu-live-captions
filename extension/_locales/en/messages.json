@@ -477,7 +477,7 @@
     "message": "Starting…"
   },
   "popup_translation_by_api": {
-    "message": "Translated by the API; no local model needed"
+    "message": "Translated by the extension; no local model needed"
   },
   "popup_ready": {
     "message": "ready"
@@ -486,7 +486,7 @@
     "message": "Once the local control service runs, you can start ASR and the local translation model from here."
   },
   "popup_hint_api_mode": {
-    "message": "API translation needs only local ASR, so all GPU memory and compute go to recognition."
+    "message": "This translation needs only local ASR, so all GPU memory and compute go to recognition."
   },
   "popup_hint_asr_cached": {
     "message": "ASR $1 is cached"
@@ -504,7 +504,7 @@
     "message": "$1 is running; Start all switches to the selected model"
   },
   "popup_hint_local_fallback": {
-    "message": "No API key set; the local model translates instead"
+    "message": "The selected translation service is not ready; the local model translates instead"
   },
   "hint_separator": {
     "message": "; "
