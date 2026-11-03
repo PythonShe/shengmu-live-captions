@@ -77,6 +77,14 @@ export const TRANSLATION_PROVIDERS = Object.freeze({
 });
 
 const PROVIDER_IDS = Object.keys(TRANSLATION_PROVIDERS);
+
+// A Bailian key belongs to one region, and the speech backend's region
+// setting already says which, so the Qwen endpoint follows it rather than
+// being stored (storing it would clear the shared key on every region switch).
+const BAILIAN_COMPATIBLE_URLS = Object.freeze({
+  cn: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+  intl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+});
 const DEFAULT_CONTEXT_LINES = 4;
 const MAX_CONTEXT_CHARS = 480;
 
@@ -265,6 +273,11 @@ export function normalizeTranslationSettings(value = {}) {
 
 export function resolveTranslationConfig(settings = {}) {
   const normalized = normalizeTranslationSettings(settings);
+  if (normalized.provider === "bailian") {
+    normalized.baseUrl =
+      BAILIAN_COMPATIBLE_URLS[/** @type {"cn" | "intl"} */ (settings.bailianRegion)] ||
+      BAILIAN_COMPATIBLE_URLS.cn;
+  }
   const preset = TRANSLATION_PROVIDERS[normalized.provider];
   const apiKey = normalized.apiKeys[normalized.provider] || "";
   let isDeepSeekEndpoint;

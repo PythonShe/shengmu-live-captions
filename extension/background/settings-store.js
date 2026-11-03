@@ -29,7 +29,8 @@ const TRANSLATION_SETTING_KEYS = Object.freeze([
   "glossaryEnabled",
   "glossaryPresetIds",
   "glossaryDomainHint",
-  "customGlossary"
+  "customGlossary",
+  "bailianRegion"
 ]);
 
 export function translationSettingsChanged(patch = {}) {
