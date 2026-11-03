@@ -47,9 +47,12 @@ export const TRANSLATION_PROVIDERS = Object.freeze({
   openai: Object.freeze({
     id: "openai",
     baseUrl: "https://api.openai.com/v1",
-    model: "gpt-4o-mini",
+    // The cheapest current model; reasoning is switched off for it (see
+    // thinkingOffFields), since its default "medium" effort adds seconds.
+    model: "gpt-6-luna",
     requiresApiKey: true,
-    disableThinking: false,
+    disableThinking: true,
+    tokenField: "max_completion_tokens",
     keyUrl: "https://platform.openai.com/api-keys"
   }),
   // Alibaba Cloud Bailian (Model Studio): the same key also drives the
@@ -59,7 +62,7 @@ export const TRANSLATION_PROVIDERS = Object.freeze({
     baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
     model: "qwen-plus",
     requiresApiKey: true,
-    disableThinking: false,
+    disableThinking: true,
     keyUrl: "https://bailian.console.aliyun.com/?tab=model#/api-key"
   }),
   custom: Object.freeze({
@@ -278,6 +281,22 @@ export function normalizeTranslationSettings(value = {}) {
   };
 }
 
+/**
+ * The request fields that switch reasoning off, in each provider's dialect.
+ * Subtitles need an answer in a few hundred milliseconds, not a plan.
+ * @param {string} provider
+ * @param {string} model
+ * @returns {Record<string, unknown> | null}
+ */
+export function thinkingOffFields(provider, model) {
+  if (provider === "openai") {
+    // Older and larger models reject "none" (gpt-4o-mini has no effort at all).
+    return /^gpt-(5\.[1-9]|6(\.\d+)?-(luna|terra))/.test(model) ? { reasoning_effort: "none" } : null;
+  }
+  if (provider === "bailian") return { enable_thinking: false };
+  return { thinking: { type: "disabled" } };
+}
+
 export function resolveTranslationConfig(settings = {}) {
   const normalized = normalizeTranslationSettings(settings);
   if (normalized.provider === "bailian") {
@@ -299,10 +318,16 @@ export function resolveTranslationConfig(settings = {}) {
     ...normalized,
     requiresApiKey: preset.requiresApiKey,
     builtin: Boolean(preset.builtin),
-    disableThinking: preset.disableThinking || isDeepSeekEndpoint,
+    disableThinking: false,
+    thinkingOff: /** @type {Record<string, unknown> | null} */ (null),
+    tokenField: preset.tokenField || "max_tokens",
     keyUrl: preset.keyUrl,
     apiKey
   };
+  if (preset.disableThinking || isDeepSeekEndpoint) {
+    config.thinkingOff = thinkingOffFields(isDeepSeekEndpoint ? "deepseek" : normalized.provider, normalized.model);
+    config.disableThinking = Boolean(config.thinkingOff);
+  }
   const issue = translationConfigIssue(config);
   return {
     ...config,
@@ -414,8 +439,9 @@ export function buildTranslationRequestBody({
   domainHint = "",
   includeThinking = true,
   includeTemperature = true,
-  tokenField = "max_tokens"
+  tokenField = ""
 } = {}) {
+  tokenField ||= config?.tokenField || "max_tokens";
   if (!Array.isArray(texts) || texts.length === 0) {
     throw new TranslationApiError(msg("translation_nothing_to_translate"), { code: "empty" });
   }
@@ -469,9 +495,9 @@ export function buildTranslationRequestBody({
     body.temperature = 0.2;
   }
   if (config?.disableThinking && includeThinking) {
-    // DeepSeek defaults to thinking mode for some endpoints/models; a
-    // reasoning-only completion is useless for subtitles and burns tokens.
-    body.thinking = { type: "disabled" };
+    // DeepSeek, newer OpenAI models and Qwen may think by default; reasoning
+    // adds latency and a reasoning-only completion is useless for subtitles.
+    Object.assign(body, config.thinkingOff || thinkingOffFields("deepseek", model));
   }
   return body;
 }
@@ -668,7 +694,7 @@ function normalizeUsage(usage) {
 
 function shouldRetryWithoutThinking(status, bodyText) {
   if (status !== 400) return false;
-  return /thinking|unknown|unsupported|unrecognized/i.test(String(bodyText || ""));
+  return /thinking|reasoning|unknown|unsupported|unrecognized/i.test(String(bodyText || ""));
 }
 
 function shouldRetryWithCompletionTokens(status, bodyText) {
@@ -855,7 +881,8 @@ export async function translateTexts({
   let includeThinking =
     Boolean(resolved.disableThinking) && learned?.includeThinking !== false;
   let includeTemperature = learned?.includeTemperature !== false;
-  let tokenField = learned?.tokenField || "max_tokens";
+  const defaultTokenField = resolved.tokenField || "max_tokens";
+  let tokenField = learned?.tokenField || defaultTokenField;
   let attempt = null;
   // One initial try plus one retry per distinct fallback (thinking, token
   // field, temperature); each fallback can fire at most once.
@@ -906,7 +933,7 @@ export async function translateTexts({
     if (
       includeThinking !== Boolean(resolved.disableThinking) ||
       !includeTemperature ||
-      tokenField !== "max_tokens" ||
+      tokenField !== defaultTokenField ||
       learned
     ) {
       requestShapeCache.set(shapeKey, {

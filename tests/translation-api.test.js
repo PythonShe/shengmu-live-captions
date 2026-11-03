@@ -278,6 +278,28 @@ test("custom provider pointed at DeepSeek also disables thinking", () => {
   assert.deepEqual(body.thinking, { type: "disabled" });
 });
 
+test("each provider switches reasoning off in its own dialect", () => {
+  const body = (settings) =>
+    buildTranslationRequestBody({ texts: ["Hi"], config: resolveTranslationConfig({ translationMode: "api", ...settings }) });
+  const luna = body({ translationProvider: "openai" });
+  assert.equal(luna.model, "gpt-6-luna");
+  assert.equal(luna.reasoning_effort, "none");
+  assert.equal(luna.max_completion_tokens > 0, true);
+  assert.equal("max_tokens" in luna, false);
+  assert.equal("temperature" in luna, false);
+  assert.equal("thinking" in luna, false);
+
+  const legacy = body({ translationProvider: "openai", translationModel: "gpt-4o-mini" });
+  assert.equal("reasoning_effort" in legacy, false, "models without effort levels get no effort field");
+
+  const qwen = body({ translationProvider: "bailian" });
+  assert.equal(qwen.enable_thinking, false);
+  assert.equal("thinking" in qwen, false);
+
+  const local = body({ translationProvider: "custom", translationModel: "qwen3" });
+  assert.equal("thinking" in local || "enable_thinking" in local || "reasoning_effort" in local, false);
+});
+
 test("buildTranslationRequestBody includes DeepSeek thinking-off and segments", () => {
   const config = deepseekConfig("https://api.deepseek.com/v1");
   const body = buildTranslationRequestBody({

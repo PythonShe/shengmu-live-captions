@@ -29,7 +29,7 @@ Node 下限定为 24.22.2（Node 24 LTS 当前最新版，旧版本有已公开�
 
 ### 1.3 门禁
 
-`pnpm run verify` = 全部脚本 `node --check` + ESLint（按层限定全局变量）+ `tsc --checkJs`（只查 `lib/`）+ 单元测试；`pnpm run smoke` 用无头 Chrome 加载扩展，检查后台、offscreen、面板、字幕页、浮层注入和本机消息助手的扩展 ID 查找。CI 在 Ubuntu、Windows、macOS（x64 与 arm64）跑 verify，在三个系统跑 smoke。单元测试从 0.5.5 的 113 项增加到 259 项。
+`pnpm run verify` = 全部脚本 `node --check` + ESLint（按层限定全局变量）+ `tsc --checkJs`（只查 `lib/`）+ 单元测试；`pnpm run smoke` 用无头 Chrome 加载扩展，检查后台、offscreen、面板、字幕页、浮层注入和本机消息助手的扩展 ID 查找。CI 在 Ubuntu、Windows、macOS（x64 与 arm64）跑 verify，在三个系统跑 smoke。单元测试从 0.5.5 的 113 项增加到 260 项。
 
 ## 2. 翻译链路
 
@@ -49,6 +49,7 @@ DeepSeek 等服务按请求前缀命中缓存。0.5.5 把领域提示、partial 
 
 ### 2.2 失败处理
 
+- 各提供方都关闭推理：DeepSeek 发 `thinking: {type: "disabled"}`，通义千问发 `enable_thinking: false`，OpenAI 默认模型由 `gpt-4o-mini` 换成 `gpt-6-luna` 并发 `reasoning_effort: "none"`（其默认 `medium` 会多出数秒）。不支持该字段的旧模型不发。
 - 记住每个端点接受的请求形状（是否接受 `thinking`、`temperature`、`max_tokens` 字段名），被 400 拒绝后降级重试一次并缓存结论。
 - 429 / 503 的 `Retry-After` 解析为 `retryAfterMs`，行队列与 buffer 翻译共用一个冷却，不再各自撞限流。
 - 条数不符、JSON 截断这类「批次形状」错误把批次对半拆开重试；鉴权、余额、配置错误不重试。
@@ -119,7 +120,7 @@ Chrome 155 实测（offscreen 文档内）：
 
 ## 5. 验证结果
 
-- `pnpm run verify`：85 个脚本语法检查通过，ESLint 与类型检查通过，单元测试 259 项全部通过。
+- `pnpm run verify`：85 个脚本语法检查通过，ESLint 与类型检查通过，单元测试 260 项全部通过。
 - `pnpm run smoke`：11 项检查全部通过。
 - CI：9 个任务（三系统 verify，含 macOS x64 与 arm64，以及三系统 smoke）通过。
 
