@@ -17,9 +17,8 @@ import {
   listHistorySessions
 } from "../storage/history-db.js";
 import { createCaptionReceiver, upsertTailLines } from "../lib/caption-delta.js";
-import { localizePage, renderMessage, t } from "../ui/i18n.js";
+import { errorText, localizePage, renderMessage, t } from "../ui/i18n.js";
 
-const UI_LOCALE = chrome.i18n.getUILanguage();
 import {
   DISPLAY_MODE_LABELS,
   DISPLAY_MODE_ORDER,
@@ -28,6 +27,9 @@ import {
   formatDuration,
   formatElapsed
 } from "../lib/ui-model.js";
+
+// Dates follow the catalog in use, like the rest of the page.
+const UI_LOCALE = t("html_lang");
 
 const PAGE_SIZE = 250;
 const MAX_SEARCH_RESULTS = 1000;
@@ -690,7 +692,7 @@ async function stopCapture() {
     showToast(t("subtitle_stopped"));
     await loadSessions();
   } catch (error) {
-    showToast(error?.message || String(error));
+    showToast(errorText(error));
     elements.stopCapture.disabled = !runtimeState?.active;
   }
 }
@@ -1001,7 +1003,7 @@ async function initializeView() {
     showWelcomeIfEmpty();
     renderAll();
   } catch (error) {
-    showToast(t("subtitle_state_read_failed", error?.message || error));
+    showToast(t("subtitle_state_read_failed", errorText(error)));
   }
 }
 

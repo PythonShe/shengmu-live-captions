@@ -144,7 +144,7 @@
     "message": "Use DeepSeek"
   },
   "popup_api_privacy": {
-    "message": "API mode sends the recognized English captions and the last two lines of context to the selected provider."
+    "message": "API mode sends the recognized English captions and up to 4 recent lines of context (source and translation) to the selected provider."
   },
   "popup_base_url": {
     "message": "API URL"
@@ -1228,5 +1228,9 @@
   },
   "overlay_history_back": {
     "message": "$1 in history · scroll down to go live"
+  },
+  "html_lang": {
+    "message": "en",
+    "description": "BCP 47 tag of this catalog, for the lang attribute"
   }
 }
