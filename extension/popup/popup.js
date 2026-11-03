@@ -98,8 +98,8 @@ const elements = {
 };
 
 const LOCAL_SERVICE_URL = "http://127.0.0.1:8014";
-const LOCAL_SERVICE_COMMAND =
-  "powershell -ExecutionPolicy Bypass -File .\\scripts\\Start-LocalService.ps1";
+// Same on every OS since the Node service manager replaced the .ps1 scripts.
+const LOCAL_SERVICE_COMMAND = "pnpm services:serve";
 const LOCAL_POLL_MS = 2500;
 
 let activeTab = null;
