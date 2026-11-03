@@ -47,6 +47,16 @@ let finishWaiter = null;
 let stopPromise = null;
 let serverMessageChain = Promise.resolve();
 let backgroundWriteChain = Promise.resolve();
+// The speech backend of this capture: { backend: "wlk", wsUrl } (the local
+// WhisperLiveKit), { backend: "bailian", url, context } or
+// { backend: "chrome", lang, phrases }. Only the last two load extra modules.
+let asrConfig = null;
+let asrLib = null;
+let speechSession = null;
+let bailianTaskId = null;
+let bailianStarted = false;
+let bailianLines = null;
+let translatorPromise = null;
 
 function normalizeWsUrl(value) {
   const url = new URL(String(value || "").trim());
@@ -60,6 +70,26 @@ function normalizeWsUrl(value) {
     url.searchParams.set("target_language", "zh");
   }
   return url.toString();
+}
+
+function normalizeAsr(message) {
+  const asr = message.asr || { backend: "wlk", wsUrl: message.wsUrl };
+  if (asr.backend === "chrome") {
+    return { backend: "chrome", lang: asr.lang || "en-US", phrases: Array.isArray(asr.phrases) ? asr.phrases : [] };
+  }
+  if (asr.backend === "bailian") {
+    const url = new URL(String(asr.url || ""));
+    if (url.protocol !== "wss:") throw new Error("百炼语音识别地址必须是 wss://");
+    return { backend: "bailian", url: url.toString(), context: String(asr.context || "") };
+  }
+  return { backend: "wlk", wsUrl: normalizeWsUrl(asr.wsUrl) };
+}
+
+// Audio may only go out once the server accepts it: Bailian rejects audio
+// sent before its task-started event.
+function transportReady() {
+  if (!websocket || websocket.readyState !== WebSocket.OPEN) return false;
+  return asrConfig?.backend !== "bailian" || bailianStarted;
 }
 
 async function sendToBackground(type, payload = {}) {
@@ -173,7 +203,7 @@ function takeSamples(count) {
 }
 
 function flushPackets(force) {
-  if (!websocket || websocket.readyState !== WebSocket.OPEN || !audioContext) {
+  if (!transportReady() || !audioContext) {
     pendingSamples = [];
     pendingLength = 0;
     return;
@@ -316,6 +346,10 @@ async function handleServerMessage(event) {
     return;
   }
 
+  await emitTranscript(data);
+}
+
+async function emitTranscript(data) {
   const signature = JSON.stringify({
     lines: data.lines,
     bufferTranscription: data.buffer_transcription,
@@ -331,6 +365,36 @@ async function handleServerMessage(event) {
     epochStartedAt,
     data
   });
+}
+
+async function handleBailianMessage(event) {
+  if (typeof event.data !== "string") return;
+  const parsed = asrLib.parseBailianEvent(event.data);
+  if (parsed.kind === "started") {
+    bailianStarted = true;
+    void publishStatus("capturing", "百炼语音识别已连接");
+    return;
+  }
+  if (parsed.kind === "finished") {
+    await waitForChain(backgroundWriteChain, 3000);
+    markServerFinished();
+    await publishStatus("finished", "百炼语音识别已完成当前音频");
+    return;
+  }
+  if (parsed.kind === "failed") {
+    // The server closes the socket after a failed task; a reconnect would
+    // fail the same way (bad key, no quota), so the capture ends instead.
+    markServerFinished();
+    await publishStatus("error", asrLib.bailianErrorDetail(parsed.code, parsed.message), { fatal: true });
+    return;
+  }
+  if (parsed.kind !== "sentence") return;
+  if (parsed.final) {
+    bailianLines.final(parsed.text, parsed.beginSeconds, parsed.endSeconds ?? parsed.beginSeconds);
+  } else {
+    bailianLines.interim(parsed.text);
+  }
+  await emitTranscript(bailianLines.message());
 }
 
 function openWebSocket() {
@@ -358,13 +422,22 @@ function openWebSocket() {
     serverMessageChain = Promise.resolve();
     backgroundWriteChain = Promise.resolve();
     resetPendingAudio();
+    if (asrConfig?.backend === "bailian") {
+      bailianStarted = false;
+      bailianTaskId = crypto.randomUUID().replaceAll("-", "");
+      bailianLines = asrLib.createLineAccumulator();
+      socket.send(JSON.stringify(asrLib.bailianRunTask({ taskId: bailianTaskId, context: asrConfig.context })));
+      void publishStatus("starting", "正在启动百炼语音识别");
+      return;
+    }
     void publishStatus("capturing", "正在接收实时转写");
   };
 
   socket.onmessage = (event) => {
     if (token !== connectionToken || socket !== websocket) return;
+    const handle = asrConfig?.backend === "bailian" ? handleBailianMessage : handleServerMessage;
     serverMessageChain = serverMessageChain
-      .then(() => handleServerMessage(event))
+      .then(() => handle(event))
       .catch((error) =>
         publishStatus(
           "error",
@@ -439,7 +512,11 @@ async function startCapture(message) {
   stopping = false;
   sessionId = message.sessionId;
   targetTabId = message.targetTabId;
-  requestedWsUrl = normalizeWsUrl(message.wsUrl);
+  asrConfig = normalizeAsr(message);
+  requestedWsUrl = asrConfig.wsUrl || asrConfig.url || "";
+  asrLib = asrConfig.backend === "wlk"
+    ? null
+    : await import(chrome.runtime.getURL("lib/asr-sessions.js"));
   reconnectAttempts = 0;
   capturedAudioSamples = 0;
   droppedPackets = 0;
@@ -532,6 +609,15 @@ async function startCapture(message) {
 
     captureInfo.contextSampleRate = audioContext.sampleRate;
     captureInfo.packetSamples = packetSamples;
+    captureInfo.asrBackend = asrConfig.backend;
+    if (asrConfig.backend === "chrome") {
+      // The recognizer gets its own copy of the audio from the graph, the
+      // route the Chrome 155 probe verified.
+      const speechOutput = audioContext.createMediaStreamDestination();
+      source.connect(speechOutput);
+      await startWebSpeech(speechOutput.stream.getAudioTracks()[0]);
+      return;
+    }
     await publishStatus(
       "starting",
       `已捕获 ${track.label || "当前标签页"}，正在连接字幕服务`
@@ -553,6 +639,26 @@ async function startCapture(message) {
   }
 }
 
+async function startWebSpeech(track) {
+  const speech = await import(chrome.runtime.getURL("offscreen/web-speech.js"));
+  await speech.prepareWebSpeech({
+    lang: asrConfig.lang,
+    onStatus: (detail) => void publishStatus("starting", detail)
+  });
+  epochId = crypto.randomUUID();
+  epochStartedAt = Date.now();
+  lastDataSignature = "";
+  backgroundWriteChain = Promise.resolve();
+  speechSession = speech.createWebSpeechSession({
+    track,
+    lang: asrConfig.lang,
+    phrases: asrConfig.phrases,
+    onMessage: (data) => void emitTranscript(data),
+    onFatal: (detail) => void publishStatus("error", detail, { fatal: true })
+  });
+  await publishStatus("capturing", "正在使用 Chrome 本机语音识别");
+}
+
 function stopCapture(options = {}) {
   if (stopPromise) return stopPromise;
   stopPromise = performStopCapture(options).finally(() => {
@@ -568,10 +674,20 @@ async function performStopCapture(options = {}) {
   stopping = true;
   clearReconnectTimer();
 
-  if (websocket?.readyState === WebSocket.OPEN) {
+  if (speechSession) {
+    await speechSession.stop();
+    speechSession = null;
+    await waitForChain(backgroundWriteChain, FINAL_WRITE_TIMEOUT_MS);
+  }
+  if (websocket?.readyState === WebSocket.OPEN && transportReady()) {
     flushPackets(true);
     try {
-      websocket.send(new Uint8Array(0));
+      // WhisperLiveKit ends on an empty frame, Bailian on finish-task.
+      websocket.send(
+        asrConfig?.backend === "bailian"
+          ? JSON.stringify(asrLib.bailianFinishTask(bailianTaskId))
+          : new Uint8Array(0)
+      );
     } catch {
       // The socket may have closed between the state check and send.
     }
@@ -614,7 +730,48 @@ async function performStopCapture(options = {}) {
   backgroundWriteChain = Promise.resolve();
   epochId = null;
   epochStartedAt = 0;
+  asrConfig = null;
+  bailianTaskId = null;
+  bailianStarted = false;
+  bailianLines = null;
   return { ok: true };
+}
+
+// Chrome's built-in Translator exists in documents only, so the worker asks
+// here. Creating it needs a user gesture while the model is still
+// downloadable; the popup's download button supplies that once.
+function builtinTranslator() {
+  if (!translatorPromise) {
+    translatorPromise = (async () => {
+      if (!globalThis.Translator) {
+        throw Object.assign(new Error("当前 Chrome 没有内置翻译，请升级 Chrome 或改用翻译 API"), {
+          code: "builtin_unavailable"
+        });
+      }
+      const languages = { sourceLanguage: "en", targetLanguage: "zh" };
+      const availability = await Translator.availability(languages);
+      if (availability !== "available") {
+        throw Object.assign(
+          new Error("Chrome 内置翻译模型尚未下载，请在扩展弹窗中点击“下载本机模型”"),
+          { code: "builtin_unavailable" }
+        );
+      }
+      return Translator.create(languages);
+    })().catch((error) => {
+      translatorPromise = null;
+      throw error;
+    });
+  }
+  return translatorPromise;
+}
+
+async function builtinTranslate(texts) {
+  const translator = await builtinTranslator();
+  const translations = [];
+  for (const text of Array.isArray(texts) ? texts : []) {
+    translations.push(await translator.translate(String(text)));
+  }
+  return translations;
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -624,6 +781,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (message.type === "start-capture") {
         await startCapture(message);
         sendResponse({ ok: true, detail: "音频采集已启动" });
+      } else if (message.type === "builtin-translate") {
+        try {
+          sendResponse({ ok: true, translations: await builtinTranslate(message.texts) });
+        } catch (error) {
+          sendResponse({ ok: false, error: error?.message || String(error), code: error?.code || "api_error" });
+        }
+        return;
       } else if (message.type === "stop-capture") {
         sendResponse(await stopCapture({ quiet: message.quiet === true }));
       } else if (message.type === "get-offscreen-state") {
@@ -633,6 +797,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sessionId,
           targetTabId,
           wsState: websocket?.readyState ?? null,
+          asrBackend: asrConfig?.backend ?? null,
           captureInfo,
           audio: latestAudioStats
         });

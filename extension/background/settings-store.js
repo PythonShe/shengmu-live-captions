@@ -4,6 +4,11 @@ import {
   migrateLegacySettings,
   normalizeSettings
 } from "../lib/caption-utils.js";
+import {
+  BAILIAN_CONTEXT_MAX_CHARS,
+  bailianInferenceUrl,
+  speechPhrases
+} from "../lib/asr-sessions.js";
 import { buildAsrContextPrompt, resolveEffectiveGlossary } from "../lib/glossary.js";
 import {
   TRANSLATION_PROVIDERS,
@@ -145,6 +150,33 @@ export function createSettingsStore({ storage = chrome.storage.local } = {}) {
     return url.toString();
   }
 
+  /**
+   * What the offscreen document needs to run the chosen speech backend. The
+   * Bailian key is not in it: the worker attaches it to the handshake (see
+   * asr-auth.js), so it never crosses a message.
+   * @param {string} baseWsUrl
+   */
+  function sessionAsr(baseWsUrl) {
+    const glossary = resolveEffectiveGlossary(cache);
+    const entries = glossary.enabled ? glossary.asrEntries : [];
+    if (cache.asrBackend === "chrome") {
+      return { backend: "chrome", lang: "en-US", phrases: speechPhrases(entries) };
+    }
+    if (cache.asrBackend === "bailian") {
+      return {
+        backend: "bailian",
+        url: bailianInferenceUrl(cache.bailianRegion),
+        context: buildAsrContextPrompt(entries, { maxChars: BAILIAN_CONTEXT_MAX_CHARS })
+      };
+    }
+    return { backend: "wlk", wsUrl: sessionWsUrl(baseWsUrl) };
+  }
+
+  /** The Bailian key, shared by fun-asr-realtime and Qwen translation. */
+  function bailianApiKey() {
+    return String(cache.translationApiKeys?.bailian || "");
+  }
+
   return {
     get current() {
       return cache;
@@ -154,6 +186,8 @@ export function createSettingsStore({ storage = chrome.storage.local } = {}) {
     applyPatch,
     translationConfig,
     apiTranslationActive: () => translationConfig().enabled,
-    sessionWsUrl
+    sessionWsUrl,
+    sessionAsr,
+    bailianApiKey
   };
 }

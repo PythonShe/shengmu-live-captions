@@ -17,7 +17,11 @@ const ERROR_STOP_TIMEOUT_MS = 2500;
  * @property {any} history history-sync.js
  * @property {any} scheduler lib/translation-scheduler.js
  * @property {() => Promise<void>} ready The worker's initialize().
+ * @property {{ grant: (url: string, apiKey: string) => Promise<void>, revoke: () => Promise<void> }} [asrAuth]
+ *   asr-auth.js: the Bailian handshake header.
  */
+
+const NO_ASR_AUTH = { grant: async () => {}, revoke: async () => {} };
 
 /**
  * One capture session from start to its single finalize: start and stop
@@ -26,7 +30,16 @@ const ERROR_STOP_TIMEOUT_MS = 2500;
  *
  * @param {SessionLifecycleDeps} deps
  */
-export function createSessionLifecycle({ store, settings, views, offscreen, history, scheduler, ready }) {
+export function createSessionLifecycle({
+  store,
+  settings,
+  views,
+  offscreen,
+  history,
+  scheduler,
+  ready,
+  asrAuth = NO_ASR_AUTH
+}) {
   let finalizingPromise = null;
   // Set when finalize starts its final history flush, cleared when it ends.
   // A transcript update that lands before the seal (while settle waits for
@@ -87,6 +100,14 @@ export function createSessionLifecycle({ store, settings, views, offscreen, hist
     } else {
       await requireLocalTranslation();
     }
+    const asr = settings.sessionAsr(wsUrl);
+    if (asr.backend === "bailian") {
+      const apiKey = settings.bailianApiKey();
+      if (!apiKey) {
+        throw new Error("尚未填写阿里云百炼 API Key（语音识别与通义千问翻译共用），请在扩展控制面板中填写。");
+      }
+      await asrAuth.grant(asr.url, apiKey);
+    }
 
     const sessionId = crypto.randomUUID();
     const startedAt = Date.now();
@@ -97,6 +118,7 @@ export function createSessionLifecycle({ store, settings, views, offscreen, hist
       url: message.tabUrl || "",
       tabId: message.targetTabId ?? null,
       wsUrl,
+      asrBackend: asr.backend,
       translationMode: translation.mode,
       translationProvider: translation.mode === "api" ? translation.provider : "",
       translationModel: translation.mode === "api" ? translation.model : "",
@@ -132,7 +154,7 @@ export function createSessionLifecycle({ store, settings, views, offscreen, hist
         sessionId,
         targetTabId: message.targetTabId,
         streamId: message.streamId,
-        wsUrl: settings.sessionWsUrl(wsUrl)
+        asr
       });
       if (!result?.ok) throw new Error(result?.error || "音频采集启动失败");
     } catch (error) {
@@ -240,6 +262,7 @@ export function createSessionLifecycle({ store, settings, views, offscreen, hist
         if (sessionId) await views.notifyHistoryChanged(sessionId);
         scheduler.reset({ keepUsage: true });
         historySealed = false;
+        await asrAuth.revoke();
       }
     })();
     try {

@@ -8,13 +8,13 @@ export const LOCAL_TRANSLATION_HEALTH_URL = "http://127.0.0.1:8013/health";
 const HEALTH_TIMEOUT_MS = 1600;
 
 /** Round trip through the configured translation API, for the popup button. */
-export async function testTranslationApi(config) {
+export async function testTranslationApi(config, options = {}) {
   if (config.mode !== "api") {
     throw new Error("当前翻译引擎是本地服务端，不需要测试 API");
   }
   const issue = translationConfigIssue(config);
   if (issue) throw new Error(issue);
-  const result = await testTranslationConnection(config);
+  const result = await testTranslationConnection(config, options);
   return {
     ok: true,
     translation: result.translation,
