@@ -680,6 +680,19 @@ async function selectSession(sessionId, options = {}) {
   }
 }
 
+// Translations that land during finalize (up to 15 s after stop) are written
+// to IndexedDB after the live merge stopped, so a finished session has to be
+// re-read; unlike selectSession this keeps the search query and scroll.
+async function reloadSelectedLines() {
+  if (!selectedSessionId || selectedIsLive()) return;
+  const sessionId = selectedSessionId;
+  const token = loadToken;
+  const lines = await getHistoryLines(sessionId);
+  if (token !== loadToken || selectedSessionId !== sessionId) return;
+  allLines = lines;
+  scheduleTranscriptRender(0);
+}
+
 async function refreshSelectedSessionSummary() {
   if (!selectedSessionId) return;
   const sessionId = selectedSessionId;
@@ -978,10 +991,10 @@ chrome.runtime.onMessage.addListener((message) => {
     })();
   } else if (message.type === "session-ended") {
     renderAll();
-    void loadSessions();
+    void loadSessions().then(reloadSelectedLines);
     showToast(message.detail || "字幕采集已结束。");
   } else if (message.type === "history-changed") {
-    void loadSessions();
+    void loadSessions().then(reloadSelectedLines);
   } else if (message.type === "line-count") {
     if (runtimeState) runtimeState.lineCount = message.lineCount;
     renderHeader();
@@ -992,6 +1005,12 @@ chrome.runtime.onMessage.addListener((message) => {
     renderHeader();
     scheduleTranscriptRender(100);
   }
+});
+
+// Fire-and-forget IndexedDB and runtime calls (`void loadSessions()`, export,
+// delete) must not fail silently; surface them like the popup does.
+window.addEventListener("unhandledrejection", (event) => {
+  showToast(event.reason?.message || String(event.reason));
 });
 
 async function initializeView() {
