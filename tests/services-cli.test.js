@@ -57,7 +57,7 @@ async function sandbox(t) {
   t.after(async () => {
     await run(["stop"], env);
     await run(["serve-stop"], env);
-    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
   return { dir, env };
 }
