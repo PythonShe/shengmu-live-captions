@@ -461,6 +461,9 @@ button {
 .workspace {
   position: relative;
   display: grid;
+  /* Without an explicit column the implicit auto track grows to the
+     widest row's min-content and the page clips on the right. */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   min-width: 0;
   height: 100%;
@@ -564,9 +567,11 @@ button {
 }
 
 .control-deck {
+  container-type: inline-size;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 18px;
+  gap: 10px 18px;
   min-height: 58px;
   margin: 0 32px 12px;
   padding: 10px 12px;
@@ -604,7 +609,7 @@ button {
 
 .deck-controls {
   display: flex;
-  flex: 1;
+  flex: 1 1 320px;
   align-items: center;
   gap: 7px;
   min-width: 0;
@@ -612,6 +617,9 @@ button {
 
 .compact-select {
   display: flex;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
   align-items: center;
   gap: 6px;
   font-size: 9px;
@@ -619,6 +627,10 @@ button {
 }
 
 .compact-select select {
+  /* Sized by its longest option otherwise, which is long in English. */
+  min-width: 0;
+  max-width: 100%;
+  text-overflow: ellipsis;
   padding: 7px 24px 7px 8px;
   border: 1px solid var(--line);
   border-radius: 0;
@@ -969,6 +981,15 @@ kbd {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* A narrow deck puts the status on its own row, so the controls keep one. */
+@container (max-width: 680px) {
+  .status-cluster {
+    flex-basis: 100%;
+    padding-right: 0;
+    border-right: 0;
   }
 }
 
