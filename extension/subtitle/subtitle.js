@@ -55,7 +55,8 @@ const elements = {
   lineCount: document.querySelector("#lineCount"),
   audioHealth: document.querySelector("#audioHealth"),
   translationWarning: document.querySelector("#translationWarning"),
-  toast: document.querySelector("#toast")
+  toast: document.querySelector("#toast"),
+announcer: document.querySelector("#announcer")
 };
 
 let runtimeState = null;
@@ -172,6 +173,15 @@ function showToast(message) {
   toastTimer = setTimeout(() => {
     elements.toast.classList.remove("visible");
   }, 2600);
+}
+
+// The transcript list can hold up to 1000 rows and is rebuilt often, so it is
+// not a live region; only short outcome messages go through this element.
+function announce(message) {
+  elements.announcer.textContent = "";
+  requestAnimationFrame(() => {
+    elements.announcer.textContent = message;
+  });
 }
 
 function selectedIsLive() {
@@ -300,8 +310,10 @@ function renderSessionList() {
     card.type = "button";
     card.className = "session-card";
     card.dataset.sessionId = session.id;
-    card.setAttribute("role", "listitem");
-    if (session.id === selectedSessionId) card.classList.add("active");
+    if (session.id === selectedSessionId) {
+      card.classList.add("active");
+      card.setAttribute("aria-current", "true");
+    }
 
     const head = document.createElement("span");
     head.className = "session-card-head";
@@ -675,6 +687,7 @@ async function selectSession(sessionId, options = {}) {
   mergeRuntimeTranscript();
   followLatest = true;
   renderAll();
+  announce(`已打开场次：${nextSession?.title || "未命名直播"}，${allLines.length} 条字幕`);
   if (options.scrollToLatest !== false) {
     requestAnimationFrame(() => {
       elements.transcriptViewport.scrollTop =
@@ -949,6 +962,10 @@ elements.transcriptSearch.addEventListener("input", () => {
     visibleCount = PAGE_SIZE;
     followLatest = true;
     scheduleTranscriptRender(0);
+    if (transcriptQuery) {
+      const matches = filteredTranscriptLines().length;
+      announce(matches ? `找到 ${matches} 条匹配字幕` : "没有匹配字幕");
+    }
   }, 120);
 });
 

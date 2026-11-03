@@ -218,7 +218,11 @@ function render() {
     : "请先打开直播或视频页面";
 
   const presentation = statusPresentation(runtimeState);
-  elements.statusLabel.textContent = presentation.label;
+  // Same-text writes still replace the node and make screen readers repeat the
+  // status, and render() runs on every broadcast.
+  if (elements.statusLabel.textContent !== presentation.label) {
+    elements.statusLabel.textContent = presentation.label;
+  }
   elements.statusDot.className = `status-dot ${presentation.dotClass}`.trim();
   elements.audioRatio.textContent = presentation.ratio;
 
@@ -236,7 +240,9 @@ function render() {
   const active = Boolean(runtimeState?.active);
   elements.primaryLabel.textContent = active ? "停止当前字幕" : "开始实时翻译";
   elements.primaryButton.classList.toggle("stop", active);
-  elements.primaryButton.disabled = busy;
+  // aria-busy instead of disabled: a disabled button drops keyboard focus
+  // mid-action. The click handler ignores presses while busy.
+  elements.primaryButton.setAttribute("aria-busy", String(busy));
 
   elements.displayMode.value = settings.displayMode;
   // A slider being dragged, or one whose save is still debounced, must not be
