@@ -74,6 +74,8 @@ offscreen 文档按设置 `asrBackend` 选择后端，三者都适配成 Whisper
 Chrome 155 实测（offscreen 文档内）：
 
 - 本机英语模型 `downloadable` → `install` 用时 19 秒；`start(MediaStreamTrack)` 可用，首个中间结果 0.8 秒。
+- `install()` 与内置翻译一样需要用户手势（模型为 `downloadable` 时），offscreen 文档没有手势，所以由面板在点「开始」时同时发起语音与翻译两个模型的下载，offscreen 只等待下载完成。
+- Microsoft Edge 156（Chromium 内核）没有 Google 的本机语音模型，`processLocally` 对任何语言都返回 `unavailable`，内置翻译则可用；面板分别提示缺的是哪一半。
 - 短语偏置有效（Searing Exarch、Divine Orbs、Maven 识别正确）；没有标点，一段话说完才给长句。
 - 端到端：英文样本 `speech.wav` 经标签页采集、本机识别，输出 8 行字幕。
 - DNR 规则验证：offscreen 文档的握手带上了 `Authorization`，扩展标签页与普通网页发起的同一地址请求都不带。

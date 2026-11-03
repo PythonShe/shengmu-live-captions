@@ -410,9 +410,6 @@
   "popup_bailian_key_hint": {
     "message": "按秒计费，Key 同时可用于通义千问翻译。"
   },
-  "popup_builtin_unsupported": {
-    "message": "这个 Chrome 不支持本机识别或内置翻译（需要 Chrome 138 以上的桌面版），请改用阿里云百炼或填写 DeepSeek Key。"
-  },
   "popup_downloading_translator": {
     "message": "正在下载 Chrome 翻译模型"
   },
@@ -1232,5 +1229,17 @@
   "html_lang": {
     "message": "zh-CN",
     "description": "BCP 47 tag of this catalog, for the lang attribute"
+  },
+  "popup_speech_unsupported": {
+    "message": "这个浏览器不能在本机识别语音（需要 Chrome 138 以上的桌面版，Edge 等其他浏览器没有这项功能），请改用阿里云百炼或本地 WhisperLiveKit。"
+  },
+  "popup_translator_unsupported": {
+    "message": "这个浏览器没有内置翻译（需要 Chrome 138 以上的桌面版），请填写 DeepSeek Key 或改用其他翻译引擎。"
+  },
+  "popup_downloading_speech": {
+    "message": "正在下载 Chrome 本机语音模型"
+  },
+  "speech_model_not_downloaded": {
+    "message": "Chrome 本机语音模型尚未下载，请在扩展面板中点「开始实时翻译」重新开始"
   }
 }

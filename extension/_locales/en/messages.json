@@ -410,9 +410,6 @@
   "popup_bailian_key_hint": {
     "message": "Billed per second; the same key also works for Qwen translation."
   },
-  "popup_builtin_unsupported": {
-    "message": "This Chrome has no on-device speech or built-in translation (desktop Chrome 138 or later is needed). Use Alibaba Bailian or add a DeepSeek key."
-  },
   "popup_downloading_translator": {
     "message": "Downloading the Chrome translation model"
   },
@@ -1232,5 +1229,17 @@
   "html_lang": {
     "message": "en",
     "description": "BCP 47 tag of this catalog, for the lang attribute"
+  },
+  "popup_speech_unsupported": {
+    "message": "This browser cannot recognize speech on-device (it needs desktop Chrome 138 or later; Edge and other browsers lack it). Use Alibaba Bailian or local WhisperLiveKit."
+  },
+  "popup_translator_unsupported": {
+    "message": "This browser has no built-in translation (it needs desktop Chrome 138 or later). Add a DeepSeek key or pick another translation engine."
+  },
+  "popup_downloading_speech": {
+    "message": "Downloading the Chrome speech model"
+  },
+  "speech_model_not_downloaded": {
+    "message": "Chrome's speech model is not downloaded yet; start again from the extension panel"
   }
 }
