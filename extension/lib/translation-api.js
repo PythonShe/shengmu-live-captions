@@ -6,7 +6,12 @@
  * unit-tested with Node's built-in test runner and fetch.
  */
 
-import { buildGlossaryMap, matchGlossaryTerms } from "./glossary.js";
+import {
+  buildGlossaryMap,
+  matchGlossaryTerms,
+  protectGlossaryTerms,
+  restoreGlossaryTerms
+} from "./glossary.js";
 
 export const DEFAULT_TRANSLATION_MODE = "api";
 // Fresh installs translate on-device with Chrome's built-in Translator, so
@@ -742,8 +747,54 @@ async function postChatCompletion({
 }
 
 /**
+ * Translates one string per call with Chrome's on-device Translator, which the
+ * worker cannot reach itself (the offscreen document runs it).
+ * @typedef {(texts: string[], options: { signal: AbortSignal | null }) => Promise<string[]>} BuiltinTranslate
+ */
+
+/**
+ * The built-in path: no prompt, no context, so the glossary rides along as
+ * placeholder words. A line whose placeholder the model dropped is translated
+ * again without them rather than shown with a nonsense word.
+ * @param {{ texts: string[], entries: object[], builtinTranslate?: BuiltinTranslate,
+ *   signal: AbortSignal | null }} options
+ */
+async function translateWithBuiltin({ texts, entries, builtinTranslate, signal }) {
+  if (typeof builtinTranslate !== "function") {
+    throw new TranslationApiError("当前环境无法使用 Chrome 内置翻译", { code: "builtin_unavailable" });
+  }
+  const startedAt = Date.now();
+  const segments = texts.map((text) => String(text || "").trim());
+  if (segments.length === 0 || segments.some((text) => !text)) {
+    throw new TranslationApiError("存在空的翻译片段", { code: "empty" });
+  }
+  const protectedRows = segments.map((text) => protectGlossaryTerms(text, entries));
+  const first = await builtinTranslate(protectedRows.map((row) => row.text), { signal });
+  if (!Array.isArray(first) || first.length !== segments.length) {
+    throw new TranslationApiError("Chrome 内置翻译返回的条数不对", { code: "count_mismatch" });
+  }
+  const translations = first.map((text, index) =>
+    restoreGlossaryTerms(text, protectedRows[index].slots)
+  );
+  const lost = translations.flatMap((text, index) => (text === null ? [index] : []));
+  if (lost.length > 0) {
+    const retried = await builtinTranslate(lost.map((index) => segments[index]), { signal });
+    lost.forEach((index, position) => {
+      translations[index] = String(retried?.[position] ?? "");
+    });
+  }
+  return {
+    translations: /** @type {string[]} */ (translations),
+    usage: null,
+    model: "chrome-builtin",
+    latencyMs: Date.now() - startedAt
+  };
+}
+
+/**
  * @param {TranslationRequestOptions & {
  *   fetchImpl?: typeof fetch,
+ *   builtinTranslate?: BuiltinTranslate,
  *   signal?: AbortSignal | null
  * }} options
  */
@@ -755,6 +806,7 @@ export async function translateTexts({
   glossaryEntries = [],
   domainHint = "",
   fetchImpl = globalThis.fetch,
+  builtinTranslate = undefined,
   signal = null
 } = {}) {
   const resolved = config?.enabled === undefined
@@ -768,6 +820,13 @@ export async function translateTexts({
       resolved.issue || "翻译 API 未启用",
       { code: "config" }
     );
+  }
+  if (resolved.builtin) {
+    const entries =
+      Array.isArray(glossaryEntries) && glossaryEntries.length > 0
+        ? glossaryEntries
+        : resolved.glossaryEntries || [];
+    return translateWithBuiltin({ texts, entries, builtinTranslate, signal });
   }
   if (typeof fetchImpl !== "function") {
     throw new TranslationApiError("当前环境不支持 fetch", { code: "config" });

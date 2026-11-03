@@ -824,3 +824,49 @@ test("parseTranslationOutput keeps stable codes and the exact-count rule", () =>
   assert.equal(codeOf(() => parseTranslationOutput('["a", ', 2)), "parse_error");
   assert.deepEqual(parseTranslationOutput('["a","b",""]', 2), ["a", "b"]);
 });
+
+test("the built-in provider translates through the injected translator with glossary placeholders", async () => {
+  const config = resolveTranslationConfig({ translationProvider: "chrome" });
+  const seen = [];
+  const builtinTranslate = async (texts) => {
+    seen.push(texts);
+    return texts.map((text) =>
+      text.includes("Zorvex") ? text.replace("Zorvex", "zorvex").replace("Kill the", "击杀") : `译:${text}`
+    );
+  };
+  const result = await translateTexts({
+    texts: ["Kill the Searing Exarch", "hello"],
+    config,
+    glossaryEntries: [{ sources: ["Searing Exarch"], target: "焚界者" }],
+    builtinTranslate,
+    fetchImpl: () => {
+      throw new Error("the built-in path must not fetch");
+    }
+  });
+  assert.deepEqual(seen, [["Kill the Zorvex", "hello"]]);
+  assert.deepEqual(result.translations, ["击杀焚界者", "译:hello"]);
+  assert.equal(result.model, "chrome-builtin");
+});
+
+test("a dropped placeholder retranslates that line without the glossary", async () => {
+  const config = resolveTranslationConfig({ translationProvider: "chrome" });
+  const calls = [];
+  const result = await translateTexts({
+    texts: ["Kill the Searing Exarch"],
+    config,
+    glossaryEntries: [{ sources: ["Searing Exarch"], target: "焚界者" }],
+    builtinTranslate: async (texts) => {
+      calls.push(texts);
+      return texts.map(() => (calls.length === 1 ? "杀死佐维克斯" : "杀死灼热总督"));
+    }
+  });
+  assert.deepEqual(calls, [["Kill the Zorvex"], ["Kill the Searing Exarch"]]);
+  assert.deepEqual(result.translations, ["杀死灼热总督"]);
+});
+
+test("the built-in provider without a translator fails with a stable code", async () => {
+  await assert.rejects(
+    translateTexts({ texts: ["hi"], config: resolveTranslationConfig({}) }),
+    (error) => error.code === "builtin_unavailable"
+  );
+});

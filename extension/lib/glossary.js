@@ -491,3 +491,104 @@ export function exportGlossaryText(entries, format = "text") {
     )
     .join("\n");
 }
+
+/**
+ * Pseudo-words that stand in for glossary terms while Chrome's built-in
+ * Translator runs. That model takes no glossary, and pasting the Chinese term
+ * into the English source makes it hallucinate around it; a capitalised
+ * nonsense word is carried through as a name (Chrome 155 probe, 2026-11-03).
+ */
+export const GLOSSARY_PLACEHOLDER_WORDS = Object.freeze([
+  "Zorvex", "Quellix", "Tarvok", "Kelvanor", "Drakhul", "Xyvane", "Brunthor", "Kelzari",
+  "Morvath", "Pyrexa", "Thalvor", "Zentrix", "Garvuun", "Ilvaxa", "Krovenn", "Nyxora",
+  "Orvakk", "Plexium", "Rulvane", "Sarvex", "Tovrik", "Ulzara", "Vexmor", "Wyrkal"
+]);
+
+/**
+ * Replaces every glossary term in `text` with a placeholder word, longest
+ * spelling first and without overlaps, as matchGlossaryTerms does.
+ * @param {string} text
+ * @param {object[]} entries
+ * @param {number} [maxTerms]
+ * @returns {{ text: string, slots: { token: string, target: string }[] }}
+ */
+export function protectGlossaryTerms(text, entries, maxTerms = MAX_GLOSSARY_MATCHES) {
+  const source = cleanText(text);
+  const candidates = normalizeEntries(entries);
+  if (!source || candidates.length === 0) return { text: source, slots: [] };
+  const lower = source.toLowerCase();
+  const free = GLOSSARY_PLACEHOLDER_WORDS.filter((word) => !lower.includes(word.toLowerCase()));
+  const limit = Math.min(free.length, Math.max(0, Number(maxTerms) || 0));
+
+  const pairs = [];
+  for (const entry of candidates) {
+    for (const spelling of entry.sources) pairs.push({ entry, spelling });
+  }
+  pairs.sort((left, right) => right.spelling.length - left.spelling.length);
+
+  /** @type {[number, number, any][]} */
+  const spans = [];
+  /** @type {Map<any, string>} */
+  const tokens = new Map();
+  for (const { entry, spelling } of pairs) {
+    const regex = termRegex(spelling);
+    if (!regex) continue;
+    for (const match of source.matchAll(regex)) {
+      const start = match.index ?? 0;
+      const end = start + match[0].length;
+      if (match[0].length === 0 || overlaps(spans, start, end)) continue;
+      if (!tokens.has(entry)) {
+        if (tokens.size >= limit) break;
+        tokens.set(entry, free[tokens.size]);
+      }
+      spans.push([start, end, entry]);
+    }
+  }
+  if (spans.length === 0) return { text: source, slots: [] };
+  spans.sort((left, right) => left[0] - right[0]);
+  let output = "";
+  let cursor = 0;
+  for (const [start, end, entry] of spans) {
+    output += source.slice(cursor, start) + tokens.get(entry);
+    cursor = end;
+  }
+  output += source.slice(cursor);
+  const slots = [...tokens].map(([entry, token]) => ({ token, target: entry.target }));
+  return { text: output, slots };
+}
+
+// CJK characters plus full-width and ideographic punctuation.
+function isWide(char) {
+  const code = char ? char.codePointAt(0) ?? 0 : 0;
+  return (
+    (code >= 0x2e80 && code <= 0x9fff) ||
+    (code >= 0xf900 && code <= 0xfaff) ||
+    (code >= 0xff00 && code <= 0xffef)
+  );
+}
+
+/**
+ * Puts the Chinese targets back in place of the placeholders. The translator
+ * may change a placeholder's case and pad it with spaces; a space is kept only
+ * between the target and a Latin neighbour.
+ * @param {string} translated
+ * @param {{ token: string, target: string }[]} slots
+ * @returns {string | null} null when a placeholder did not survive
+ */
+export function restoreGlossaryTerms(translated, slots) {
+  let output = String(translated ?? "");
+  for (const { token, target } of slots) {
+    const regex = new RegExp(`(\\s?)${escapeRegex(token)}(\\s?)`, "gi");
+    let found = false;
+    output = output.replace(regex, (whole, before, after, offset, all) => {
+      found = true;
+      const prev = all[offset - 1] || "";
+      const next = all[offset + whole.length] || "";
+      const keepBefore = before && prev && !isWide(prev) && !isWide(target[0]);
+      const keepAfter = after && next && !isWide(next) && !isWide(target.at(-1) || "");
+      return `${keepBefore ? " " : ""}${target}${keepAfter ? " " : ""}`;
+    });
+    if (!found) return null;
+  }
+  return output;
+}
