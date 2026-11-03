@@ -214,6 +214,12 @@ export function parseTasklistImage(stdout, pid) {
   return "";
 }
 
+/** Full command line of a POSIX PID via ps, or "" if it no longer exists. */
+export async function posixCommandLine(pid) {
+  const result = await runQuiet("ps", ["-p", String(pid), "-o", "args="]);
+  return result.code === 0 ? result.stdout.trim() : "";
+}
+
 async function waitForExit(pid, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -242,6 +248,15 @@ export async function killServiceTree(record, { platform = process.platform, gra
       throw new Error(`taskkill could not stop PID ${pid}: ${(result.stderr || result.stdout).trim()}`);
     }
     return "killed";
+  }
+  // A stale PID file (e.g. after a reboot) can name a PID that now leads an
+  // unrelated group, such as a terminal, so check the command line before a
+  // group kill. `args` rather than `comm`: a shebang launcher like `wlk` shows
+  // up as `python3` in comm but keeps its own path in args.
+  if (record.image) {
+    const args = await posixCommandLine(pid);
+    if (!args) return "gone";
+    if (!args.toLowerCase().includes(record.image)) return "foreign";
   }
   // A detached child leads its own process group, so the group id equals the
   // PID. If no such group exists the PID was reused by an unrelated process.
