@@ -445,16 +445,15 @@ async function openMonitorWindow(options = {}) {
     }
     return existing;
   }
-  const created = await chrome.windows.create({
-    url,
-    type: "popup",
-    width: 1160,
-    height: 760,
-    left: 80,
-    top: 60,
-    focused: true
-  });
-  return created;
+  const bounds = { width: 1160, height: 760, left: 80, top: 60 };
+  try {
+    return await chrome.windows.create({ url, type: "popup", focused: true, ...bounds });
+  } catch (error) {
+    // Chrome rejects bounds that leave less than half the window on screen
+    // (small or scaled displays); let it pick a placement instead.
+    if (!/bounds/i.test(String(error?.message))) throw error;
+    return chrome.windows.create({ url, type: "popup", focused: true });
+  }
 }
 
 async function notifyHistoryChanged(sessionId) {
