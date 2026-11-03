@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
-import { i18nMock } from "./helpers/i18n.js";
+import { renderZh } from "./helpers/i18n.js";
 
 // offscreen.js is a classic script for a browser document, so it runs here in
 // a vm context with stand-ins for tab capture, Web Audio and the WebSocket.
@@ -88,9 +88,9 @@ function loadOffscreen() {
     stop() {}
   };
   const stream = { getAudioTracks: () => [track], getTracks: () => [track] };
+  // Like Chrome, the offscreen document gets chrome.runtime and no chrome.i18n.
   const context = vm.createContext({
     chrome: {
-      i18n: i18nMock,
       runtime: {
         // Real files, so the dynamic imports of the non-WLK backends resolve.
         getURL: (path) => new URL(`../extension/${path}`, import.meta.url).href,
@@ -279,6 +279,15 @@ test("a failed bailian task ends the capture with a fatal, actionable error", as
     return null;
   })();
   assert.equal(status?.state, "error");
-  assert.match(status.detail, /API Key 无效/);
+  // A message: the worker renders it, since offscreen has no chrome.i18n.
+  assert.match(renderZh(status.detail), /API Key 无效/);
   await offscreen.stop();
+});
+
+test("the offscreen modules never call chrome.i18n, which offscreen documents lack", () => {
+  for (const file of ["offscreen.js", "web-speech.js"]) {
+    const source = fs.readFileSync(new URL(`../extension/offscreen/${file}`, import.meta.url), "utf8");
+    const code = source.replace(/^\s*\/\/.*$/gm, "");
+    assert.doesNotMatch(code, /chrome\.i18n/, file);
+  }
 });
