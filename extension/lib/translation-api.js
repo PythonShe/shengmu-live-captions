@@ -542,6 +542,32 @@ function shouldRetryWithCompletionTokens(status, bodyText) {
   );
 }
 
+/**
+ * @typedef {object} RequestShape
+ * @property {boolean} includeThinking
+ * @property {boolean} includeTemperature
+ * @property {"max_tokens" | "max_completion_tokens"} tokenField
+ */
+
+// Endpoints that reject a field keep rejecting it, so remember the shape that
+// worked instead of paying the failed round trips on every batch. Memory only
+// (lost when the service worker sleeps) and keyed without credentials.
+/** @type {Map<string, RequestShape>} */
+const requestShapeCache = new Map();
+
+function requestShapeKey(baseUrl, model) {
+  const url = String(baseUrl || "")
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/chat\/completions$/i, "")
+    .toLowerCase();
+  return `${url}\n${String(model || "").trim()}`;
+}
+
+export function resetTranslationRequestShapeCache() {
+  requestShapeCache.clear();
+}
+
 async function postChatCompletion({
   endpoint,
   body,
@@ -636,11 +662,16 @@ export async function translateTexts({
   }
   const endpoint = chatCompletionsUrl(resolved.baseUrl);
   const startedAt = Date.now();
-  let includeThinking = Boolean(resolved.disableThinking);
-  let includeTemperature = true;
-  let tokenField = "max_tokens";
+  const shapeKey = requestShapeKey(resolved.baseUrl, resolved.model);
+  const learned = requestShapeCache.get(shapeKey);
+  let includeThinking =
+    Boolean(resolved.disableThinking) && learned?.includeThinking !== false;
+  let includeTemperature = learned?.includeTemperature !== false;
+  let tokenField = learned?.tokenField || "max_tokens";
   let attempt = null;
-  for (let cycle = 0; cycle < 3; cycle += 1) {
+  // One initial try plus one retry per distinct fallback (thinking, token
+  // field, temperature); each fallback can fire at most once.
+  for (let cycle = 0; cycle < 4; cycle += 1) {
     attempt = await postChatCompletion({
       endpoint,
       body: buildTranslationRequestBody({
@@ -682,6 +713,20 @@ export async function translateTexts({
       continue;
     }
     break;
+  }
+  if (attempt?.response.ok) {
+    if (
+      includeThinking !== Boolean(resolved.disableThinking) ||
+      !includeTemperature ||
+      tokenField !== "max_tokens" ||
+      learned
+    ) {
+      requestShapeCache.set(shapeKey, {
+        includeThinking,
+        includeTemperature,
+        tokenField
+      });
+    }
   }
   if (!attempt?.response.ok) {
     throw mapHttpError(
