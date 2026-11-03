@@ -123,7 +123,7 @@
 
   function statusLabel() {
     if (!runtimeState?.active) {
-      return runtimeState.status === "incomplete" ? "有缺译" : "已停止";
+      return runtimeState?.status === "incomplete" ? "有缺译" : "已停止";
     }
     if (runtimeState.status === "reconnecting") return "重连中";
     if (runtimeState.status === "starting") return "准备中";
