@@ -16,6 +16,14 @@ import {
   getHistorySession,
   listHistorySessions
 } from "../storage/history-db.js";
+import {
+  DISPLAY_MODE_LABELS,
+  DISPLAY_MODE_ORDER,
+  capturePresentation,
+  formatDate,
+  formatDuration,
+  formatElapsed
+} from "../lib/ui-model.js";
 
 const PAGE_SIZE = 250;
 const MAX_SEARCH_RESULTS = 1000;
@@ -84,87 +92,9 @@ let renderedViewKey = "";
 let followFrame = 0;
 let sessionListSignature = "";
 
-function formatDate(timestamp) {
-  if (!timestamp) return "未知时间";
-  return new Intl.DateTimeFormat("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false
-  }).format(new Date(timestamp));
-}
-
-function formatDuration(milliseconds) {
-  const seconds = Math.max(0, Math.round((Number(milliseconds) || 0) / 1000));
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const remaining = seconds % 60;
-  if (hours > 0) {
-    return `${hours} 小时 ${minutes} 分`;
-  }
-  if (minutes > 0) {
-    return `${minutes} 分 ${remaining} 秒`;
-  }
-  return `${remaining} 秒`;
-}
-
-function formatElapsed(startedAt) {
-  if (!startedAt) return "";
-  const seconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const remainder = seconds % 60;
-  if (hours > 0) {
-    return `${hours}:${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
-  }
-  return `${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
-}
-
-function capturePresentation() {
-  if (!runtimeState?.active) {
-    return {
-      label:
-        runtimeState?.status === "error"
-          ? "采集异常"
-          : runtimeState?.status === "incomplete"
-            ? "已停止，存在缺译"
-            : "未开始",
-      detail: runtimeState?.detail || "等待标签页音频",
-      dotClass:
-        ["error", "incomplete"].includes(runtimeState?.status)
-          ? "warning"
-          : ""
-    };
-  }
-  const status = runtimeState.status || "starting";
-  if (status === "reconnecting") {
-    return {
-      label: "等待字幕服务",
-      detail: runtimeState.detail || "正在自动重连",
-      dotClass: "warning"
-    };
-  }
-  if (status === "starting") {
-    return {
-      label: "建立采集",
-      detail: runtimeState.detail || "正在连接标签页音频",
-      dotClass: "warning"
-    };
-  }
-  if (status === "error") {
-    return {
-      label: "采集异常",
-      detail: runtimeState.detail || "请重新开始",
-      dotClass: "warning"
-    };
-  }
-  return {
-    label: runtimeState.wsConnected ? "实时翻译中" : "等待数据",
-    detail: runtimeState.detail || "仅采集当前标签页",
-    dotClass: runtimeState.wsConnected ? "live" : "warning"
-  };
-}
+elements.displayMode.replaceChildren(
+  ...DISPLAY_MODE_ORDER.map((mode) => new Option(DISPLAY_MODE_LABELS[mode], mode))
+);
 
 function showToast(message) {
   elements.toast.textContent = message;
@@ -199,7 +129,7 @@ function applyRuntimeState(nextState) {
 
 function renderLiveCard() {
   const active = Boolean(runtimeState?.active);
-  const presentation = capturePresentation();
+  const presentation = capturePresentation(runtimeState);
   elements.liveDot.className = `live-dot ${presentation.dotClass}`.trim();
   elements.liveStatus.textContent = presentation.label;
   elements.liveTime.textContent = active ? formatElapsed(runtimeState.startedAt) : "";
@@ -214,7 +144,7 @@ function renderLiveCard() {
 }
 
 function renderControlDeck() {
-  const presentation = capturePresentation();
+  const presentation = capturePresentation(runtimeState);
   elements.captureDot.className = `capture-dot ${presentation.dotClass}`.trim();
   elements.captureStatus.textContent = presentation.label;
   elements.captureDetail.textContent = presentation.detail;

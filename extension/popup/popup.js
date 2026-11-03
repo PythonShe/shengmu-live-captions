@@ -17,6 +17,14 @@ import {
   TRANSLATION_PROVIDERS,
   normalizeTranslationBaseUrl
 } from "../lib/translation-api.js";
+import {
+  DISPLAY_MODE_LABELS,
+  DISPLAY_MODE_ORDER,
+  FONT_SIZE_MAX,
+  FONT_SIZE_MIN,
+  capturePresentation,
+  formatBytes
+} from "../lib/ui-model.js";
 
 const elements = {
   tabTitle: document.querySelector("#tabTitle"),
@@ -170,43 +178,15 @@ function setError(message = "") {
   elements.errorMessage.hidden = !message;
 }
 
-function statusPresentation(state) {
-  if (!state?.active) {
-    if (state?.status === "error") {
-      return {
-        label: state.detail || "采集异常",
-        dotClass: "warning",
-        ratio: ""
-      };
-    }
-    if (state?.status === "incomplete") {
-      return {
-        label: state.detail || "已停止，存在缺译",
-        dotClass: "warning",
-        ratio: ""
-      };
-    }
-    return { label: "准备就绪", dotClass: "", ratio: "" };
-  }
-  const status = state.status || "capturing";
-  const labels = {
-    starting: "正在建立音频采集",
-    capturing: state.wsConnected ? "实时翻译中" : "等待字幕服务",
-    reconnecting: "字幕服务重连中",
-    finished: "正在收尾",
-    error: state.detail || "采集异常",
-    stopped: "已停止"
-  };
-  const dotClass = status === "capturing" && state.wsConnected
-    ? "live"
-    : ["starting", "reconnecting"].includes(status)
-      ? "warning"
-      : "";
-  const ratio = state.audio?.deliveredRatio
-    ? `音频 ${Math.round(state.audio.deliveredRatio * 100)}%`
-    : "";
-  return { label: labels[status] || state.detail || status, dotClass, ratio };
+function populateDisplayModes() {
+  elements.fontSize.min = String(FONT_SIZE_MIN);
+  elements.fontSize.max = String(FONT_SIZE_MAX);
+  elements.displayMode.replaceChildren(
+    ...DISPLAY_MODE_ORDER.map((mode) => new Option(DISPLAY_MODE_LABELS[mode], mode))
+  );
 }
+
+populateDisplayModes();
 
 function render() {
   const displayTab = runtimeState?.active
@@ -217,11 +197,11 @@ function render() {
     ? hostnameFromUrl(displayTab.url) || displayTab.url
     : "请先打开直播或视频页面";
 
-  const presentation = statusPresentation(runtimeState);
+  const presentation = capturePresentation(runtimeState);
   // Same-text writes still replace the node and make screen readers repeat the
   // status, and render() runs on every broadcast.
-  if (elements.statusLabel.textContent !== presentation.label) {
-    elements.statusLabel.textContent = presentation.label;
+  if (elements.statusLabel.textContent !== presentation.summary) {
+    elements.statusLabel.textContent = presentation.summary;
   }
   elements.statusDot.className = `status-dot ${presentation.dotClass}`.trim();
   elements.audioRatio.textContent = presentation.ratio;
@@ -396,13 +376,6 @@ function renderGlossarySettings() {
     glossaryDomainHint: elements.glossaryDomainHint.value,
     customGlossary: elements.customGlossary.value
   });
-}
-
-function formatBytes(bytes) {
-  const value = Number(bytes) || 0;
-  if (value >= 1024 ** 3) return `${(value / 1024 ** 3).toFixed(2)} GB`;
-  if (value >= 1024 ** 2) return `${Math.round(value / 1024 ** 2)} MB`;
-  return `${Math.round(value / 1024)} KB`;
 }
 
 async function localRequest(path, { timeoutMs = 6000, ...init } = {}) {
