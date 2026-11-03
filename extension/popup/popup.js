@@ -16,7 +16,8 @@ import {
 import {
   TRANSLATION_PROVIDERS,
   normalizeTranslationBaseUrl,
-  translatesInExtension
+  translatesInExtension,
+  usesManagedTranslator
 } from "../lib/translation-api.js";
 import { createCaptionReceiver } from "../lib/caption-delta.js";
 import { errorText, localizePage, renderMessage, t } from "../ui/i18n.js";
@@ -618,6 +619,14 @@ function fillModelSelect(select, entries, selectedId, fallbackLabel) {
   select.value = values.includes(selectedId) ? selectedId : values[0] || "";
 }
 
+function extensionTranslates() {
+  return translatesInExtension(
+    settings,
+    builtinSupport.translator,
+    local.status?.services?.translation?.port
+  );
+}
+
 function renderLocal() {
   const status = local.status;
   const job = status?.job || null;
@@ -633,7 +642,7 @@ function renderLocal() {
   // The local llama.cpp server is only unnecessary when the extension really
   // translates with its own provider. Otherwise the local model is the fallback
   // that still produces Chinese, so it stays part of the start.
-  const usesApiTranslation = translatesInExtension(settings, builtinSupport.translator);
+  const usesApiTranslation = extensionTranslates();
 
   let badgeLabel = t("popup_control_offline");
   let badgeClass = "warning";
@@ -708,7 +717,10 @@ function renderLocal() {
     if (runningModel && runningModel !== translationModel.alias) {
       hints.push(t("popup_hint_model_switch", runningModel));
     }
-    if (settings.translationMode === "api") {
+    if (
+      settings.translationMode === "api" &&
+      !usesManagedTranslator(settings, services?.translation?.port)
+    ) {
       hints.push(t("popup_hint_local_fallback"));
     }
   }
@@ -873,7 +885,7 @@ async function startLocalServices() {
         translationModel: settings.localTranslationModel,
         asrModel: settings.localAsrModel,
         translationMode: settings.translationMode,
-        apiTranslationConfigured: translatesInExtension(settings, builtinSupport.translator),
+        apiTranslationConfigured: extensionTranslates(),
         glossary: wlkGlossary
       }),
       timeoutMs: 15000

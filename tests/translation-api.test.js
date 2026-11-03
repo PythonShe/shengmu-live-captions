@@ -16,7 +16,9 @@ import {
   recentTranslationContext,
   resetTranslationRequestShapeCache,
   resolveTranslationConfig,
+  MANAGED_TRANSLATION_PORT,
   translatesInExtension,
+  usesManagedTranslator,
   testTranslationConnection,
   translateTexts,
   translationConfigIssue
@@ -301,6 +303,43 @@ test("translatesInExtension tells when the local translation model is not needed
     decide({ translationMode: "server", translationProvider: "chrome" }),
     false,
     "server mode always translates locally"
+  );
+});
+
+test("an endpoint served by the managed llama-server still needs the local translator", async () => {
+  const { DEFAULT_PORTS } = await import("../scripts/local-service/config.mjs");
+  assert.equal(MANAGED_TRANSLATION_PORT, DEFAULT_PORTS.translation);
+  const custom = (translationBaseUrl, extra = {}) => ({
+    translationMode: "api",
+    translationProvider: "custom",
+    translationModel: "Index-Translate-9B",
+    translationBaseUrl,
+    translationApiKeyConfigured: {},
+    ...extra
+  });
+  for (const url of [
+    "http://127.0.0.1:8013/v1",
+    "http://localhost:8013/v1",
+    "http://[::1]:8013/v1",
+    "http://127.0.0.2:8013"
+  ]) {
+    assert.equal(usesManagedTranslator(custom(url)), true, url);
+    assert.equal(translatesInExtension(custom(url)), false, url);
+  }
+  assert.equal(
+    translatesInExtension(custom("http://127.0.0.1:8013/v1", { translationApiKeyConfigured: { custom: true } })),
+    false,
+    "a key does not change who serves the endpoint"
+  );
+  assert.equal(translatesInExtension(custom("http://127.0.0.1:11434/v1")), true, "another local server");
+  assert.equal(translatesInExtension(custom("https://example.com:8013/v1")), true, "a remote host");
+  assert.equal(usesManagedTranslator(custom("http://127.0.0.1:9000/v1"), 9000), true, "a configured port");
+  assert.equal(translatesInExtension(custom("http://127.0.0.1:8013/v1"), "", 9000), true, "8013 is not it then");
+  assert.equal(usesManagedTranslator(custom("not a url")), false);
+  assert.equal(
+    usesManagedTranslator({ translationProvider: "chrome", translationBaseUrl: "http://127.0.0.1:8013/v1" }),
+    false,
+    "the built-in translator has no endpoint"
   );
 });
 

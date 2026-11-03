@@ -22,6 +22,8 @@ export const DEFAULT_TRANSLATION_PROVIDER = "chrome";
 export const DEFAULT_TRANSLATION_TIMEOUT_MS = 12000;
 export const MIN_TRANSLATION_TIMEOUT_MS = 3000;
 export const MAX_TRANSLATION_TIMEOUT_MS = 30000;
+/** Must match DEFAULT_PORTS.translation in scripts/local-service/config.mjs (tested). */
+export const MANAGED_TRANSLATION_PORT = 8013;
 
 export const TRANSLATION_PROVIDERS = Object.freeze({
   // Chrome's on-device Translator API. It exists only in documents, so the
@@ -281,19 +283,45 @@ export function normalizeTranslationSettings(value = {}) {
   };
 }
 
+/** @param {string} host A URL hostname, IPv6 in brackets. */
+function isLoopbackHost(host) {
+  const value = String(host || "").toLowerCase();
+  return value === "localhost" || value === "[::1]" || value === "::1" || /^127\./.test(value);
+}
+
+/**
+ * Whether the provider's endpoint is the llama-server the control service
+ * manages, which README offers as a custom endpoint. It is an API call to the
+ * extension, but stopping that server would take the translator away.
+ * @param {any} settings
+ * @param {number} [port] The managed port; the control service reports it.
+ * @returns {boolean}
+ */
+export function usesManagedTranslator(settings = {}, port = MANAGED_TRANSLATION_PORT) {
+  if (TRANSLATION_PROVIDERS[settings.translationProvider]?.builtin) return false;
+  try {
+    const url = new URL(settings.translationBaseUrl);
+    return isLoopbackHost(url.hostname) && Number(url.port) === Number(port);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Whether API mode really translates in the extension, leaving the local
  * translation model nothing to do. Takes page settings, which say only whether
  * a key is configured, never the key.
  * @param {any} settings
  * @param {string} [builtinSupport] Translator.availability(), "missing" without the API
+ * @param {number} [managedPort] See usesManagedTranslator.
  * @returns {boolean}
  */
-export function translatesInExtension(settings = {}, builtinSupport = "") {
+export function translatesInExtension(settings = {}, builtinSupport = "", managedPort = MANAGED_TRANSLATION_PORT) {
   if (settings.translationMode !== "api") return false;
   const provider = TRANSLATION_PROVIDERS[settings.translationProvider];
   if (!provider) return false;
   if (provider.builtin) return !["missing", "unavailable"].includes(builtinSupport);
+  if (usesManagedTranslator(settings, managedPort)) return false;
   if (provider.requiresApiKey) return Boolean(settings.translationApiKeyConfigured?.[provider.id]);
   return Boolean(String(settings.translationModel || "").trim());
 }
@@ -364,13 +392,7 @@ export function translationConfigIssue(config = {}) {
   if (config.apiKey && config.baseUrl) {
     try {
       const url = new URL(config.baseUrl);
-      const host = url.hostname.toLowerCase();
-      const loopback =
-        host === "localhost" ||
-        host === "[::1]" ||
-        host === "::1" ||
-        /^127\./.test(host);
-      if (url.protocol === "http:" && !loopback) {
+      if (url.protocol === "http:" && !isLoopbackHost(url.hostname)) {
         return msg("translation_http_with_key");
       }
     } catch {
