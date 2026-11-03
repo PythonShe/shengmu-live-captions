@@ -126,7 +126,7 @@ export function normalizeTranslationApiKeys(value) {
 export function normalizeTranslationSettings(value = {}) {
   const provider = normalizeTranslationProvider(value.translationProvider);
   const preset = TRANSLATION_PROVIDERS[provider];
-  let baseUrl = preset.baseUrl;
+  let baseUrl;
   try {
     baseUrl = normalizeTranslationBaseUrl(
       value.translationBaseUrl,
@@ -157,7 +157,7 @@ export function resolveTranslationConfig(settings = {}) {
   const normalized = normalizeTranslationSettings(settings);
   const preset = TRANSLATION_PROVIDERS[normalized.provider];
   const apiKey = normalized.apiKeys[normalized.provider] || "";
-  let isDeepSeekEndpoint = false;
+  let isDeepSeekEndpoint;
   try {
     const host = new URL(normalized.baseUrl).hostname.toLowerCase();
     isDeepSeekEndpoint =

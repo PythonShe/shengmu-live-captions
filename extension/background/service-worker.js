@@ -63,12 +63,12 @@ let initializationPromise = null;
 let currentEpochLines = [];
 let statePersistTimer = null;
 let finalizingPromise = null;
-let knownLineSignatures = new Map();
+const knownLineSignatures = new Map();
 let pendingStopDetail = "";
 let lastHistoryWriteError = "";
 
-let translationPending = new Map();
-let translationFailed = new Map();
+const translationPending = new Map();
+const translationFailed = new Map();
 let translationFlushTimer = null;
 let translationFlushPromise = null;
 let translationRetryTimer = null;
@@ -199,7 +199,7 @@ async function saveSettings(patch) {
       merged.translationProvider
     );
     const preset = TRANSLATION_PROVIDERS[provider];
-    let nextUrl = merged.translationBaseUrl;
+    let nextUrl;
     try {
       nextUrl = normalizeTranslationBaseUrl(
         patch.translationBaseUrl,
@@ -351,7 +351,13 @@ async function ensureOffscreenDocument() {
     reasons: ["USER_MEDIA", "AUDIO_PLAYBACK"],
     justification: "Capture one tab, play its audio, and stream PCM to local captions."
   });
-  await new Promise((resolve) => setTimeout(resolve, 120));
+  await delay(120);
+}
+
+function delay(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 async function messageOffscreen(message) {
@@ -362,7 +368,7 @@ async function messageOffscreen(message) {
       ...message
     });
   } catch (error) {
-    throw new Error(`无法联系音频采集页面：${error?.message || error}`);
+    throw new Error(`无法联系音频采集页面：${error?.message || error}`, { cause: error });
   }
 }
 
@@ -1097,18 +1103,16 @@ async function settleTranslations(timeoutMs = TRANSLATION_STOP_TIMEOUT_MS) {
     const remaining = Math.max(0, deadline - Date.now());
     await Promise.race([
       translationFlushPromise || flushLineTranslations(),
-      new Promise((resolve) =>
-        setTimeout(resolve, Math.min(remaining, 600))
-      )
+      delay(Math.min(remaining, 600))
     ]);
     if (translationPending.size === 0) break;
-    await new Promise((resolve) => setTimeout(resolve, 30));
+    await delay(30);
   }
   const inFlight = translationFlushPromise;
   if (inFlight) {
     await Promise.race([
       inFlight,
-      new Promise((resolve) => setTimeout(resolve, 1200))
+      delay(1200)
     ]);
   }
   if (translationFlushPromise) {
@@ -1117,7 +1121,7 @@ async function settleTranslations(timeoutMs = TRANSLATION_STOP_TIMEOUT_MS) {
     abortLineTranslation();
     await Promise.race([
       translationFlushPromise,
-      new Promise((resolve) => setTimeout(resolve, 500))
+      delay(500)
     ]);
   }
   if (generation === translationGeneration) await applyPendingFallbacks();
@@ -1165,7 +1169,7 @@ async function startSessionNow(message) {
   try {
     wsUrl = normalizeWsUrl(message.wsUrl || settingsCache.wsUrl);
   } catch (error) {
-    throw new Error(error?.message || String(error));
+    throw new Error(error?.message || String(error), { cause: error });
   }
   settingsCache = normalizeSettings({ ...settingsCache, wsUrl });
   await chrome.storage.local.set({ [SETTINGS_KEY]: settingsCache });

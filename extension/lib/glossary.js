@@ -36,7 +36,7 @@ const ENTRY_DELIMITERS = ["->", "=>", "=", ",", "，", "	"];
 const COMMENT_PREFIXES = ["#", "//"];
 // Any of these inside a source term would be read back as line syntax instead of
 // text, so the exporter quotes such a term. `=` covers `=>`; `->` is explicit.
-const LINE_UNSAFE = /[|｜,，	"“”=]|->|^#|^\/\//;
+const LINE_UNSAFE = /[|｜,，\t"“”=]|->|^#|^\/\//;
 // WhisperLiveKit splits an entry on `;`/newline and takes the text before the
 // first `->`, `=>`, `=` or `:`. A source term containing one of those cannot be
 // expressed at all; it is skipped instead of being silently rewritten.

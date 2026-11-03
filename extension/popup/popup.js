@@ -298,7 +298,7 @@ function renderTranslationSettings() {
 
   const translationState = runtimeState?.translation;
   const usage = translationState?.usage;
-  let usageText = "";
+  let usageText;
   if (settings.translationMode === "server") {
     usageText = "本地服务端模式：译文由 WhisperLiveKit 生成。";
   } else if (usage?.requests > 0) {
@@ -378,7 +378,7 @@ async function localRequest(path, { timeoutMs = 6000, ...init } = {}) {
     ...init,
     signal: AbortSignal.timeout(timeoutMs)
   });
-  let payload = null;
+  let payload;
   try {
     payload = await response.json();
   } catch {

@@ -129,7 +129,9 @@ globalThis.chrome = {
 };
 
 await import("../extension/background/service-worker.js");
-await new Promise((resolve) => setTimeout(resolve, 30));
+await new Promise((resolve) => {
+  setTimeout(resolve, 30);
+});
 
 test("background defaults to DeepSeek and never broadcasts API keys", async () => {
   const state = await sendToBackground({ target: "background", type: "get-state" });
