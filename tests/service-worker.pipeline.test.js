@@ -223,3 +223,29 @@ test("finalize runs once for concurrent stops and waits for the in-flight transl
   assert.equal(session.status, "stopped");
   assert.equal(session.translationMissing, 0);
 });
+
+test("a stop that arrives after the session ended does not finalize it again", async () => {
+  await configureApi();
+  const sessionId = await startSession();
+  await mock.sendFromOffscreen({
+    type: "status-report",
+    sessionId,
+    status: { state: "error", fatal: true, detail: "WLK crashed", wsConnected: false }
+  });
+  const ended = await getHistorySession(sessionId);
+  assert.equal(ended.status, "error");
+  const endedBroadcasts = mock.broadcasts("session-ended").length;
+
+  // A view that still shows the session as active sends a late stop.
+  const lateStop = await mock.sendToBackground({ target: "background", type: "stop-capture" });
+  assert.equal(lateStop.ok, true);
+  assert.equal(mock.broadcasts("session-ended").length, endedBroadcasts);
+  const after = await getHistorySession(sessionId);
+  assert.equal(after.status, "error");
+  assert.equal(after.endedAt, ended.endedAt);
+  const state = await getState();
+  assert.equal(state.status, "error");
+  assert.equal(state.detail, "WLK crashed");
+  // The stray capture, if any, was still told to stop.
+  assert.equal(mock.sent.at(-1).type, "stop-capture");
+});
