@@ -114,6 +114,15 @@ DeepSeek 默认可能开启思考模式，思考会吃掉 `max_tokens` 导致 `c
 - `scripts/Start-Services.ps1`：`-AsrOnly`。
 - `README.md`、`manifest.json`、`package.json`：文档与版本 0.4.0。
 
+## 0.5.7~0.5.10 现状（接替本文早期描述）
+
+本文写于 0.4.0；分层重构（0.5.6）后代码落点变成 `extension/lib/translation-api.js`（协议层）、`lib/translation-scheduler.js`（调度）、`background/message-router.js`（消息路由）；PowerShell 脚本已被 `scripts/services.mjs` 与 `scripts/local-service/` 取代。
+
+- **提供方**：`TRANSLATION_PROVIDERS` 每项带 `protocol`（`openai` / `deepl` / `builtin`）与 `requiresModel`；现有 `chrome`（内置）、`deepseek`、`openai`、`bailian`、`deepl`、`custom`。`deepseek` 为 `fixedModel: true`，模型恒为 `deepseek-flash`（旧存的 `deepseek-chat` 自动归一，面板模型框置灰）。
+- **DeepL（0.5.7）**：`deeplTranslateUrl` / `buildDeepLRequestBody` / `parseDeepLResponse`；`text[]` + `target_lang: ZH-HANS`（被 400 拒绝时回退 `ZH` 重试一次）、免计费 `context` 只放英文原文、`show_billed_characters` 累计 `usage.billedCharacters`；Key 以 `:fx` 结尾且 baseUrl 仍是官方预设时切 `api-free.deepl.com`（手改 baseUrl 优先）；HTTP 456 映射 `code: "quota"`（不重试）。
+- **半句中文的来源（0.5.8）**：API 模式已删除 buffer 独立送翻与预取复用（`lib/buffer-translation.js`、popup「半句预翻译」开关均不存在）。成长行的译文作为阶段译文上屏，源文变长不清零，只用 `translatedSource` / `translationPending` 标记落后；重译限流 `8 字符 / 400 ms`，被限流时 `wakeTimer` 补发。阶段译文只上屏，不进 IndexedDB 与 SRT，停止采集时 `commitRuntimeLinesToHistory` 定格补写。
+- **回看与浮层**：0.5.9 回看面板改为 tail-follow（`planHistoryRows` + `data-line-id` 节点复用），0.5.10 去掉 `text-wrap: balance`、宽度加 12 px 余量、高度 160 ms 缓动；这些改动不影响翻译协议，详见 `paseo/16`~`paseo/18`。
+
 ## 非目标
 
 - 不做语音级实时同传（仍是 ASR 定稿 + 文本翻译）。

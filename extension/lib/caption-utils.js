@@ -10,6 +10,7 @@ import {
   MAX_CUSTOM_GLOSSARY_CHARS
 } from "./glossary.js";
 import { LocalizedError, msg } from "./i18n-message.js";
+import { polishTranslation } from "./speech-cleanup.js";
 import { needsCompletion, startsContinuation } from "./utterance.js";
 
 export const SETTINGS_KEY = "settings";
@@ -369,31 +370,73 @@ export function selectDisplayCaption(current = {}) {
   const bufferSource = cleanText(current.bufferSource);
   const bufferTranslation = cleanText(current.bufferTranslation);
 
-  // The source slot never waits for a translation: the newest English (the
-  // uncommitted buffer while it is still growing, otherwise the newest
-  // committed line) goes on screen as soon as the ASR produces it. The
-  // translation slot keeps the previous sentence, flagged `pending`, until the
-  // matching translation lands.
-  const latestSource = bufferSource || cleanText(latestLine?.source);
-  const latestTranslation = bufferSource
-    ? bufferTranslation
-    : getTranslationText(latestLine);
-  const lineId = bufferSource ? null : latestLine?.id || null;
-  const failed = Boolean(
-    !bufferSource && latestLine?.translationFailed && !latestTranslation
-  );
+  // The source slot never waits for a translation, and it never goes backwards
+  // either: the buffer only carries the words *after* the newest row, so the
+  // slot is that row plus whatever has not been committed yet. Replacing the
+  // row with the buffer is what made the English line jump between a whole
+  // sentence and two words.
+  const latestSource = composeLiveSource(latestLine?.source, bufferSource);
+  // The translation slot reads the newest row's own translation first. A row
+  // that is still growing keeps the stage translation it already had (see
+  // reconcileLineTranslations), so the slot moves forward instead of falling
+  // back to the previous sentence on every ASR update.
+  const lineTranslation = getTranslationText(latestLine);
+  const latestTranslation = lineTranslation || bufferTranslation || getTranslationText(translatedLine);
+  const failed = Boolean(latestLine?.translationFailed && !lineTranslation);
 
   return {
-    lineId,
+    // The row the translation belongs to, not the buffer: the overlay uses this
+    // id to keep the current sentence out of the "previous sentence" slot.
+    lineId: latestLine?.id || null,
     // Never copy a translation into the source slot: a translation-only line
     // would otherwise print Chinese in the English row of bilingual mode.
     source: latestSource,
-    translation:
-      latestTranslation || (failed ? "" : getTranslationText(translatedLine)),
+    translation: latestTranslation,
     error: cleanText(current.translationError),
-    pending: Boolean(latestSource && !latestTranslation && !failed),
+    // `pending` means "the Chinese on screen is not the newest source yet":
+    // either the row has no translation at all, or it still shows a stage
+    // translation the growing source has overtaken. The buffer being non-empty
+    // is not a wait: WhisperLiveKit keeps a buffer almost all the time, and a
+    // dot that glows constantly reads as a permanent failure.
+    pending: Boolean(
+      latestSource && !failed && (latestLine?.translationPending || !lineTranslation)
+    ),
     failed
   };
+}
+
+/**
+ * English slot text: the newest committed row plus the words the recogniser has
+ * not committed yet.
+ *
+ * WhisperLiveKit writes its buffer as the words *after* the row it is still
+ * working on. On 90 s of real samples the buffer never overlapped the row's
+ * tail, yet `bufferSource || latestLine.source` made the English slot jump
+ * between the whole sentence and one or two words 88 times a minute. Appending
+ * keeps the slot monotonic and still shows the newest words.
+ *
+ * content-overlay.js keeps an inlined copy (it is a classic script and cannot
+ * import ES modules); change both or the old-worker fallback and the new path
+ * disagree.
+ */
+export function composeLiveSource(lineSource, bufferSource) {
+  const line = cleanText(lineSource);
+  const buffer = cleanText(bufferSource);
+  if (!line) return buffer;
+  if (!buffer) return line;
+  const lineWords = line.split(" ");
+  const bufferWords = buffer.split(" ");
+  const shorter = Math.min(lineWords.length, bufferWords.length);
+  for (let count = shorter; count > 0; count -= 1) {
+    const tail = lineWords.slice(-count).join(" ").toLowerCase();
+    const head = bufferWords.slice(0, count).join(" ").toLowerCase();
+    if (tail !== head) continue;
+    // The buffer only repeats the row's tail: nothing new to append.
+    return count === bufferWords.length
+      ? line
+      : `${line} ${bufferWords.slice(count).join(" ")}`;
+  }
+  return `${line} ${buffer}`;
 }
 
 export function parseTimecode(value) {
@@ -520,6 +563,10 @@ export function mergeCaptionLines(existingLines, incomingLines, limit = 20000) {
   return result.length > limit ? result.slice(result.length - limit) : result;
 }
 
+/** A growing row is retranslated only after this much new text or this long. */
+export const TRANSLATION_RETRANSLATE_MIN_NEW_CHARS = 8;
+export const TRANSLATION_RETRANSLATE_MIN_INTERVAL_MS = 400;
+
 /** A fragment is only merged when the next row really follows it. */
 export const FRAGMENT_GAP_SECONDS = 2.0;
 export const FRAGMENT_MAX_LINES = 4;
@@ -549,7 +596,16 @@ export function mergeCaptionFragments(lines, options = {}) {
   let unit = null;
 
   const startUnit = (line) => {
-    const next = { ...line, fragmentLines: 1, open: needsCompletion(line.source) };
+    const next = {
+      ...line,
+      fragmentLines: 1,
+      // Every raw row that went into this unit, first row included. A growing
+      // row can push the unit past FRAGMENT_MAX_CHARS and split it again; the
+      // row that falls out then keeps a reference to the unit whose stage
+      // translation it has to inherit (see reconcileLineTranslations).
+      fragmentIds: line.id ? [line.id] : [],
+      open: needsCompletion(line.source)
+    };
     merged.push(next);
     return next;
   };
@@ -582,16 +638,133 @@ export function mergeCaptionFragments(lines, options = {}) {
     unit.source = `${unit.source} ${line.source}`.replace(/\s+/g, " ").trim();
     unit.end = line.end || unit.end;
     unit.fragmentLines += 1;
+    if (line.id) unit.fragmentIds = [...(unit.fragmentIds || []), line.id];
     // Only "this row is itself unfinished" keeps the unit open. A row that
     // merely continues the previous sentence closes it, otherwise a whole
     // paragraph gets glued together and never gets translated.
     unit.open = needsCompletion(line.source);
-    // The unit grew, so any translation it already had is stale.
-    unit.translation = "";
+    // The unit grew, so any translation it already had is stale. It is not
+    // dropped here: reconcileLineTranslations keeps it on screen as a stage
+    // translation until the new one lands.
     unit.translationPending = true;
     unit.translationFailed = false;
   }
   return merged;
+}
+
+/**
+ * Carries row translations across one ASR update.
+ *
+ * The recogniser appends to the row it is still working on, so a row's source
+ * changes several times per sentence. Clearing the translation on every change
+ * is what made the caption flash a stage translation, drop back to the previous
+ * sentence, then dump the whole paragraph once the sentence stopped growing.
+ * Here a row keeps its translation and records which source it describes; a
+ * translation that no longer matches the source is flagged `translationPending`
+ * and retranslated, but it stays on screen until the newer one arrives.
+ *
+ * In API mode the extension translates rows itself, so rows are merged first and
+ * any per-row translation coming from the ASR is discarded. In server mode
+ * WhisperLiveKit returns its own row translations aligned to its own segments,
+ * so those are kept as-is.
+ * @param {any[]} previousLines Rows of the previous state, newest window first.
+ * @param {any[]} nextLines Rows from this update, already normalised and merged.
+ * @param {{ useApi?: boolean, knownLines?: Map<string, any> }} [options]
+ *   `knownLines` is the session-wide copy, read only for rows that have already
+ *   fallen out of the 120-row runtime window.
+ * @returns {any[]}
+ */
+export function reconcileLineTranslations(previousLines, nextLines, options = {}) {
+  const useApi = Boolean(options.useApi);
+  const knownLines = options.knownLines instanceof Map ? options.knownLines : null;
+  const previous = Array.isArray(previousLines) ? previousLines : [];
+  const byId = new Map();
+  for (const line of previous) {
+    if (line?.id) byId.set(line.id, line);
+  }
+  // A unit can split again when one of its rows keeps growing past the size
+  // limit. The row that falls out never existed on its own, so it has no
+  // previous copy; it inherits the unit's stage translation instead of letting
+  // the caption fall back to the first row's much older short translation.
+  const byFragmentId = new Map();
+  for (const line of previous) {
+    if (!getTranslationText(line)) continue;
+    for (const id of line.fragmentIds || []) {
+      if (id && id !== line.id && !byFragmentId.has(id)) {
+        byFragmentId.set(id, line);
+      }
+    }
+  }
+
+  return (Array.isArray(nextLines) ? nextLines : []).map((rawLine) => {
+    const own = byId.get(rawLine.id) || knownLines?.get(rawLine.id) || null;
+    const carrier = own || byFragmentId.get(rawLine.id) || null;
+    const carried = getTranslationText(carrier);
+    // WhisperLiveKit's own translation for this row. In API mode it is the only
+    // thing that saves a row when the external API gives up, so it is kept as
+    // the fallback for the same source only: a grown row has to be translated
+    // again.
+    const serverTranslation = polishTranslation(getTranslationText(rawLine));
+    const translation = useApi ? carried : serverTranslation;
+    const translatedSource = translation
+      ? useApi
+        ? cleanText(carrier?.translatedSource) || cleanText(carrier?.source)
+        : cleanText(rawLine.source)
+      : "";
+    const fallbackTranslation = useApi
+      ? serverTranslation ||
+        (carrier?.source === rawLine.source
+          ? compactTextOf(carrier?.fallbackTranslation)
+          : "")
+      : "";
+    // Same source text but no translation means the last attempt failed for this
+    // exact row; a grown row is a new attempt, never a permanent failure.
+    const failed = Boolean(
+      !translation && carrier?.translationFailed && carrier.source === rawLine.source
+    );
+    return {
+      ...rawLine,
+      translation,
+      translatedSource,
+      fallbackTranslation,
+      translationPending: useApi
+        ? Boolean(rawLine.source && translatedSource !== rawLine.source)
+        : Boolean(rawLine.source && !translation),
+      translationFailed: failed
+    };
+  });
+}
+
+function compactTextOf(value) {
+  if (typeof value === "string") return value.replace(/\s+/g, " ").trim();
+  if (value && typeof value === "object") {
+    return String(value.text ?? "").replace(/\s+/g, " ").trim();
+  }
+  return "";
+}
+
+/**
+ * Whether a growing row is worth retranslating now.
+ *
+ * A row appends a few words every 0.5-1 s. Translating each append costs a full
+ * request (billed per character on DeepL) for a translation the next append
+ * makes stale again. Either enough new text or enough time has to pass.
+ * @param {any} line The runtime row.
+ * @param {{ source?: string, at?: number } | null | undefined} guard What the
+ *   last request asked for, and when.
+ * @param {{ now?: number, minNewChars?: number, minIntervalMs?: number }} [options]
+ * @returns {boolean} true when the row may be sent now.
+ */
+export function shouldRetranslateLine(line, guard, options = {}) {
+  if (!guard) return true;
+  // A row with nothing on screen has no reason to wait.
+  if (!cleanText(line?.translation)) return true;
+  const minNewChars = Number(options.minNewChars) || TRANSLATION_RETRANSLATE_MIN_NEW_CHARS;
+  const minIntervalMs =
+    Number(options.minIntervalMs) || TRANSLATION_RETRANSLATE_MIN_INTERVAL_MS;
+  const at = Number(options.now) || Date.now();
+  const grew = cleanText(line?.source).length - cleanText(guard.source).length;
+  return grew >= minNewChars || at - Number(guard.at || 0) >= minIntervalMs;
 }
 
 /**

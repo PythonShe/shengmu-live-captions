@@ -3,7 +3,7 @@
   // brightness and a corner dot marks the wait). 6 -> 7: the wheel listener is
   // bound only while the pointer is over the captions. 7 -> 8: caption rows
   // arrive as deltas. An instance of an older version is rebuilt, not reused.
-  const OVERLAY_VERSION = 9;
+  const OVERLAY_VERSION = 10;
   const existing = globalThis.__shengmuCaptionOverlay;
   if (existing?.version === OVERLAY_VERSION && existing.refresh) {
     existing.refresh();
@@ -45,16 +45,20 @@
   let dragState = null;
   let sizeObserver = null;
   let shellWidthPx = 0;
+  let shellHeightPx = 0;
   let shellShrinkTimer = 0;
+  let shellShrinkTransitionTimer = 0;
+  let shellResizeTimer = 0;
+  let shellWidthSettleTimer = 0;
   let measureContext = null;
   let stageRectCache = null;
   let historyRectCache = null;
   let lastPanelRect = null;
 
   // Wheel-up scrollback: historyLog is a rolling log of finished lines.
-  // scrollbackSnapshot freezes the list of ids (not the text) when the reader
-  // starts scrolling, so live captions cannot push the lines around while late
-  // translations still land in the rows already on screen.
+  // The panel is tail-follow: it always shows the newest `scrollBack` lines, so
+  // a new sentence slides in at the bottom and the oldest visible row slides out
+  // at the top. The wheel only changes how many rows are kept.
   const HISTORY_LIMIT = 60;
   const MAX_SCROLLBACK = 40;
   const WHEEL_STEP_PX = 48;
@@ -67,6 +71,18 @@
   const SHELL_WIDTH_MAX_PX = 860;
   const SHELL_WIDTH_VIEWPORT_RATIO = 0.68;
   const SHELL_SHRINK_DELAY_MS = 420;
+  // Canvas `measureText` and the real DOM layout disagree by a few pixels on
+  // mixed CJK/Latin, punctuation squeeze and bold serif spacing. Without a
+  // margin the target width lands just under the text and wraps it.
+  const SHELL_WIDTH_SLACK_PX = 12;
+  const SHELL_WIDTH_TRANSITION_MS = 170;
+  // The CSS transition is `height 160ms`; the class that keeps the slots from
+  // shrinking is held 40 ms longer so it can never end the animation early.
+  const SHELL_HEIGHT_RESIZE_LOCK_MS = 200;
+  // A line is 36-47 px, so anything under two pixels is sub-pixel noise from
+  // the measured text boxes, not a wrap; re-targeting on it would only toggle
+  // the easing class and keep the slots out of their default flex behaviour.
+  const SHELL_HEIGHT_EPSILON_PX = 2;
   // overlay-history.js ships in the same injection list and must run first. An
   // older worker build injects content-overlay.js on its own, and dereferencing
   // the missing helper used to abort this whole script, so the page overlay
@@ -89,6 +105,22 @@
     syncHistoryLog(log, lines) {
       const api = globalThis.ShengmuOverlayHistory;
       return api ? api.syncHistoryLog(log, lines) : false;
+    },
+    // Without overlay-history.js there is nothing to reuse, so the degraded
+    // panel re-creates its rows (still correct, just not incremental). The
+    // removed list stays honest, otherwise the nodes of rows that slid out
+    // would pile up outside the plan's order.
+    planHistoryRows(previousIds, nextIds) {
+      const api = globalThis.ShengmuOverlayHistory;
+      if (api) return api.planHistoryRows(previousIds, nextIds);
+      const previous = Array.isArray(previousIds) ? previousIds : [];
+      const next = Array.isArray(nextIds) ? nextIds : [];
+      const nextSet = new Set(next);
+      return {
+        order: [...next],
+        added: [...next],
+        removed: previous.filter((id) => !nextSet.has(id))
+      };
     }
   };
   if (!globalThis.ShengmuOverlayHistory) {
@@ -97,11 +129,12 @@
     );
   }
   const historyLog = HISTORY_API.createHistoryLog(HISTORY_LIMIT);
-  let scrollbackSnapshot = null;
+  // Live rows currently in the panel, oldest first; parallel to the rendered
+  // `.history-line` nodes so a merge can reuse them.
+  const scrollbackRows = [];
   let scrollBack = 0;
   let wheelAccum = 0;
   let wheelCooldownUntil = 0;
-  let renderedScrollbackKey = "";
   let syncedLinesRef = null;
   let windowListenersBound = false;
   let wheelListenerBound = false;
@@ -153,6 +186,16 @@
     // older build has no teardown() and its fullscreenchange handler can still
     // re-append its host, so hide stale hosts as well as removing them.
     retireStaleHosts();
+    // A rebuild normally arrives through teardown(), but the timers are cleared
+    // here as well so a reused instance cannot leave one pointing at a dead node.
+    for (const timer of [shellShrinkTimer, shellShrinkTransitionTimer,
+                         shellResizeTimer, shellWidthSettleTimer]) {
+      if (timer) clearTimeout(timer);
+    }
+    shellShrinkTimer = 0;
+    shellShrinkTransitionTimer = 0;
+    shellResizeTimer = 0;
+    shellWidthSettleTimer = 0;
     host = document.createElement("div");
     host.id = "shengmu-caption-host";
     host.style.cssText =
@@ -192,6 +235,12 @@
           align-self: center;
           width: fit-content;
           max-width: 100%;
+        }
+        /* Growing must land in the same frame as the new text: a transition
+           keeps the frame narrower than its text for ~170 ms, so the sentence
+           wraps to 2 lines and snaps back to 1 line when the width arrives.
+           Only the delayed shrink (scheduleShellShrink) animates. */
+        .caption-stack.shrinking {
           transition: width 170ms ease-out;
         }
         .history {
@@ -282,6 +331,10 @@
              more than the viewport. Cap the shell and let the older slots
              shrink first, so the current translation always stays readable. */
           max-height: min(70vh, 680px);
+          /* The shell height follows its text; keeping it explicit lets CSS
+             ease the 1-line <-> 2-line jump instead of snapping the top
+             border (see syncShellHeight). */
+          transition: height 160ms cubic-bezier(0.22, 1, 0.36, 1);
           padding: 18px 22px 16px;
           overflow: hidden;
           /* Every chrome layer fades with the same opacity variable, so pulling
@@ -334,8 +387,14 @@
           flex: 0 1 auto;
           min-height: 0;
         }
+        /* While the height eases, the slots have to keep their natural size: a
+           shrinking flex item moves the text it holds, which is exactly the jump
+           the easing is meant to remove. */
+        .caption-shell.resizing .prev-translation,
+        .caption-shell.resizing .translation {
+          flex: 0 0 auto;
+        }
         .prev-translation.overflowing,
-        .source.overflowing,
         .translation.overflowing {
           -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 1.1em);
           mask-image: linear-gradient(to bottom, transparent 0, #000 1.1em);
@@ -349,13 +408,21 @@
           font-weight: 600;
           letter-spacing: 0.02em;
           line-height: 1.34;
-          text-wrap: balance;
           text-shadow: 0 1px 3px #000;
           white-space: pre-wrap;
         }
         .source {
-          max-height: 2.8em;
+          /* One fixed line: the recogniser appends words to the same sentence
+             for seconds, so a two-line English slot changed the box height on
+             almost every update. The slot is a tail-aligned window now and the
+             overflow is clipped (and faded) on the left. */
+          flex: 0 0 auto;
+          max-height: 1.38em;
           margin-bottom: 7px;
+          /* Cross-axis alignment inside the column flex: the text keeps its
+             natural width and spills to the left, where it is clipped. */
+          align-items: flex-end;
+          white-space: nowrap;
           color: rgba(255, 253, 244, 0.63);
           font-family: Georgia, "Times New Roman", serif;
           font-size: clamp(13px, calc(var(--translation-size) * 0.6), 34px);
@@ -363,6 +430,16 @@
           letter-spacing: 0.01em;
           line-height: 1.38;
           text-shadow: 0 1px 2px #000;
+        }
+        .source .caption-text {
+          flex: 0 0 auto;
+          width: auto;
+          max-width: none;
+          white-space: nowrap;
+        }
+        .source.overflowing {
+          -webkit-mask-image: linear-gradient(to right, transparent 0, #000 2em);
+          mask-image: linear-gradient(to right, transparent 0, #000 2em);
         }
         .translation {
           max-height: 4.14em;
@@ -372,7 +449,6 @@
           font-weight: 700;
           letter-spacing: 0.03em;
           line-height: 1.38;
-          text-wrap: balance;
           text-shadow:
             0 2px 2px rgba(0, 0, 0, 0.96),
             0 0 14px rgba(0, 0, 0, 0.48);
@@ -576,7 +652,9 @@
     bindEvents();
     bindWindowListeners();
     watchSize();
-    renderedScrollbackKey = "";
+    clearScrollbackRows();
+    shellWidthPx = 0;
+    shellHeightPx = 0;
     stageRectCache = null;
     historyRectCache = null;
   }
@@ -821,7 +899,7 @@
   // Caption text is laid out by the browser, so the target width is measured on
   // a detached canvas instead: the widest visible slot decides how wide the box
   // wants to be. Measuring the DOM would feed the current width back into the
-  // next measurement and oscillate under `text-wrap: balance`.
+  // next measurement and oscillate.
   function measureSlotWidth(slot) {
     const textNode = slot?.firstElementChild;
     const text = textNode?.textContent || "";
@@ -841,9 +919,21 @@
     return widest;
   }
 
-  function applyShellWidth(width) {
+  function applyShellWidth(width, animate = false) {
     shellWidthPx = width;
-    if (stack) stack.style.width = `${width}px`;
+    if (!stack) return;
+    clearTimeout(shellShrinkTransitionTimer);
+    shellShrinkTransitionTimer = 0;
+    if (animate) {
+      stack.classList.add("shrinking");
+      shellShrinkTransitionTimer = setTimeout(() => {
+        shellShrinkTransitionTimer = 0;
+        stack?.classList.remove("shrinking");
+      }, SHELL_WIDTH_TRANSITION_MS);
+    } else {
+      stack.classList.remove("shrinking");
+    }
+    stack.style.width = `${width}px`;
   }
 
   // Target width for the current text, or 0 when there is nothing to measure.
@@ -866,7 +956,10 @@
     );
     return Math.min(
       limit,
-      Math.max(SHELL_WIDTH_MIN_PX, Math.ceil(contentWidth + chromeWidth))
+      Math.max(
+        SHELL_WIDTH_MIN_PX,
+        Math.ceil(contentWidth + chromeWidth + SHELL_WIDTH_SLACK_PX)
+      )
     );
   }
 
@@ -878,13 +971,24 @@
     shellShrinkTimer = setTimeout(() => {
       shellShrinkTimer = 0;
       const target = measureShellWidth();
-      if (target && target < shellWidthPx - 1) applyShellWidth(target);
+      if (!target || target >= shellWidthPx - 1) return;
+      applyShellWidth(target, true);
+      // The text rewraps while the width eases, so the height measured in this
+      // frame belongs to the old width: re-sync once the width has landed, or a
+      // sentence that gained a line on the way down stays clipped.
+      clearTimeout(shellWidthSettleTimer);
+      shellWidthSettleTimer = setTimeout(() => {
+        shellWidthSettleTimer = 0;
+        syncShellHeight();
+        refreshCaptionOverflow();
+      }, SHELL_WIDTH_TRANSITION_MS + 30);
     }, SHELL_SHRINK_DELAY_MS);
   }
 
-  // Grow immediately (the CSS transition smooths it), shrink only after the
-  // text has stopped changing: a streamed sentence grows every few hundred ms
-  // and would otherwise make the frame twitch on every token.
+  // Grow in the same frame the text appears (no transition, see
+  // .caption-stack.shrinking), shrink only after the text has stopped changing:
+  // a streamed sentence grows every few hundred ms and would otherwise make the
+  // frame twitch on every token.
   function syncShellWidth() {
     const wanted = measureShellWidth();
     if (!wanted) return;
@@ -911,6 +1015,56 @@
     element.classList.toggle("visible", Boolean(text));
   }
 
+  // The shell height follows its text (1 <-> 2 lines several times a minute) and
+  // the frame is bottom-anchored, so every change snapped the top border 47 px.
+  // Keep the height explicit so CSS can ease it: the natural height is summed
+  // from the slot text boxes (which keep their own height even while the shell
+  // is mid-animation), and the target is only written when it really changed, so
+  // an in-flight transition is retargeted instead of being restarted.
+  function measureShellNaturalHeight() {
+    const style = getComputedStyle(shell);
+    let height =
+      (parseFloat(style.paddingTop) || 0) +
+      (parseFloat(style.paddingBottom) || 0) +
+      (parseFloat(style.borderTopWidth) || 0) +
+      (parseFloat(style.borderBottomWidth) || 0);
+    for (const slot of [previousElement, sourceElement, translationElement]) {
+      if (!slot || !slot.classList.contains("visible")) continue;
+      const slotStyle = getComputedStyle(slot);
+      const textHeight = slot.firstElementChild?.getBoundingClientRect().height || 0;
+      if (!textHeight) continue;
+      const cap = parseFloat(slotStyle.maxHeight);
+      height += (Number.isFinite(cap) ? Math.min(textHeight, cap) : textHeight) +
+        (parseFloat(slotStyle.marginBottom) || 0);
+    }
+    const errorElement = shadow.querySelector(".translation-error");
+    if (errorElement?.classList.contains("visible")) {
+      const errorStyle = getComputedStyle(errorElement);
+      height += errorElement.getBoundingClientRect().height +
+        (parseFloat(errorStyle.marginTop) || 0);
+    }
+    return height;
+  }
+
+  function syncShellHeight() {
+    if (!shell || !stage || stage.hidden) return;
+    const maxHeight = parseFloat(getComputedStyle(shell).maxHeight);
+    const natural = measureShellNaturalHeight();
+    const target = Number.isFinite(maxHeight) ? Math.min(natural, maxHeight) : natural;
+    const rounded = target ? Math.ceil(target) : 0;
+    if (!rounded && !shellHeightPx) return;
+    if (rounded && Math.abs(rounded - shellHeightPx) < SHELL_HEIGHT_EPSILON_PX) return;
+    shellHeightPx = rounded;
+    shell.classList.add("resizing");
+    clearTimeout(shellResizeTimer);
+    shellResizeTimer = setTimeout(() => {
+      shellResizeTimer = 0;
+      shell?.classList.remove("resizing");
+      refreshCaptionOverflow();
+    }, SHELL_HEIGHT_RESIZE_LOCK_MS);
+    shell.style.height = rounded ? `${rounded}px` : "";
+  }
+
   // The caption slots clip their overflow, so a long segment would silently
   // lose its first lines. Fade the clipped edge instead of cutting it dry.
   function markCaptionOverflow(...elements) {
@@ -920,10 +1074,14 @@
         continue;
       }
       const captionText = element.firstElementChild;
+      const rect = captionText ? captionText.getBoundingClientRect() : null;
       const clipped =
-        Boolean(captionText) &&
+        Boolean(rect) &&
         element.clientHeight > 0 &&
-        captionText.getBoundingClientRect().height - element.clientHeight > 1;
+        // Vertical overflow (clipped lines) and horizontal overflow (the
+        // single-line English slot, tail-aligned so the spill is on the left).
+        (rect.height - element.clientHeight > 1 ||
+          rect.width - element.clientWidth > 1);
       element.classList.toggle("overflowing", clipped);
     }
   }
@@ -961,6 +1119,7 @@
   function handleWindowResize() {
     applyStoredPosition();
     syncShellWidth();
+    syncShellHeight();
     refreshCaptionOverflow();
   }
 
@@ -1037,91 +1196,152 @@
     return "";
   }
 
-  // The snapshot freezes the rows themselves (not ids): later log trimming can
-  // no longer make an on-screen row disappear, while a late translation still
-  // lands because the log patches the same entry object in place.
-  function scrollbackView() {
-    if (!scrollbackSnapshot || scrollBack <= 0) return [];
-    return scrollbackSnapshot
-      .slice(-scrollBack)
-      .filter((entry) => entry.translation || entry.source);
-  }
-
+  // Tail-follow: the panel shows the newest `scrollBack` usable rows and nothing
+  // is frozen, so a new sentence slides in at the bottom while the oldest visible
+  // row slides out at the top. The wheel only changes how many rows are kept.
   function maxScrollBack() {
-    return Math.min((scrollbackSnapshot || []).length, MAX_SCROLLBACK);
+    return Math.min(scrollbackEntries().length, MAX_SCROLLBACK);
   }
 
   function openScrollback() {
-    // An empty result must not be frozen: the reader may retry once lines land.
-    if (!scrollbackSnapshot || scrollbackSnapshot.length === 0) {
-      const entries = scrollbackEntries();
-      scrollbackSnapshot = entries.length > 0 ? entries : null;
-      wheelAccum = 0;
-    }
-    return Boolean(scrollbackSnapshot && scrollbackSnapshot.length > 0);
+    // Nothing to show yet: the reader may retry once lines land.
+    if (scrollBack > 0) return true;
+    if (scrollbackEntries().length === 0) return false;
+    wheelAccum = 0;
+    return true;
   }
 
   function closeScrollback() {
-    if (scrollBack === 0 && !scrollbackSnapshot) return;
+    if (scrollBack === 0 && scrollbackRows.length === 0) return;
     scrollBack = 0;
-    scrollbackSnapshot = null;
     wheelAccum = 0;
     renderScrollback();
   }
 
+  function historyRowText(entry) {
+    const mode = settings.displayMode;
+    const source = mode === "bilingual" ? entry.source : "";
+    let primary = entry.translation;
+    // Never print the same English twice: an untranslated row leans on the
+    // primary slot only when there is no source slot to hold the English.
+    if (!primary && mode !== "bilingual") primary = entry.source;
+    if (mode === "english") primary = entry.source;
+    return { source, primary };
+  }
+
+  function createHistoryRow(id) {
+    const element = document.createElement("div");
+    element.className = "history-line";
+    // Exposed for the CDP probes: the row is patched in place, so the id is the
+    // only stable way to tell "same row, late translation" from "new row".
+    element.dataset.lineId = id;
+    const sourceElement = document.createElement("span");
+    sourceElement.className = "history-source";
+    const primaryElement = document.createElement("span");
+    primaryElement.className = "history-translation";
+    element.append(sourceElement, primaryElement);
+    return { id, element, sourceElement, primaryElement, sourceText: "", primaryText: "" };
+  }
+
+  // Returns true only when a text node really changed, so an idle broadcast costs
+  // no layout and no paint.
+  function patchHistoryRow(row, entry) {
+    const { source, primary } = historyRowText(entry);
+    let changed = false;
+    if (row.sourceText !== source) {
+      row.sourceText = source;
+      row.sourceElement.textContent = source;
+      changed = true;
+    }
+    if (row.primaryText !== primary) {
+      row.primaryText = primary;
+      row.primaryElement.textContent = primary;
+      changed = true;
+    }
+    return changed;
+  }
+
+  // The view is a sliding window over the log, so a merge usually only moves one
+  // node in at the bottom and drops one at the top. Walking the target order and
+  // reusing every node whose line is still visible avoids the full
+  // replaceChildren that made the panel flash on every caption broadcast.
+  function syncScrollbackRows(entries) {
+    const previousIds = scrollbackRows.map((row) => row.id);
+    const nextIds = entries.map((entry) => entry.id);
+    const plan = HISTORY_API.planHistoryRows(previousIds, nextIds);
+    let changed = plan.added.length > 0 || plan.removed.length > 0;
+    const rowsById = new Map(scrollbackRows.map((row) => [row.id, row]));
+    for (const id of plan.removed) {
+      rowsById.get(id)?.element.remove();
+      rowsById.delete(id);
+    }
+    // Walk the target order and only touch the DOM where a row is not already
+    // in its slot: a sliding window moves one node in at the bottom and drops
+    // one at the top, not a full replaceChildren on every caption broadcast.
+    for (let index = 0; index < plan.order.length; index += 1) {
+      const id = plan.order[index];
+      let row = rowsById.get(id);
+      if (!row) {
+        row = createHistoryRow(id);
+        rowsById.set(id, row);
+      }
+      const current = historyListElement.children[index];
+      if (current !== row.element) historyListElement.insertBefore(row.element, current || null);
+    }
+    scrollbackRows.length = 0;
+    for (let index = 0; index < plan.order.length; index += 1) {
+      const row = rowsById.get(plan.order[index]);
+      if (patchHistoryRow(row, entries[index])) changed = true;
+      scrollbackRows.push(row);
+    }
+    return changed;
+  }
+
+  function clearScrollbackRows() {
+    for (const row of scrollbackRows) row.element.remove();
+    scrollbackRows.length = 0;
+  }
+
   function renderScrollback() {
     if (!historyElement || !historyListElement || !chipElement) return;
-    const entries = scrollbackView();
+    const live = scrollBack > 0 ? scrollbackEntries() : null;
+    const entries = live ? live.slice(-scrollBack) : [];
     if (entries.length === 0) {
       if (!historyElement.hidden) historyElement.hidden = true;
+      if (scrollbackRows.length > 0) clearScrollbackRows();
       if (historyListElement.childElementCount) {
         historyListElement.replaceChildren();
       }
       chipElement.textContent = "";
-      renderedScrollbackKey = "";
       historyRectCache = null;
       return;
     }
 
-    const key = `${settings.displayMode}|${entries
-      .map((entry) => `${entry.id}\u0001${entry.translation}\u0001${entry.source}`)
-      .join("\u0002")}`;
-    if (key !== renderedScrollbackKey) {
-      renderedScrollbackKey = key;
-      const fragment = document.createDocumentFragment();
-      for (const entry of entries) {
-        const row = document.createElement("div");
-        row.className = "history-line";
-        const secondary = document.createElement("span");
-        secondary.className = "history-source";
-        secondary.textContent =
-          settings.displayMode === "bilingual" ? entry.source : "";
-        const primary = document.createElement("span");
-        primary.className = "history-translation";
-        primary.textContent =
-          settings.displayMode === "english"
-            ? entry.source
-            : entry.translation || entry.source;
-        row.append(secondary, primary);
-        fragment.append(row);
-      }
-      historyListElement.replaceChildren(fragment);
-    }
+    let changed = syncScrollbackRows(entries);
 
     // Unhide before measuring: a hidden panel has no layout, so scrollTop
     // cannot be anchored to the newest line until it is visible.
     const wasHidden = historyElement.hidden;
     historyElement.hidden = false;
-    if (wasHidden) historyRectCache = null;
+    if (wasHidden) changed = true;
+    // Rows sliding in or out change the panel box, so the rect the wheel
+    // hit-tests against has to be measured again; reusing the old one let a
+    // wheel over the newly grown part of the panel fall through to the page.
+    if (changed) historyRectCache = null;
     lastPanelRect = historyRect();
-    historyListElement.scrollTop = historyListElement.scrollHeight;
-    historyListElement.classList.toggle(
-      "overflowing",
-      historyListElement.scrollHeight > historyListElement.clientHeight + 1
-    );
+    if (changed) {
+      // The reader is watching the newest rows, so every change re-anchors the
+      // list to its bottom; skipping the write when nothing changed avoids a
+      // per-frame layout read on top of an already correct scroll position.
+      historyListElement.scrollTop = historyListElement.scrollHeight;
+      historyListElement.classList.toggle(
+        "overflowing",
+        historyListElement.scrollHeight > historyListElement.clientHeight + 1
+      );
+    }
     if (stage) stage.style.opacity = "1";
     chipElement.textContent =
-      scrollBack < maxScrollBack()
+      scrollBack < Math.min(live.length, MAX_SCROLLBACK)
         ? t("overlay_history_more", entries.length)
         : t("overlay_history_back", entries.length);
   }
@@ -1204,12 +1424,34 @@
     if (!changed) return;
     // Reaching the newest line closes the history panel again.
     if (scrollBack === 0) {
-      scrollbackSnapshot = null;
       wheelCooldownUntil = performance.now() + WHEEL_COOLDOWN_MS;
     }
     // render() also refreshes the dual-line context, which steps aside while
     // the reader is looking at the history panel.
     render();
+  }
+
+  // Local copy of caption-utils' composeLiveSource: this file is an IIFE and
+  // may not import ES modules. The recogniser hands over the words after the
+  // row it is still working on, so appending keeps the English slot monotonic
+  // instead of alternating between the sentence and one or two words.
+  function composeLiveSource(lineSource, bufferSource) {
+    const line = clean(lineSource);
+    const buffer = clean(bufferSource);
+    if (!line) return buffer;
+    if (!buffer) return line;
+    const lineWords = line.split(" ");
+    const bufferWords = buffer.split(" ");
+    const shorter = Math.min(lineWords.length, bufferWords.length);
+    for (let count = shorter; count > 0; count -= 1) {
+      const tail = lineWords.slice(-count).join(" ").toLowerCase();
+      const head = bufferWords.slice(0, count).join(" ").toLowerCase();
+      if (tail !== head) continue;
+      return count === bufferWords.length
+        ? line
+        : `${line} ${bufferWords.slice(count).join(" ")}`;
+    }
+    return `${line} ${buffer}`;
   }
 
   function latestCaption() {
@@ -1225,23 +1467,25 @@
         failed: Boolean(displayCaption.failed)
       };
     }
-    // Fallback for a worker that predates displayCaption: same rule, newest
-    // source first and the last known translation held as pending.
+    // Fallback for a worker that predates displayCaption: same rules as
+    // caption-utils' selectDisplayCaption (the English slot appends the buffer,
+    // the translation slot reads the newest row first, and `pending` means the
+    // Chinese lags the source), otherwise the old-worker path and the new one
+    // disagree. Change both or neither.
     const lines = Array.isArray(current.lines) ? current.lines : [];
     const reversed = [...lines].reverse();
     const line = reversed.find((item) => item?.source || item?.translation);
     const translated = reversed.find((item) => lineTranslation(item));
-    const bufferSource = clean(current.bufferSource);
     const bufferTranslation = clean(current.bufferTranslation);
-    const own = bufferSource ? bufferTranslation : lineTranslation(line);
-    const source = bufferSource || clean(line?.source);
-    const failed = Boolean(!bufferSource && line?.translationFailed && !own);
+    const own = lineTranslation(line);
+    const source = composeLiveSource(line?.source, current.bufferSource);
+    const failed = Boolean(line?.translationFailed && !own);
     return {
-      lineId: bufferSource ? null : line?.id || null,
+      lineId: line?.id || null,
       source,
-      translation: own || (failed ? "" : lineTranslation(translated)),
+      translation: own || bufferTranslation || lineTranslation(translated),
       error: clean(current.translationError),
-      pending: Boolean(source && !own && !failed),
+      pending: Boolean(source && !failed && (line?.translationPending || !own)),
       failed
     };
   }
@@ -1346,6 +1590,7 @@
     // reveal first, then resolve a position that was requested while hidden
     if (positionPending) applyStoredPosition();
     syncShellWidth();
+    syncShellHeight();
     refreshCaptionOverflow();
     keepStageInViewport();
     renderScrollback();
@@ -1359,8 +1604,8 @@
 
   function resetSessionHistory() {
     HISTORY_API.resetHistoryLog(historyLog);
+    clearScrollbackRows();
     syncedLinesRef = null;
-    scrollbackSnapshot = null;
     scrollBack = 0;
     wheelAccum = 0;
   }
@@ -1504,6 +1749,14 @@
     clearTimeout(awaitingDotTimer);
     awaitingDotTimer = null;
     awaitingSince = 0;
+    clearTimeout(shellShrinkTimer);
+    shellShrinkTimer = 0;
+    clearTimeout(shellShrinkTransitionTimer);
+    shellShrinkTransitionTimer = 0;
+    clearTimeout(shellResizeTimer);
+    shellResizeTimer = 0;
+    clearTimeout(shellWidthSettleTimer);
+    shellWidthSettleTimer = 0;
     try {
       chrome.runtime.onMessage.removeListener(handleRuntimeMessage);
     } catch {
@@ -1523,12 +1776,13 @@
     modeButton = null;
     dragState = null;
     positionPending = false;
+    shellWidthPx = 0;
+    shellHeightPx = 0;
     stageRectCache = null;
     historyRectCache = null;
-    scrollbackSnapshot = null;
+    scrollbackRows.length = 0;
     scrollBack = 0;
     wheelAccum = 0;
-    renderedScrollbackKey = "";
     syncedLinesRef = null;
     HISTORY_API.resetHistoryLog(historyLog);
     if (globalThis.__shengmuCaptionOverlay?.teardown === teardown) {

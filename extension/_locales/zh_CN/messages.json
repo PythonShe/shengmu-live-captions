@@ -152,12 +152,6 @@
   "popup_model": {
     "message": "模型"
   },
-  "popup_partial": {
-    "message": "半句预翻译"
-  },
-  "popup_partial_hint": {
-    "message": "中文更早出现，API 用量更高"
-  },
   "popup_test_api": {
     "message": "测试翻译 API"
   },
@@ -428,11 +422,20 @@
   "popup_key_optional": {
     "message": "自定义服务可以不填 Key"
   },
+  "popup_provider_unknown": {
+    "message": "$1 不是已知的翻译服务商，请重新选择"
+  },
+  "popup_deepl_key_hint": {
+    "message": "Free 计划的 Key 以 :fx 结尾，会自动改用 api-free.deepl.com"
+  },
   "popup_usage_server": {
     "message": "本地服务端模式：译文由 WhisperLiveKit 生成。"
   },
   "popup_usage_requests": {
     "message": "本次 $1 次请求 / $2 tokens"
+  },
+  "popup_usage_characters": {
+    "message": "本次 $1 次请求 / $2 字符"
   },
   "popup_no_model": {
     "message": "未填模型"
@@ -646,6 +649,9 @@
   },
   "provider_deepseek": {
     "message": "DeepSeek"
+  },
+  "provider_deepl": {
+    "message": "DeepL"
   },
   "provider_openai": {
     "message": "OpenAI"
@@ -940,6 +946,9 @@
   },
   "translation_error_balance": {
     "message": "$1 账户余额不足$2"
+  },
+  "translation_error_quota": {
+    "message": "$1 的翻译字符额度已用尽，请充值或换服务商$2"
   },
   "translation_error_rate_limit": {
     "message": "$1 请求过于频繁$2"

@@ -10,33 +10,47 @@
  */
 import {
   cleanText,
-  getTranslationText,
   lineChanged,
   mergeCaptionFragments,
   mergeCaptionLines,
   normalizeCaptionLines,
+  reconcileLineTranslations,
   selectDisplayCaption
 } from "./caption-utils.js";
-import { polishTranslation } from "./speech-cleanup.js";
 
 /** Rows kept in runtime state; older rows live on in history only. */
 export const RUNTIME_LINE_LIMIT = 120;
 
-/** Change marker for a row as written to history: source plus translation. */
-export function lineSignature(source, translation) {
-  return `${source}\u0000${translation}`;
+/**
+ * Change marker for a row as written to history.
+ *
+ * `translationPending` is part of it so a stage translation leaving the screen
+ * as final still triggers one history write, even when its text did not change.
+ */
+export function lineSignature(source, translation, translationPending = false) {
+  return `${source}\u0000${translation}\u0000${translationPending ? "1" : "0"}`;
 }
 
 /** The copy of a row the worker remembers after writing it to history. */
 export function rememberLine(line) {
-  return { ...line, signature: lineSignature(line.source, line.translation) };
+  return {
+    ...line,
+    signature: lineSignature(line.source, line.translation, line.translationPending)
+  };
 }
 
 /** Rows whose text, translation or timing differ from the remembered copy. */
 export function linesChangedSince(lines, knownLines) {
   return lines.filter((line) => {
+    // A stage translation describes a source the row has already outgrown, so
+    // it is screen-only: no IndexedDB write and no SRT line. The flag turning
+    // false later is what writes the final text exactly once.
+    if (line.translationPending === true) return false;
     const known = knownLines.get(line.id);
-    return lineChanged(known, line) || known?.signature !== lineSignature(line.source, line.translation);
+    return (
+      lineChanged(known, line) ||
+      known?.signature !== lineSignature(line.source, line.translation)
+    );
   });
 }
 
@@ -79,41 +93,20 @@ export function reduceTranscriptUpdate(state, message, options) {
   if (useApi) {
     normalized.lines = mergeCaptionFragments(normalized.lines);
   }
-  const previousLines = new Map((previous.lines || []).map((line) => [line.id, line]));
-  const lines = normalized.lines.map((rawLine) => {
-    const earlier = previousLines.get(rawLine.id) || knownLines.get(rawLine.id);
-    const serverTranslation = polishTranslation(getTranslationText(rawLine));
-    let translation = useApi ? "" : serverTranslation;
-    let fallbackTranslation = useApi ? serverTranslation : "";
-    if (!translation && earlier?.translation && earlier.source === rawLine.source) {
-      translation = earlier.translation;
-    }
-    if (
-      !fallbackTranslation &&
-      earlier?.fallbackTranslation &&
-      earlier.source === rawLine.source
-    ) {
-      fallbackTranslation = earlier.fallbackTranslation;
-    }
-    return {
-      ...rawLine,
-      translation,
-      fallbackTranslation,
-      translationPending: Boolean(rawLine.source && !translation),
-      translationFailed: Boolean(
-        !translation && earlier?.source === rawLine.source && earlier?.translationFailed
-      )
-    };
+  // A row keeps its translation while the recogniser appends to it; the stale
+  // copy stays on screen as a stage translation instead of falling back to the
+  // previous sentence (see reconcileLineTranslations).
+  const lines = reconcileLineTranslations(previous.lines || [], normalized.lines, {
+    useApi,
+    knownLines
   });
 
   const historyLines = linesChangedSince(lines, knownLines);
 
   const bufferChanged = cleanText(previous.bufferSource) !== normalized.bufferSource;
-  const bufferTranslation = useApi
-    ? bufferChanged
-      ? ""
-      : cleanText(previous.bufferTranslation)
-    : normalized.bufferTranslation;
+  // API mode has no buffer translation: half-sentences come from the growing
+  // row's stage translation, and the scheduler no longer translates the buffer.
+  const bufferTranslation = useApi ? "" : normalized.bufferTranslation;
   const caption = {
     lines: mergeCaptionLines([], lines, RUNTIME_LINE_LIMIT),
     bufferSource: normalized.bufferSource,

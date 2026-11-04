@@ -1,6 +1,6 @@
 import { EMPTY_RUNTIME_STATE, normalizeWsUrl } from "../lib/caption-utils.js";
 import { translationConfigIssue } from "../lib/translation-api.js";
-import { linesChangedSince, reduceTranscriptUpdate } from "../lib/transcript-reducer.js";
+import { lineSignature, linesChangedSince, reduceTranscriptUpdate } from "../lib/transcript-reducer.js";
 import { TRANSLATION_STOP_TIMEOUT_MS } from "../lib/translation-scheduler.js";
 import { requireLocalTranslation } from "./diagnostics.js";
 import { errorText, render, t } from "./i18n.js";
@@ -195,6 +195,36 @@ export function createSessionLifecycle({
 
   // Runs once per session: concurrent callers (stop button, offscreen
   // "stopped" report, tab closed) share the same promise.
+  /**
+   * Writes the rows still on screen when the session ends.
+   *
+   * Stage translations never reach the history while a sentence is still
+   * growing, so the last sentence would be lost without this: whatever is on
+   * screen at stop time is the final version of that row as far as the reader
+   * is concerned. A row that never got a translation is recorded as failed, so
+   * the session summary counts it instead of silently dropping it.
+   */
+  function commitRuntimeLinesToHistory() {
+    for (const line of store.state.current?.lines || []) {
+      if (!line?.id || (!line.source && !line.translation)) continue;
+      const pending = Boolean(line.translationPending);
+      const failed = Boolean(!line.translation && line.source);
+      if (!pending && !failed) continue;
+      const final = {
+        ...line,
+        translationPending: false,
+        translationFailed: failed
+      };
+      const signature = lineSignature(final.source, final.translation);
+      if (history.knownLines.get(line.id)?.signature === signature) continue;
+      history.record([final]);
+      Object.assign(line, {
+        translationPending: false,
+        translationFailed: failed
+      });
+    }
+  }
+
   async function finalize(status, detail, options = {}) {
     if (finalizingPromise) return finalizingPromise;
     finalizingPromise = (async () => {
@@ -213,6 +243,9 @@ export function createSessionLifecycle({
           await scheduler.settle(
             finalStatus === "error" ? ERROR_STOP_TIMEOUT_MS : TRANSLATION_STOP_TIMEOUT_MS
           );
+          // The screen version of a still-growing row is what the reader saw;
+          // flush it before the session is sealed.
+          commitRuntimeLinesToHistory();
           // Invalidate any request that outlived the stop deadline so it
           // cannot write history after the final flush/summary.
           historySealed = true;
@@ -365,17 +398,11 @@ export function createSessionLifecycle({
     Object.assign(store.state, next.patch);
     scheduler.refreshSummary();
 
-    if (useApi && next.bufferChanged) scheduler.abortStaleBuffer();
-
     await publishCaptions({ epochId: message.epochId });
 
-    // Once a stop began, settle drives the remaining line translations itself,
-    // and the unfinished buffer is display-only for a session that is ending;
+    // Once a stop began, settle drives the remaining line translations itself;
     // a timer armed here would only start a request that finalize aborts.
-    if (useApi && !finalizingPromise) {
-      scheduler.scheduleLines();
-      scheduler.scheduleBuffer();
-    }
+    if (useApi && !finalizingPromise) scheduler.scheduleLines();
   }
 
   async function handleAudioStats(message) {

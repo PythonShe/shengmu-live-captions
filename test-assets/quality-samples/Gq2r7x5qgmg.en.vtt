@@ -1,0 +1,2889 @@
+WEBVTT
+Kind: captions
+Language: en
+
+00:00:00.600 --> 00:00:01.840
+Hi, I'm Chris Wilson
+
+00:00:02.360 --> 00:00:05.600
+I was recently invited to be the closing&nbsp;
+keynote speaker at the New Zealand Game&nbsp;&nbsp;
+
+00:00:05.600 --> 00:00:09.960
+Developer's Conference in Auckland. The theme&nbsp;
+this year was "Shaping Our World", and so the&nbsp;&nbsp;
+
+00:00:09.960 --> 00:00:14.360
+formal title of my talk was "Why New Zealand&nbsp;
+is the Best Place to Shape Our World From".&nbsp;&nbsp;
+
+00:00:14.960 --> 00:00:18.880
+I was asked to recount my personal experience&nbsp;
+with Grinding Gear Games and Path of Exile,&nbsp;&nbsp;
+
+00:00:18.880 --> 00:00:22.680
+while keeping the talk fun and inspiring for the&nbsp;
+New Zealand developers attending the conference.&nbsp;&nbsp;
+
+00:00:23.520 --> 00:00:27.560
+After actually presenting it, I think maybe&nbsp;
+a more accurate title for the talk could be&nbsp;&nbsp;
+
+00:00:27.560 --> 00:00:30.800
+"My Journey With Path of Exile", which&nbsp;
+is what I've called this YouTube video.&nbsp;&nbsp;
+
+00:00:31.360 --> 00:00:34.400
+I'd like to thank the New Zealand Game&nbsp;
+Developers Association for both inviting&nbsp;&nbsp;
+
+00:00:34.400 --> 00:00:37.800
+me to give the talk, and for providing me&nbsp;
+with a recording of it to show to you guys.
+
+00:00:38.560 --> 00:00:42.680
+I should start by introducing myself.&nbsp;
+I’m a cofounder of Grinding Gear Games,&nbsp;&nbsp;
+
+00:00:42.680 --> 00:00:49.520
+I was Managing Director for 17 years, from 2006&nbsp;
+to 2023, and I’m a co-creator of Path of Exile.&nbsp;&nbsp;
+
+00:00:49.520 --> 00:00:54.200
+I primarily worked on game design, production,&nbsp;
+business stuff, and live service operations.
+
+00:00:54.200 --> 00:00:58.080
+I now run a small studio in Auckland, called&nbsp;
+Light Pattern, and when I started the second&nbsp;&nbsp;
+
+00:00:58.080 --> 00:01:02.760
+company last year, I could pick anywhere in&nbsp;
+the world to base it, but I picked New Zealand,&nbsp;&nbsp;
+
+00:01:02.760 --> 00:01:06.520
+and that’s because I firmly believe that New&nbsp;
+Zealand is the best place to shape our world.&nbsp;&nbsp;
+
+00:01:07.880 --> 00:01:12.400
+So, I’d like to start by thanking the NZGDA.&nbsp;
+When I was arranging this keynote, they asked&nbsp;&nbsp;
+
+00:01:12.400 --> 00:01:16.160
+me to talk about my journey, they wanted to hear&nbsp;
+what happened with founding Grinding Gear Games,&nbsp;&nbsp;
+
+00:01:16.160 --> 00:01:20.400
+making Path of Exile, to basically tell my&nbsp;
+story, but I also wanted to tie it in to why&nbsp;&nbsp;
+
+00:01:20.400 --> 00:01:30.520
+New Zealand is the best place to make games, and&nbsp;
+so, when I prepared this talk, I presented it to&nbsp;&nbsp;
+
+00:01:30.520 --> 00:01:34.880
+some people at work, and I got feedback, and the&nbsp;
+feedback was, Chris, look, the interesting parts:&nbsp;&nbsp;
+
+00:01:34.880 --> 00:01:39.200
+super interesting, people are going to love&nbsp;
+the stories. The boring bit: super boring.
+
+00:01:39.200 --> 00:01:43.920
+And I said, “Okay, which was the boring&nbsp;
+bit?”, and they’re like, “That bit, the talk”.
+
+00:01:43.920 --> 00:01:47.520
+And so, I hid the vegetables.&nbsp;
+I’ve gone through my stories,&nbsp;&nbsp;
+
+00:01:47.520 --> 00:01:51.160
+and I’ve put in the nuggets of why New Zealand&nbsp;
+is a great place to make games, throughout it.&nbsp;&nbsp;
+
+00:01:52.120 --> 00:01:56.680
+The feedback then was, “You hid the vegetables&nbsp;
+really well, I don’t think you addressed the&nbsp;&nbsp;
+
+00:01:56.680 --> 00:02:01.320
+topic.” So, we’ll see how we go. But, there&nbsp;
+are many reasons why New Zealand is a great&nbsp;&nbsp;
+
+00:02:01.320 --> 00:02:05.560
+place to make games, and I’ll try to cover&nbsp;
+them as I tell my stories. I’m also going to&nbsp;&nbsp;
+
+00:02:05.560 --> 00:02:09.600
+finish up the talk by giving some advice to New&nbsp;
+Zealand game studios, based on my experience.&nbsp;&nbsp;
+
+00:02:10.240 --> 00:02:14.240
+Now, this is the last talk of the conference, and&nbsp;
+I tried hard to make it casual and fun, with lots&nbsp;&nbsp;
+
+00:02:14.240 --> 00:02:18.880
+of stories. You’ve seen enough words this week,&nbsp;
+so these slides mostly just have pictures on them.
+
+00:02:19.600 --> 00:02:26.160
+So let’s start at the beginning. I grew up in the&nbsp;
+1980s. So this is me, about 8 or 9 years old, and&nbsp;&nbsp;
+
+00:02:26.160 --> 00:02:31.000
+I was programming on my Amiga 500 computer,&nbsp;
+and at the time there, I was using Amiga Basic,&nbsp;&nbsp;
+
+00:02:31.000 --> 00:02:35.640
+which was actually released by Microsoft&nbsp;
+for the Amiga platform. Random trivia. And&nbsp;&nbsp;
+
+00:02:35.640 --> 00:02:40.080
+I continued to make games throughout school,&nbsp;
+learning GWBasic and QBasic, as we all did in&nbsp;&nbsp;
+
+00:02:40.080 --> 00:02:45.520
+the early 90s, and then eventually moving&nbsp;
+on to Pascal, and then found a home in C&nbsp;&nbsp;
+
+00:02:45.520 --> 00:02:49.960
+for a while. A brief detour which started a&nbsp;
+love affair with the x86 assembly language,&nbsp;&nbsp;
+
+00:02:49.960 --> 00:02:54.200
+and onto C++ for the rest of my teenage years, and&nbsp;
+this set me up well. When I went to university,&nbsp;&nbsp;
+
+00:02:54.200 --> 00:02:59.320
+I studied Computer Science and Finance at Auckland&nbsp;
+uni, and they both turned out to be quite useful.
+
+00:02:59.320 --> 00:03:03.840
+I specialised in AI in my honours year, and&nbsp;
+that was old AI, not all the new stuff, and the&nbsp;&nbsp;
+
+00:03:03.840 --> 00:03:08.040
+reason why I did that was because AI meant game&nbsp;
+development back then. You’d learn about these&nbsp;&nbsp;
+
+00:03:08.040 --> 00:03:12.640
+things like, A* pathfinding, and decision trees,&nbsp;
+and that kind of stuff you can use for NPCs, and&nbsp;&nbsp;
+
+00:03:12.640 --> 00:03:16.680
+so that was the best I could come to specialising&nbsp;
+in game development, because we didn’t have a lot&nbsp;&nbsp;
+
+00:03:16.680 --> 00:03:24.720
+of schools for game development back then. So, a&nbsp;
+few years after university in 2006, when I was 24,&nbsp;&nbsp;
+
+00:03:24.720 --> 00:03:28.880
+I founded Grinding Gear Games with some friends.&nbsp;
+We initially thought that game development in New&nbsp;&nbsp;
+
+00:03:28.880 --> 00:03:33.680
+Zealand was a bit of a drawback, because there&nbsp;
+was a small talent pool, a lack of community,&nbsp;&nbsp;
+
+00:03:33.680 --> 00:03:37.240
+lack of government incentives. It really&nbsp;
+felt like we were developing stuff alone,&nbsp;&nbsp;
+
+00:03:37.240 --> 00:03:41.400
+and didn’t have anyone for support, and this&nbsp;
+has certainly changed in the last 20 years.
+
+00:03:42.240 --> 00:03:44.920
+So, here’s the oldest recorded&nbsp;
+photo of Grinding Gear Games.&nbsp;&nbsp;
+
+00:03:44.920 --> 00:03:48.040
+No one has ever seen this before,&nbsp;
+like, I took it, and then lost it,&nbsp;&nbsp;
+
+00:03:48.040 --> 00:03:52.400
+and found it again for this talk. So, this is my&nbsp;
+actual garage in New Lynn out in West Auckland,&nbsp;&nbsp;
+
+00:03:52.400 --> 00:03:57.120
+and we were running it like a LAN basically, just&nbsp;
+a few of us on computers, having a great time.&nbsp;&nbsp;
+
+00:03:57.120 --> 00:04:02.360
+Now, a few years later, when we got a real office,&nbsp;
+our team was about this size, in around 2008.&nbsp;&nbsp;
+
+00:04:03.120 --> 00:04:08.720
+Now, what were we making? Well, we were huge fans&nbsp;
+of Action RPGs, like Diablo II. There are a bunch&nbsp;&nbsp;
+
+00:04:08.720 --> 00:04:13.200
+of other early ones like Titan Quest, and so on,&nbsp;
+and we spent a lot of time playing these games.&nbsp;&nbsp;
+
+00:04:13.200 --> 00:04:17.000
+This screenshot here is actually of my first&nbsp;
+Diablo II character, playing on Battle.net,&nbsp;&nbsp;
+
+00:04:17.000 --> 00:04:20.840
+and, checking this screenshot, I recognised&nbsp;
+one of the other characters, and messaged the&nbsp;&nbsp;
+
+00:04:20.840 --> 00:04:24.480
+guy who played that character, after years of&nbsp;
+not talking, and so, I got a good connection&nbsp;&nbsp;
+
+00:04:24.480 --> 00:04:29.200
+with an old friend out of preparing this talk.
+Now, at the time, we were addicted to Diablo II,&nbsp;&nbsp;
+
+00:04:29.200 --> 00:04:32.680
+as were millions of people around the world, but&nbsp;
+there was just no sign of any other games in that&nbsp;&nbsp;
+
+00:04:32.680 --> 00:04:36.640
+genre. You know, there were occasional releases&nbsp;
+like Titan Quest and so on, but they didn’t quite&nbsp;&nbsp;
+
+00:04:36.640 --> 00:04:40.800
+hit the mark for us in terms of the longevity&nbsp;
+that we expected. This was years before Blizzard&nbsp;&nbsp;
+
+00:04:40.800 --> 00:04:45.160
+eventually announced Diablo III. So we said, you&nbsp;
+know, kiwi attitude, we can just do it ourselves.&nbsp;&nbsp;
+
+00:04:46.160 --> 00:04:50.520
+So we decided to make Path of Exile. Now, this is&nbsp;
+the original Path of Exile logo from around that&nbsp;&nbsp;
+
+00:04:50.520 --> 00:04:54.320
+time period, before it looked like the Mirror&nbsp;
+of Kalandra back when it inspired the Mirror&nbsp;&nbsp;
+
+00:04:54.320 --> 00:04:59.720
+of Kalandra, and some early key art that our art&nbsp;
+co-founder Erik put together, to show the darkness&nbsp;&nbsp;
+
+00:04:59.720 --> 00:05:03.360
+and gore of the game. Kind of, stepping from the&nbsp;
+light into the darkness, with the blood splatter&nbsp;&nbsp;
+
+00:05:03.360 --> 00:05:07.760
+on the ground, and that really helped set the&nbsp;
+tone for things. And when we were looking at what&nbsp;&nbsp;
+
+00:05:07.760 --> 00:05:12.880
+to include in this game, we wanted to analyse&nbsp;
+what we felt was important with Action RPGs&nbsp;&nbsp;
+
+00:05:12.880 --> 00:05:17.360
+that we played, and so we came up with five key&nbsp;
+pillars for making a successful Action RPG, and I&nbsp;&nbsp;
+
+00:05:17.360 --> 00:05:21.880
+recommend you all do your own analysis of this for&nbsp;
+your own projects. So, here are the five pillars.
+
+00:05:21.880 --> 00:05:26.880
+This slide is borrowed shamelessly from future&nbsp;
+Chris presenting at GDC 2019. And so, one of&nbsp;&nbsp;
+
+00:05:26.880 --> 00:05:31.360
+the things that future Chris explained was that,&nbsp;
+Action RPGs, of course, because they’re action&nbsp;&nbsp;
+
+00:05:31.360 --> 00:05:36.000
+games, need to have visceral action combat. Your&nbsp;
+hits need to connect, cause blood splatters, good&nbsp;&nbsp;
+
+00:05:36.000 --> 00:05:40.920
+sounds, good feedback, stunning the monsters, all&nbsp;
+that kind of stuff. It is an Action RPG after all.&nbsp;&nbsp;
+
+00:05:40.920 --> 00:05:45.560
+Secondly, randomly generated levels. Games like&nbsp;
+Path of Exile, which are designed for thousands of&nbsp;&nbsp;
+
+00:05:45.560 --> 00:05:49.960
+hours of gameplay, need to not create a feeling of&nbsp;
+deja-vu when people are playing through areas, and&nbsp;&nbsp;
+
+00:05:49.960 --> 00:05:54.080
+so randomly generated levels are really important&nbsp;
+if you want people to play a game like this, and&nbsp;&nbsp;
+
+00:05:54.080 --> 00:05:57.480
+kind of, you know, get in the zone and just keep&nbsp;
+grinding without running into things they’ve seen&nbsp;&nbsp;
+
+00:05:57.480 --> 00:06:03.080
+exactly the same before. After randomly generated&nbsp;
+levels, potentially the most important one,&nbsp;&nbsp;
+
+00:06:03.080 --> 00:06:07.280
+randomly generated items, and this is because,&nbsp;
+if your items are parameterised to have a lot of&nbsp;&nbsp;
+
+00:06:07.280 --> 00:06:10.200
+different things that can change, then there’s&nbsp;
+always something better you’re looking for,&nbsp;&nbsp;
+
+00:06:10.200 --> 00:06:13.920
+and that keeps people pushing in these&nbsp;
+games, to find the best stuff they can.&nbsp;&nbsp;
+
+00:06:14.560 --> 00:06:19.240
+Hand in hand with randomly generated items was a&nbsp;
+secure online economy, and this is the hard one.&nbsp;&nbsp;
+
+00:06:19.240 --> 00:06:23.640
+It involves having to deploy a, you know,&nbsp;
+worldwide server network, and handle botting,&nbsp;&nbsp;
+
+00:06:23.640 --> 00:06:27.280
+and cheating, and all of this kind of stuff, but&nbsp;
+it’s worthwhile, because it means that the players&nbsp;&nbsp;
+
+00:06:27.280 --> 00:06:31.560
+of your game know that the items they’re showing&nbsp;
+off to each other, are validated by the server,&nbsp;&nbsp;
+
+00:06:31.560 --> 00:06:34.200
+saying they are actually fairly earned,&nbsp;
+as opposed to being something that could&nbsp;&nbsp;
+
+00:06:34.200 --> 00:06:38.160
+be cheated in to play, and in Action RPGs&nbsp;
+at least, that’s a really important thing.&nbsp;&nbsp;
+
+00:06:38.680 --> 00:06:43.200
+Finally, good character customisation, and we&nbsp;
+kind of slipped this one in as a fifth pillar.&nbsp;&nbsp;
+
+00:06:43.200 --> 00:06:47.160
+Early Action RPGs had character customisation&nbsp;
+for sure, but we wanted Path of Exile to really&nbsp;&nbsp;
+
+00:06:47.160 --> 00:06:51.960
+double down on that, and that got&nbsp;
+quite out of hand, in a good way.
+
+00:06:53.000 --> 00:06:57.240
+So, we made Path of Exile, and here’s&nbsp;
+a screenshot from the Scourge expansion&nbsp;&nbsp;
+
+00:06:57.240 --> 00:07:00.760
+that came out a few years ago. So,&nbsp;
+while it ended up like a real game,&nbsp;&nbsp;
+
+00:07:00.760 --> 00:07:04.280
+and had tens of millions of players and so&nbsp;
+on, it didn’t start out looking like that. So,&nbsp;&nbsp;
+
+00:07:04.280 --> 00:07:08.120
+I went through the archives, and found some old&nbsp;
+pictures of Path of Exile’s early development.
+
+00:07:09.040 --> 00:07:13.000
+So here's the oldest one, basically&nbsp;
+multiplayer Asteroids. Now, it looks&nbsp;&nbsp;
+
+00:07:13.000 --> 00:07:15.960
+like something you can throw together in a&nbsp;
+few minutes, but there was a whole online&nbsp;&nbsp;
+
+00:07:15.960 --> 00:07:19.880
+realm behind this. Jonathan had architected&nbsp;
+it so you could create an account and log in,&nbsp;&nbsp;
+
+00:07:19.880 --> 00:07:23.600
+choose a character, join the game, it was&nbsp;
+multiplayer, your actions were synchronised.&nbsp;&nbsp;
+
+00:07:23.600 --> 00:07:27.040
+It was the game basically done&nbsp;
+apart from, you know, some content.
+
+00:07:27.640 --> 00:07:32.320
+We soon slapped an early 3D engine&nbsp;
+on it, built in-house, of course,&nbsp;&nbsp;
+
+00:07:32.320 --> 00:07:37.080
+and here we have rectangular prisms sliding around&nbsp;
+a landscape with some walls. Erik provided us with&nbsp;&nbsp;
+
+00:07:37.080 --> 00:07:42.480
+some quick sketches of a ranger, and some&nbsp;
+zombies. This progressed to this shot here,&nbsp;&nbsp;
+
+00:07:42.480 --> 00:07:46.440
+where we had actual 3D models. Now at this stage,&nbsp;
+you can explore an area, you can kill monsters,&nbsp;&nbsp;
+
+00:07:46.440 --> 00:07:50.600
+you can find items, identify them, equip them,&nbsp;
+level yourself up. That's the game, right? It's&nbsp;&nbsp;
+
+00:07:50.600 --> 00:07:55.120
+just missing a whole lot of polish, and so on.&nbsp;
+Now, one of the key things to note is, we did&nbsp;&nbsp;
+
+00:07:55.120 --> 00:07:58.480
+things really differently than the rest of the&nbsp;
+industry, and this is because we didn't know any&nbsp;&nbsp;
+
+00:07:58.480 --> 00:08:03.000
+better, right? We didn't go to game development&nbsp;
+courses, because there weren't any. We didn't have&nbsp;&nbsp;
+
+00:08:03.000 --> 00:08:07.240
+other companies to talk to, because we didn't know&nbsp;
+where to find them. We didn't have any, you know,&nbsp;&nbsp;
+
+00:08:07.240 --> 00:08:10.680
+government support at this stage. There was&nbsp;
+no way for us to learn how to make games,&nbsp;&nbsp;
+
+00:08:10.680 --> 00:08:15.240
+so we just made it up. And, it worked well. Path&nbsp;
+of Exile is an awesome game as a result of this,&nbsp;&nbsp;
+
+00:08:15.240 --> 00:08:19.440
+but it means that Grinding Gear Games has evolved,&nbsp;
+and to this day, evolves a somewhat different way&nbsp;&nbsp;
+
+00:08:19.440 --> 00:08:23.720
+of doing things than other companies. This is,&nbsp;
+of course, a blessing and a curse. On one hand,&nbsp;&nbsp;
+
+00:08:23.720 --> 00:08:27.120
+they're famous for an incredibly fast content&nbsp;
+schedule, because of the incredibly good&nbsp;&nbsp;
+
+00:08:27.120 --> 00:08:30.840
+tooling and processes they use internally,&nbsp;
+but it also means, of course, that when you,&nbsp;&nbsp;
+
+00:08:30.840 --> 00:08:33.680
+you know, hire an artist and expect them&nbsp;
+to-- you know, they're familiar with Unreal,&nbsp;&nbsp;
+
+00:08:33.680 --> 00:08:37.600
+and you're using a lot of internal custom stuff,&nbsp;
+there's a bit of a learning curve there, and so,&nbsp;&nbsp;
+
+00:08:37.600 --> 00:08:41.320
+you know, we, we took advantage of the positives&nbsp;
+and struggled with the negatives throughout this&nbsp;&nbsp;
+
+00:08:41.320 --> 00:08:45.800
+process, but this is partly because New Zealand&nbsp;
+kind of bred us in this direction of a parallel&nbsp;&nbsp;
+
+00:08:45.800 --> 00:08:50.560
+evolution of game development. So after a while,&nbsp;
+we mocked up this shot of what we wanted the&nbsp;&nbsp;
+
+00:08:50.560 --> 00:08:54.880
+game to look like. This is not a real screenshot,&nbsp;
+but it's put together out of assets that we had,&nbsp;&nbsp;
+
+00:08:54.880 --> 00:08:58.440
+and, it was basically the inspiration shot that&nbsp;
+we would use to show people, this is what we're&nbsp;&nbsp;
+
+00:08:58.440 --> 00:09:01.440
+looking for, you know, when we're trying&nbsp;
+to raise interest in the game internally.
+
+00:09:02.480 --> 00:09:06.560
+We did a lot of development on whiteboards. And&nbsp;
+what's interesting about this, I mean, obviously&nbsp;&nbsp;
+
+00:09:06.560 --> 00:09:11.480
+people use whiteboards when people design their&nbsp;
+games, but we stuck to the game design so clearly,&nbsp;&nbsp;
+
+00:09:11.480 --> 00:09:16.440
+that a lot of the early sketches we did are&nbsp;
+exactly how it turned out. And so if you grab&nbsp;&nbsp;
+
+00:09:16.440 --> 00:09:19.920
+a screenshot of this when it's online or whatever,&nbsp;
+as a Path of Exile player, you go through and look&nbsp;&nbsp;
+
+00:09:19.920 --> 00:09:24.360
+at the individual monsters that were planned for&nbsp;
+each of the areas in Act 1 and 2 on that board,&nbsp;&nbsp;
+
+00:09:24.360 --> 00:09:28.120
+you'll notice it's very similar to what the game&nbsp;
+shipped as, and that's partly because we made a&nbsp;&nbsp;
+
+00:09:28.120 --> 00:09:31.880
+plan, we trusted the plan, and we did it. And&nbsp;
+that's not to say we didn't iterate on stuff,&nbsp;&nbsp;
+
+00:09:31.880 --> 00:09:36.080
+of course, there was play testing and feedback&nbsp;
+and so on, but our initial design of Path of&nbsp;&nbsp;
+
+00:09:36.080 --> 00:09:41.040
+Exile was very much what we initially shipped,&nbsp;
+back in 2013, which I was very pleased with.&nbsp;&nbsp;
+
+00:09:42.560 --> 00:09:46.680
+We even tried to inject a dose of New Zealand into&nbsp;
+areas where we could, you know, you can see some&nbsp;&nbsp;
+
+00:09:46.680 --> 00:09:51.360
+Toetoe and stuff here, and, that was kind of fun&nbsp;
+to try to make the game feel like New Zealand.
+
+00:09:52.640 --> 00:09:57.440
+We took Path of Exile to a local LAN - shoutout&nbsp;
+to the Lanholm crew in West Auckland - and we&nbsp;&nbsp;
+
+00:09:57.440 --> 00:10:00.760
+were testing the game with real gamers. So this&nbsp;
+is where we had a build of the game that we're&nbsp;&nbsp;
+
+00:10:00.760 --> 00:10:04.200
+interested to know what people actually&nbsp;
+thought of it while they're playing. And so,&nbsp;&nbsp;
+
+00:10:05.000 --> 00:10:08.200
+this was a really interesting event because,&nbsp;
+internally, we were Action RPG experts,&nbsp;&nbsp;
+
+00:10:08.200 --> 00:10:12.080
+we loved the game, but when we took it to real&nbsp;
+gamers who hadn't necessarily played as much, they&nbsp;&nbsp;
+
+00:10:12.080 --> 00:10:16.040
+gave us feedback that was really useful for tuning&nbsp;
+it, and it was kind of like an in-person test that&nbsp;&nbsp;
+
+00:10:16.040 --> 00:10:20.560
+we were able to do, which was really good, to&nbsp;
+show people who we trusted wouldn't talk about&nbsp;&nbsp;
+
+00:10:20.560 --> 00:10:24.200
+the game publicly, because we were working on our&nbsp;
+marketing, and getting it ready for announcement.&nbsp;&nbsp;
+
+00:10:24.800 --> 00:10:29.280
+And announcement marketing looked like this. So&nbsp;
+we put this one-pager together. The intention was&nbsp;&nbsp;
+
+00:10:29.280 --> 00:10:33.400
+to print out a bunch of copies and take it to&nbsp;
+journalists overseas, and show them the game.&nbsp;&nbsp;
+
+00:10:33.400 --> 00:10:37.840
+We made a bunch of trailers, and, this is the&nbsp;
+best we could do in around 2011 before we got the&nbsp;&nbsp;
+
+00:10:37.840 --> 00:10:42.680
+production values we'd eventually end up with. The&nbsp;
+tricky thing was, we decided, we're willing to fly&nbsp;&nbsp;
+
+00:10:42.680 --> 00:10:46.360
+to America and promote the game to journalists,&nbsp;
+but we just need to get them to arrange this&nbsp;&nbsp;
+
+00:10:46.360 --> 00:10:51.040
+press tour. So we emailed a bunch of outlets, and&nbsp;
+we didn't hear back. People just didn't reply to&nbsp;&nbsp;
+
+00:10:51.040 --> 00:10:56.120
+the emails about it. And so, we were talking with&nbsp;
+Stephen Knightly, who is the COO of RocketWerkz&nbsp;&nbsp;
+
+00:10:56.120 --> 00:11:00.000
+currently, for some advice. He was running&nbsp;
+a PR studio at the time, and he said, "Look,&nbsp;&nbsp;
+
+00:11:00.000 --> 00:11:04.200
+I'll handle this, guys. I'll get you the press&nbsp;
+tour sorted out." So he phoned up the Americans,&nbsp;&nbsp;
+
+00:11:04.200 --> 00:11:08.760
+and he said, "Don't hang up. I'm calling from New&nbsp;
+Zealand." And they said, "Okay, what's going on?"&nbsp;&nbsp;
+
+00:11:08.760 --> 00:11:11.880
+He said, "You've heard of Lord of the Rings,&nbsp;
+you've heard of Flight of the Conchords. Well,&nbsp;&nbsp;
+
+00:11:11.880 --> 00:11:16.520
+I've got these three Kiwi guys, even though&nbsp;
+one of them is from Sweden, and, they're very&nbsp;&nbsp;
+
+00:11:16.520 --> 00:11:19.880
+keen. They've made this Action RPG, and they&nbsp;
+wanna show you, and they're flying to America,&nbsp;&nbsp;
+
+00:11:19.880 --> 00:11:23.480
+and they're really keen to show you in person. New&nbsp;
+Zealand, New Zealand." And the journalists said,&nbsp;&nbsp;
+
+00:11:23.480 --> 00:11:27.480
+"Okay, that's really cool. Very keen to see what&nbsp;
+they're making." And the press tour was arranged.&nbsp;&nbsp;
+
+00:11:27.480 --> 00:11:32.520
+So we went to San Francisco. This is the 1UP&nbsp;
+office, rest in peace. They were games journalists&nbsp;&nbsp;
+
+00:11:32.520 --> 00:11:37.040
+back in the day, and we spent a week going around,&nbsp;
+all the journalists, showing them the game.
+
+00:11:37.680 --> 00:11:43.800
+We also put together a press tour at hotels.&nbsp;
+So this is in a hotel room, you can see here,&nbsp;&nbsp;
+
+00:11:43.800 --> 00:11:47.720
+rather than in a conference area, but we&nbsp;
+eventually spread out to conference areas, and the&nbsp;&nbsp;
+
+00:11:47.720 --> 00:11:52.120
+basic plan was, we bring a build of the game, we'd&nbsp;
+line up, you know, two days' worth of journalists&nbsp;&nbsp;
+
+00:11:52.120 --> 00:11:56.440
+in San Francisco and Los Angeles, show them the&nbsp;
+game, you know, do interviews, let them play it,&nbsp;&nbsp;
+
+00:11:56.440 --> 00:12:01.200
+and so on. Now, you'll notice on the desk there,&nbsp;
+there's a computer, and I'm gonna zoom in here.
+
+00:12:01.200 --> 00:12:06.760
+So, this is a raw motherboard with a GPU in it,&nbsp;
+attached to a power supply sitting on a desk.&nbsp;&nbsp;
+
+00:12:06.760 --> 00:12:10.240
+And what happened here was, when we were&nbsp;
+planning the press tour, everyone said to us,&nbsp;&nbsp;
+
+00:12:10.240 --> 00:12:13.280
+"Well, what companies normally do is&nbsp;
+they rent a computer for a few grand,&nbsp;&nbsp;
+
+00:12:13.280 --> 00:12:17.240
+and show the journalists." And we said,&nbsp;
+"Wait a second, a few thousand US dollars,&nbsp;&nbsp;
+
+00:12:17.240 --> 00:12:20.920
+that buys a computer." And they're like,&nbsp;
+"Yeah, rental's expensive, but it's worth it."&nbsp;&nbsp;
+
+00:12:20.920 --> 00:12:24.160
+And we said, "No, I mean, I've got a computer&nbsp;
+on my desk. If I rip the motherboard out,&nbsp;&nbsp;
+
+00:12:24.160 --> 00:12:29.200
+and jam the GPU in my carry-on, and take it&nbsp;
+to America, it's free." And so we did that.
+
+00:12:29.760 --> 00:12:34.440
+And this is the kind of scrappy, Kiwi, number&nbsp;
+8 wire thing that we had to do at the time. So&nbsp;&nbsp;
+
+00:12:34.440 --> 00:12:39.240
+for those who don't know, on farms in New Zealand,&nbsp;
+number 8 wire is a gauge of fencing wire, and you&nbsp;&nbsp;
+
+00:12:39.240 --> 00:12:43.720
+can do all sorts of fun stuff with it. I couldn't&nbsp;
+list any of those things, but allegedly you could.
+
+00:12:43.720 --> 00:12:47.640
+I can tell you what you can do with this computer,&nbsp;
+at least. And so, it's a New Zealand philosophy of&nbsp;&nbsp;
+
+00:12:47.640 --> 00:12:51.520
+basically, doing what you have to do, to get&nbsp;
+something done. Now, the reason why I paused&nbsp;&nbsp;
+
+00:12:51.520 --> 00:12:54.640
+for a second, and was disappointed a minute&nbsp;
+ago that we were missing a slide is, while I&nbsp;&nbsp;
+
+00:12:54.640 --> 00:12:58.600
+was walking around the show floor yesterday, I&nbsp;
+took a photo of this and put it in my slides,&nbsp;&nbsp;
+
+00:12:58.600 --> 00:13:03.000
+which obviously I didn't update onto here&nbsp;
+correctly. I found a booth, where there was&nbsp;&nbsp;
+
+00:13:03.000 --> 00:13:06.400
+a computer just like this sitting on the desk,&nbsp;
+right? They've got a motherboard, it's got a&nbsp;&nbsp;
+
+00:13:06.400 --> 00:13:10.240
+graphics card in it, and a PSU sitting there.&nbsp;
+And I said, "Oh my God, that's so amazing. Tell&nbsp;&nbsp;
+
+00:13:10.240 --> 00:13:14.800
+me the story behind that." And they said, "Well,&nbsp;
+we needed to go to San Francisco to show our game”
+
+00:13:14.800 --> 00:13:18.640
+“So we jammed this in our carry on." And&nbsp;
+that's a real story! This is the Age of&nbsp;&nbsp;
+
+00:13:18.640 --> 00:13:22.200
+Bricks team. Their game looks very cool.&nbsp;
+But the thing is, they're a Kiwi team,&nbsp;&nbsp;
+
+00:13:22.200 --> 00:13:26.240
+faced with the same problem, in 2026, they're&nbsp;
+doing the same solution. This stuff is timeless.
+
+00:13:27.280 --> 00:13:34.760
+So, we went to game conventions, in 2010. This&nbsp;
+is us at PAX, and we found a quiet area around&nbsp;&nbsp;
+
+00:13:34.760 --> 00:13:39.040
+the back and managed to find journalists, and take&nbsp;
+them to look at Path of Exile on our laptop. Turns&nbsp;&nbsp;
+
+00:13:39.040 --> 00:13:42.240
+out you're not meant to do this, you need to have&nbsp;
+a booth, and so we fixed that for later years.&nbsp;&nbsp;
+
+00:13:42.960 --> 00:13:46.680
+But it was, you know, our guerrilla way of&nbsp;
+basically getting attention out for the game,&nbsp;&nbsp;
+
+00:13:46.680 --> 00:13:51.120
+before we had any budget. So when we announced the&nbsp;
+game after talking to all of these journalists,&nbsp;&nbsp;
+
+00:13:51.120 --> 00:13:56.800
+it got a bunch of press. Now I wanna draw your&nbsp;
+attention to this PC Gamer coverage here. So,&nbsp;&nbsp;
+
+00:13:56.800 --> 00:14:02.160
+"New Zealandiablo: Hands-on with Path of&nbsp;
+Exile. Yesterday, three New Zealanders&nbsp;&nbsp;
+
+00:14:02.160 --> 00:14:06.080
+came to our office with a dungeon crawler. This&nbsp;
+doesn't usually happen. They let me play it.&nbsp;&nbsp;
+
+00:14:06.080 --> 00:14:11.400
+I liked it." Now you'll notice the headline, and&nbsp;
+the first sentence, both refer to New Zealanders.&nbsp;&nbsp;
+
+00:14:11.400 --> 00:14:15.640
+The story here, is New Zealand made a game.&nbsp;
+They came to us. This is weird. This is cool.
+
+00:14:16.520 --> 00:14:18.440
+Rather than, oh yeah, it's an action RPG, I guess,&nbsp;&nbsp;
+
+00:14:18.440 --> 00:14:22.800
+right? And so that's the important thing though,&nbsp;
+is that, the New Zealand mention, helps a lot,&nbsp;&nbsp;
+
+00:14:22.800 --> 00:14:26.080
+right? It's both the fact that high-quality&nbsp;
+stuff had come out from New Zealand in the past,&nbsp;&nbsp;
+
+00:14:26.080 --> 00:14:30.200
+but also that people don't necessarily think&nbsp;
+of New Zealand as a game development Mecca.&nbsp;&nbsp;
+
+00:14:30.200 --> 00:14:33.120
+Now I'm seeing to this day, when I&nbsp;
+saw coverage of Dredge for example,&nbsp;&nbsp;
+
+00:14:33.120 --> 00:14:36.800
+people mention the New Zealand angle, and I do&nbsp;
+believe there is still quite a lot of value there.
+
+00:14:37.480 --> 00:14:41.680
+So we launched Path of Exile's closed beta with&nbsp;
+this announcement, and we had tens of thousands&nbsp;&nbsp;
+
+00:14:41.680 --> 00:14:45.840
+of people sign up. It was going really well. The&nbsp;
+thing is, we wanted to run a real closed beta,&nbsp;&nbsp;
+
+00:14:45.840 --> 00:14:48.600
+where we don't let people in as opposed&nbsp;
+to giving out access to everyone.&nbsp;&nbsp;
+
+00:14:49.240 --> 00:14:52.680
+We wanted to have a pool of people playing&nbsp;
+it, so they kind of get burnt out on the&nbsp;&nbsp;
+
+00:14:52.680 --> 00:14:55.680
+early part of the game, and then they give us&nbsp;
+feedback, and then we change the game for the&nbsp;&nbsp;
+
+00:14:55.680 --> 00:14:59.480
+next people. And so we decided we needed a&nbsp;
+mechanism for getting people into the beta.&nbsp;&nbsp;
+
+00:15:00.360 --> 00:15:04.480
+So we invited an initial wave of people, and&nbsp;
+created a system where people get drip-fed in&nbsp;&nbsp;
+
+00:15:04.480 --> 00:15:08.960
+via this timer that's on our website, basically&nbsp;
+the beta invite timer. Every five minutes,&nbsp;&nbsp;
+
+00:15:08.960 --> 00:15:13.400
+it would invite someone into the game. Now, we&nbsp;
+made it public because, that way it can validate&nbsp;&nbsp;
+
+00:15:13.400 --> 00:15:16.640
+people are actually getting invited, because,&nbsp;
+you know, they wouldn't believe us otherwise.&nbsp;&nbsp;
+
+00:15:16.640 --> 00:15:21.760
+And so it lists the next person coming in every&nbsp;
+five minutes. What we didn't realise was that,&nbsp;&nbsp;
+
+00:15:21.760 --> 00:15:24.720
+this would go viral, and there would be a lot&nbsp;
+of people sitting there watching it. You know,&nbsp;&nbsp;
+
+00:15:24.720 --> 00:15:28.280
+they'd be at their work day with this on the&nbsp;
+screen, hitting refresh, trying to see if they&nbsp;&nbsp;
+
+00:15:28.280 --> 00:15:32.640
+got into the beta. And it got a lot of attention.&nbsp;
+And here's a couple of memes that were spawned.
+
+00:15:32.640 --> 00:15:36.800
+So on the left, we have a gentleman who&nbsp;
+is watching the timer while he's sleeping,&nbsp;&nbsp;
+
+00:15:36.800 --> 00:15:39.480
+and the man on the right has&nbsp;
+chained himself to his computer,&nbsp;&nbsp;
+
+00:15:39.480 --> 00:15:41.400
+and he will be freed upon getting a beta key.
+
+00:15:42.720 --> 00:15:45.600
+This one is labeled torture&nbsp;
+devices through the ages.
+
+00:15:49.080 --> 00:15:51.960
+Yeah. So we enjoyed that, and that was fun.&nbsp;&nbsp;
+
+00:15:52.720 --> 00:15:56.240
+Haven't seen anyone else do that since&nbsp;
+then. Bit of a Kiwi solution to the problem.
+
+00:15:57.280 --> 00:16:03.360
+So in 2011, we attended PAX in Seattle, with a&nbsp;
+booth this time, and it was an absolute mission&nbsp;&nbsp;
+
+00:16:03.360 --> 00:16:07.360
+to set up. We thought we could do it ourselves. We&nbsp;
+were like, okay, we have to pay for the space at&nbsp;&nbsp;
+
+00:16:07.360 --> 00:16:11.080
+the convention, obviously. We need to pay for our&nbsp;
+flights and accommodation. We need to rent these&nbsp;&nbsp;
+
+00:16:11.080 --> 00:16:15.400
+computers, because we didn't want to bring eight&nbsp;
+motherboards with GPUs over this time. We needed&nbsp;&nbsp;
+
+00:16:15.400 --> 00:16:19.440
+to pay quite a lot of money to get a sign hung&nbsp;
+up there, because, unions involved in America,&nbsp;&nbsp;
+
+00:16:19.440 --> 00:16:25.040
+you need four people for a forklift and stuff.&nbsp;
+And so we were prepared to spend all this money.&nbsp;&nbsp;
+
+00:16:25.040 --> 00:16:29.760
+But when they said, "Look, you really should spend&nbsp;
+just another 30K or 50K USD to have a booth made&nbsp;&nbsp;
+
+00:16:29.760 --> 00:16:33.880
+for you," we said, "No, the game's what matters,&nbsp;
+right? As long as it's tidy, it's fine. It's gonna&nbsp;&nbsp;
+
+00:16:33.880 --> 00:16:37.880
+be full of people playing the game." And so we&nbsp;
+arrived there, we've got one day to set it up.&nbsp;&nbsp;
+
+00:16:37.880 --> 00:16:41.880
+And these mounts that we had to put the monitors&nbsp;
+on, have like a dinner plate-sized space for you&nbsp;&nbsp;
+
+00:16:41.880 --> 00:16:45.920
+to put a keyboard and mouse. It just would fall&nbsp;
+off instantly. So we said, "Okay." We went to Home&nbsp;&nbsp;
+
+00:16:45.920 --> 00:16:50.440
+Depot, which is like Bunnings, but in America,&nbsp;
+and we got some big planks, and we took them back,&nbsp;&nbsp;
+
+00:16:50.440 --> 00:16:54.480
+and we put them down on those flat things. And&nbsp;
+sure enough, the mice and keyboards work now,&nbsp;&nbsp;
+
+00:16:54.480 --> 00:16:57.160
+but the planks are all wobbly and they're&nbsp;
+gonna fall off. So we go back to Home Depot,&nbsp;&nbsp;
+
+00:16:57.160 --> 00:17:02.440
+and we buy some clamps, basically vices, and we&nbsp;
+clamped the pieces of wood down. And now it works.&nbsp;&nbsp;
+
+00:17:02.440 --> 00:17:07.080
+You can play the game, but it's ugly as sin. And&nbsp;
+so we find some, like, Spotlight-equivalent kind&nbsp;&nbsp;
+
+00:17:07.080 --> 00:17:11.280
+of fabric store, get some felt sheets and dress&nbsp;
+it up. And we're running out of time, and we're&nbsp;&nbsp;
+
+00:17:11.280 --> 00:17:14.920
+having to rent a car, and there's traffic in&nbsp;
+Seattle, and, you know, people are gonna be&nbsp;&nbsp;
+
+00:17:14.920 --> 00:17:18.880
+there the next day. And it was very stressful. I&nbsp;
+do not recommend it. If you're doing a convention,&nbsp;&nbsp;
+
+00:17:18.880 --> 00:17:22.400
+probably is worth paying the money to get a nice&nbsp;
+swish booth, just to save yourself the hassle.&nbsp;&nbsp;
+
+00:17:23.040 --> 00:17:27.280
+So this is a case where our Kiwi solution&nbsp;
+clashed with established practices, in a way&nbsp;&nbsp;
+
+00:17:27.280 --> 00:17:32.840
+that was quite difficult. Related to that, we&nbsp;
+printed a few thousand beta DVDs to give out,&nbsp;&nbsp;
+
+00:17:32.840 --> 00:17:36.840
+and they had these stickers attached to them. And&nbsp;
+looking at this, I realise I probably should have&nbsp;&nbsp;
+
+00:17:36.840 --> 00:17:40.840
+checked what those codes do before I put them&nbsp;
+on the screen, but, I don’t know, find out.
+
+00:17:40.840 --> 00:17:45.520
+You know, these are to get into the closed beta 14&nbsp;
+years ago, I'm sure they won't do anything these&nbsp;&nbsp;
+
+00:17:45.520 --> 00:17:50.720
+days, or at least I hope not. Anyway, so we had&nbsp;
+two thousand stickers and two thousand DVDs. And&nbsp;&nbsp;
+
+00:17:50.720 --> 00:17:55.560
+the process for making the DVDs allowed us to&nbsp;
+pay extra money to have the codes printed on&nbsp;&nbsp;
+
+00:17:55.560 --> 00:17:59.960
+the packets, and we said, "No, that's an extra X&nbsp;
+cents per unit. We'll just stick it on ourselves."&nbsp;&nbsp;
+
+00:17:59.960 --> 00:18:04.040
+But, when you've worked all day to get that booth&nbsp;
+set up, and you've got to be there at six in the&nbsp;&nbsp;
+
+00:18:04.040 --> 00:18:07.560
+morning the following day or whatever, and it's&nbsp;
+9PM, and you've got to stick two thousand labels&nbsp;&nbsp;
+
+00:18:07.560 --> 00:18:10.560
+on, you're not getting a lot of sleep that&nbsp;
+night, so, I don't recommend that either.
+
+00:18:11.560 --> 00:18:15.800
+Anyway, so, the booth was popular. We had tons of&nbsp;
+people around it, as you can see here, and we gave&nbsp;&nbsp;
+
+00:18:15.800 --> 00:18:20.440
+out a lot of beta DVDs. Now in order to get a beta&nbsp;
+DVD, someone had to queue for about half an hour,&nbsp;&nbsp;
+
+00:18:20.440 --> 00:18:24.240
+and then play all the way through our demo.&nbsp;
+We had about half an hour of content at PAX,&nbsp;&nbsp;
+
+00:18:24.240 --> 00:18:27.160
+and then we’d kind of grill them about what&nbsp;
+they thought, and finally, after passing&nbsp;&nbsp;
+
+00:18:27.160 --> 00:18:31.520
+the test and us validating they were a true&nbsp;
+Action RPG player, we'd hand them a beta DVD.&nbsp;&nbsp;
+
+00:18:33.000 --> 00:18:37.200
+So we got home, and we had a look at the stat of&nbsp;
+how many people installed these. And bear in mind,&nbsp;&nbsp;
+
+00:18:37.200 --> 00:18:41.480
+everyone who got one of these was a true fan, as&nbsp;
+far as we were concerned, one of us. We gave them&nbsp;&nbsp;
+
+00:18:41.480 --> 00:18:46.680
+the disc. And also bear in mind that there was an&nbsp;
+army of people on eBay willing to pay $250USD for&nbsp;&nbsp;
+
+00:18:46.680 --> 00:18:52.160
+the code, right? So what percentage of these codes&nbsp;
+got used? And the answer was 22%. And so, I was&nbsp;&nbsp;
+
+00:18:52.160 --> 00:18:56.400
+bitterly disappointed. For a year, I was thinking,&nbsp;
+you know, people hate it, right? They just didn't&nbsp;&nbsp;
+
+00:18:56.400 --> 00:18:59.280
+want to play it. They did all this stuff, and they&nbsp;
+weren't interested. It turns out that was a pretty&nbsp;&nbsp;
+
+00:18:59.280 --> 00:19:03.120
+good conversion rate, and people have reassured&nbsp;
+me about that since then, but, it was interesting&nbsp;&nbsp;
+
+00:19:03.120 --> 00:19:07.120
+to see my reaction at the time. So we had a beta&nbsp;
+running, and people were willing to pay a lot of&nbsp;&nbsp;
+
+00:19:07.120 --> 00:19:11.760
+money to get into it, because of the virality,&nbsp;
+and we were also running out of money. So, we&nbsp;&nbsp;
+
+00:19:11.760 --> 00:19:15.800
+decided we would do a Kickstarter-like thing which&nbsp;
+would involve people finally getting access to the&nbsp;&nbsp;
+
+00:19:15.800 --> 00:19:21.160
+beta. We were ready for the masses to come in.&nbsp;
+Now, at the time, we assessed using Kickstarter.&nbsp;&nbsp;
+
+00:19:21.160 --> 00:19:25.640
+It was popular. You know, Wasteland had had its&nbsp;
+Kickstarter, FTL had done its one, and it was a&nbsp;&nbsp;
+
+00:19:25.640 --> 00:19:31.240
+big thing. But, you know, again, the kind of Kiwi&nbsp;
+voice in our head, "You could do this yourself."
+
+00:19:31.240 --> 00:19:35.720
+And so, we decided we'd make our own platform&nbsp;
+for this on pathofexile.com. And to this day,&nbsp;&nbsp;
+
+00:19:35.720 --> 00:19:38.840
+it's still in use, right? I believe GGG is&nbsp;
+still running supporter packs, you know,&nbsp;&nbsp;
+
+00:19:38.840 --> 00:19:43.480
+the 50th generation maybe, of supporter&nbsp;
+packs, but based on this initial code.&nbsp;&nbsp;
+
+00:19:43.480 --> 00:19:50.000
+So we planned out a set of... Well, to clarify,&nbsp;
+the reason we didn't use Kickstarter was that&nbsp;&nbsp;
+
+00:19:52.360 --> 00:19:55.480
+we wanted to run a campaign for quite a long&nbsp;
+duration. We wanted many months, they like&nbsp;&nbsp;
+
+00:19:55.480 --> 00:20:01.440
+limiting it to one month. We also wanted to, not&nbsp;
+have to specify a target that we were raising,&nbsp;&nbsp;
+
+00:20:01.440 --> 00:20:04.960
+because it was one of those situations, being&nbsp;
+out of money, we would take anything. If 100K was&nbsp;&nbsp;
+
+00:20:04.960 --> 00:20:08.680
+raised, great, we'll spend it on the game. If a&nbsp;
+million was raised, we'll spend that too. Whereas,&nbsp;&nbsp;
+
+00:20:08.680 --> 00:20:13.840
+because you have to signal how much money you&nbsp;
+want to raise on a Kickstarter, you are, having to&nbsp;&nbsp;
+
+00:20:13.840 --> 00:20:17.760
+set expectations, and there's all the complicated&nbsp;
+game theory around what number you pick and so on.&nbsp;&nbsp;
+
+00:20:17.760 --> 00:20:22.040
+We just wanted to do it ourselves. Plus, paying&nbsp;
+five percent of the total to a platform to do it,&nbsp;&nbsp;
+
+00:20:22.040 --> 00:20:26.200
+when you can just do it yourself, seemed like&nbsp;
+bad math. So we put together these packs which&nbsp;&nbsp;
+
+00:20:26.200 --> 00:20:31.920
+contained exclusive Kiwi pets and beta keys, and&nbsp;
+various other stuff. The $1000 pack there gave you&nbsp;&nbsp;
+
+00:20:31.920 --> 00:20:37.480
+a t-shirt, and a map of Wraeclast, a copy of the&nbsp;
+game on DVD, a copy of the soundtrack digitally&nbsp;&nbsp;
+
+00:20:37.480 --> 00:20:44.360
+and on CD, the Diamond Kiwi pet, five beta keys,&nbsp;
+and, the ability to design an item that goes in&nbsp;&nbsp;
+
+00:20:44.360 --> 00:20:47.760
+the game. We priced that at a thousand dollars,&nbsp;
+which was a massive underpricing. People would&nbsp;&nbsp;
+
+00:20:47.760 --> 00:20:51.440
+have paid a lot more, and then we had two hundred&nbsp;
+and fifty of these unique items to design for the&nbsp;&nbsp;
+
+00:20:51.440 --> 00:20:56.120
+game as a result of that. So it did really well,&nbsp;
+and, we like to think that the Kiwi element of&nbsp;&nbsp;
+
+00:20:56.120 --> 00:21:02.400
+including the Kiwi in there, really helped. So it&nbsp;
+also resulted in, us now having to get really good&nbsp;&nbsp;
+
+00:21:02.400 --> 00:21:07.680
+at physical goods. We had this obligation to send&nbsp;
+people thousands of boxes with a copy of the game&nbsp;&nbsp;
+
+00:21:07.680 --> 00:21:12.520
+and, T-shirts, and that kind of stuff in them.&nbsp;
+So we got these boxes custom-made, and we spent&nbsp;&nbsp;
+
+00:21:12.520 --> 00:21:16.760
+a long time packing them, and addressing them.&nbsp;
+And each of the boxes contained a signed letter&nbsp;&nbsp;
+
+00:21:16.760 --> 00:21:20.680
+to the person, thanking them for the support. And,&nbsp;
+it's really cool to see these letters actually&nbsp;&nbsp;
+
+00:21:20.680 --> 00:21:24.960
+showing up these days on Reddit, and eBay, and&nbsp;
+stuff, as a thing that people really remembered.&nbsp;&nbsp;
+
+00:21:24.960 --> 00:21:28.000
+Logistically though, when you spend&nbsp;
+all day packing boxes, and someone puts&nbsp;&nbsp;
+
+00:21:28.000 --> 00:21:31.960
+four thousand pieces of paper on your desk and&nbsp;
+says, "I need these signed by tomorrow, please,"&nbsp;&nbsp;
+
+00:21:31.960 --> 00:21:37.000
+it's, again, quite a long evening. And there&nbsp;
+were quite a lot of evenings in the early days.&nbsp;&nbsp;
+
+00:21:37.000 --> 00:21:40.720
+Now, one of the cool things about making physical&nbsp;
+goods, of course, is you get all sorts of cool&nbsp;&nbsp;
+
+00:21:40.720 --> 00:21:44.920
+T-shirts. This is our famous Tabula Rasa T-shirt,&nbsp;
+and I've seen one of them at this convention,&nbsp;&nbsp;
+
+00:21:44.920 --> 00:21:49.280
+which is really cool. So that was fun. But&nbsp;
+the reason I included the screenshot of Erik&nbsp;&nbsp;
+
+00:21:49.280 --> 00:21:54.560
+modeling the Tabula Rasa shirt, is this poster&nbsp;
+in the background which says, Path of Textile.
+
+00:21:56.200 --> 00:22:00.800
+And that's how it felt. And I want to emphasise,&nbsp;
+what a lot of other companies do is find someone&nbsp;&nbsp;
+
+00:22:00.800 --> 00:22:04.520
+to deal with this for them, and then it just&nbsp;
+gets sent off, and some American company goes&nbsp;&nbsp;
+
+00:22:04.520 --> 00:22:09.360
+and handles all your fulfillment. But again, Kiwi&nbsp;
+spirit of, we decided to do it ourselves, and this&nbsp;&nbsp;
+
+00:22:09.360 --> 00:22:12.760
+meant we can include our own signatures. This&nbsp;
+meant that, the things that people are getting,&nbsp;&nbsp;
+
+00:22:12.760 --> 00:22:16.880
+we've packed ourselves, like founder packing,&nbsp;
+and stuff like that. It also meant we gained&nbsp;&nbsp;
+
+00:22:16.880 --> 00:22:22.720
+expertise with physical goods, and we got to do&nbsp;
+the fun stuff. So, we were trying to market an&nbsp;&nbsp;
+
+00:22:22.720 --> 00:22:26.920
+expansion a number of years later, the Ascendancy&nbsp;
+expansion. And in this expansion, there was this&nbsp;&nbsp;
+
+00:22:26.920 --> 00:22:31.600
+household called the Perandus family, and, we&nbsp;
+wanted to set the scene of what was going on with&nbsp;&nbsp;
+
+00:22:31.600 --> 00:22:35.440
+the Perandus family, politically in the game. So&nbsp;
+we thought, wouldn't it be cool if we made these&nbsp;&nbsp;
+
+00:22:35.440 --> 00:22:39.200
+three letters, that vaguely talked about the&nbsp;
+Perandus family's plans, and we addressed them&nbsp;&nbsp;
+
+00:22:39.200 --> 00:22:43.640
+to one of the family members, Cadiro Perandus,&nbsp;
+with a proper wax seal on them? And because we've&nbsp;&nbsp;
+
+00:22:43.640 --> 00:22:48.040
+got the postal addresses of a bunch of our top&nbsp;
+supporters, we can just randomly mail them stuff.
+
+00:22:48.040 --> 00:22:51.880
+And so, we sent a bunch of these letters out,&nbsp;
+without saying it's from Path of Exile. We just&nbsp;&nbsp;
+
+00:22:51.880 --> 00:22:55.600
+stuck them in the post, and saw what happened.&nbsp;
+And the fans got it, and they recognised Cadiro&nbsp;&nbsp;
+
+00:22:55.600 --> 00:22:59.200
+Perandus and thought, "Oh my God, it's from&nbsp;
+the game." And then they broke the wax seal,&nbsp;&nbsp;
+
+00:22:59.200 --> 00:23:02.000
+and opened it up, and because there's a few&nbsp;
+variants of the letters, they compared them&nbsp;&nbsp;
+
+00:23:02.000 --> 00:23:06.680
+online, and tried to work out what it meant, and&nbsp;
+it was a ton of fun, and a ton of fun to make,&nbsp;&nbsp;
+
+00:23:06.680 --> 00:23:10.320
+because logistically, it's easy to get yellowed&nbsp;
+paper that looks weathered and to print on it.&nbsp;&nbsp;
+
+00:23:10.320 --> 00:23:15.080
+That's not hard. But the wax seal thing is&nbsp;
+tricky. For a start, how do you get a custom&nbsp;&nbsp;
+
+00:23:15.080 --> 00:23:18.560
+wax seal made? Well, very easily, Yellow Pages,&nbsp;
+right? There's people in New Zealand who will do&nbsp;&nbsp;
+
+00:23:18.560 --> 00:23:23.040
+it for you. So now we have a Perandus family seal&nbsp;
+we can use. But we quickly learned that sealing&nbsp;&nbsp;
+
+00:23:23.040 --> 00:23:26.840
+wax is really finicky. It just goes everywhere&nbsp;
+and looks horrible. And the trick is, for when&nbsp;&nbsp;
+
+00:23:26.840 --> 00:23:31.560
+you guys are doing this for your games, you need&nbsp;
+a little bucket of ice cubes. If you take the seal&nbsp;&nbsp;
+
+00:23:31.560 --> 00:23:36.400
+and make it really cold, then when you touch the&nbsp;
+sealing wax, it works perfectly. So ice cubes are&nbsp;&nbsp;
+
+00:23:36.400 --> 00:23:40.320
+the trick, and they saved the day there. The thing&nbsp;
+is, this was really fun, and this is what we need&nbsp;&nbsp;
+
+00:23:40.320 --> 00:23:45.080
+to be doing when making games. Take a moment to do&nbsp;
+some kind of real-life thing that ties in with the&nbsp;&nbsp;
+
+00:23:45.080 --> 00:23:49.080
+game, because, it connects us to people's actual&nbsp;
+day-to-day. These people have these letters that&nbsp;&nbsp;
+
+00:23:49.080 --> 00:23:53.120
+they're gonna treasure forever as a thing that's&nbsp;
+connecting them to what we were doing at the time.
+
+00:23:54.280 --> 00:24:01.360
+So things were really taking off. Path of Exile&nbsp;
+came out in 2013. Here's a GameSpot 9/10 review we&nbsp;&nbsp;
+
+00:24:01.360 --> 00:24:06.480
+were pleased with. We got Game of the Year&nbsp;
+from Hyper and PC PowerPlay. I do note that the&nbsp;&nbsp;
+
+00:24:06.480 --> 00:24:10.120
+similarity of the logos suggests they might be the&nbsp;
+same company, but we took it as two Game of the&nbsp;&nbsp;
+
+00:24:10.120 --> 00:24:15.720
+Year awards. We also got GameSpot's PC Game of the&nbsp;
+Year, and IGN's PC Game of the Year. And that was&nbsp;&nbsp;
+
+00:24:15.720 --> 00:24:20.200
+going great. And player numbers were really good&nbsp;
+for, like, a few days, and then they dropped off.
+
+00:24:20.200 --> 00:24:24.600
+And this is the thing. When you're releasing a&nbsp;
+game that- most games, but when you're releasing&nbsp;&nbsp;
+
+00:24:24.600 --> 00:24:27.160
+a game that has a storyline you can play&nbsp;
+through, as people will play through it,&nbsp;&nbsp;
+
+00:24:27.160 --> 00:24:31.800
+and some percentage of them will say, "Cool, I'm&nbsp;
+done now," and they will stop playing. And so,&nbsp;&nbsp;
+
+00:24:31.800 --> 00:24:36.320
+this was scary for us, because we wanted this to&nbsp;
+be a forever game, and it was terrifying that our&nbsp;&nbsp;
+
+00:24:36.320 --> 00:24:40.560
+player numbers could drop from really amazing, to&nbsp;
+quite low. That would, you know, eventually kill&nbsp;&nbsp;
+
+00:24:40.560 --> 00:24:44.480
+the company. So we decided we would release an&nbsp;
+expansion to the game. We put a lot of effort in.&nbsp;&nbsp;
+
+00:24:44.480 --> 00:24:48.640
+The numbers shot right back up again. Okay, so&nbsp;
+we have a button we can press now, which involves&nbsp;&nbsp;
+
+00:24:48.640 --> 00:24:53.160
+months and months of work, and makes the numbers&nbsp;
+go up, and, the problem we were finding, was that&nbsp;&nbsp;
+
+00:24:53.160 --> 00:24:57.120
+the numbers were never going as high as initial&nbsp;
+launch. And so this was an existential issue for&nbsp;&nbsp;
+
+00:24:57.120 --> 00:25:02.640
+our company. If we didn't solve it, then Path of&nbsp;
+Exile would die. And so, this is a slide from my&nbsp;&nbsp;
+
+00:25:02.640 --> 00:25:07.160
+2019 GDC talk, and, that talk is about this exact&nbsp;
+concept. So if you're interested in what we did,&nbsp;&nbsp;
+
+00:25:07.160 --> 00:25:11.400
+there's an hour-long talk there which is on&nbsp;
+YouTube. I think it's "Designing Path of Exile To&nbsp;&nbsp;
+
+00:25:11.400 --> 00:25:15.560
+Be Played Forever". And you will see in the first&nbsp;
+half of this graph, the numbers trended downwards,&nbsp;&nbsp;
+
+00:25:15.560 --> 00:25:19.560
+and would eventually die. And in the second half,&nbsp;
+they skyrocketed up. And it's worth noting, this&nbsp;&nbsp;
+
+00:25:19.560 --> 00:25:23.840
+was seven years ago that I made that graph. Since&nbsp;
+then, I don't have the recent numbers, but since&nbsp;&nbsp;
+
+00:25:23.840 --> 00:25:27.240
+then, it's continued to get bigger, as you can&nbsp;
+see by the Steam numbers, and bear in mind, when&nbsp;&nbsp;
+
+00:25:27.240 --> 00:25:31.000
+you look at Path of Exile, half the users don't&nbsp;
+play on Steam. So whatever you see there, you need&nbsp;&nbsp;
+
+00:25:31.000 --> 00:25:35.960
+to double, and, it got really big. And the way we&nbsp;
+achieved this was a number of really key insights&nbsp;&nbsp;
+
+00:25:35.960 --> 00:25:40.360
+that we had to work out the hard way, and, you&nbsp;
+know, the company would not exist today probably&nbsp;&nbsp;
+
+00:25:40.360 --> 00:25:45.000
+if we hadn't worked these out. So, what we wanted&nbsp;
+to do, was to embrace the fact that people will&nbsp;&nbsp;
+
+00:25:45.000 --> 00:25:49.480
+quit playing Path of Exile. They will play for&nbsp;
+a release, and after a day, a week, a month,&nbsp;&nbsp;
+
+00:25:49.480 --> 00:25:54.440
+they will stop playing, as long as, and this is&nbsp;
+okay, as long as they would quit playing with a&nbsp;&nbsp;
+
+00:25:54.440 --> 00:25:59.040
+plan to come back. And so we made sure to have a&nbsp;
+stable release cadence. People can predict there&nbsp;&nbsp;
+
+00:25:59.040 --> 00:26:02.360
+are lots of releases coming, and they know when&nbsp;
+they are, and to make sure that there's content&nbsp;&nbsp;
+
+00:26:02.360 --> 00:26:07.360
+in each release that really appeals to everyone.&nbsp;
+And this worked well. The GDC talk covers it&nbsp;&nbsp;
+
+00:26:07.360 --> 00:26:11.800
+in far more detail, but this was really crucial&nbsp;
+for cementing Path of Exile's long-term success.
+
+00:26:12.840 --> 00:26:17.520
+So, in 2020, we were nominated for a BAFTA.&nbsp;
+That's a British Academy Award for Best Evolving&nbsp;&nbsp;
+
+00:26:17.520 --> 00:26:21.880
+Game at the 73rd British Academy Awards. And&nbsp;
+a really quick story to tell you here. Okay,&nbsp;&nbsp;
+
+00:26:21.880 --> 00:26:25.480
+so the BAFTA guys email me, and they say, "Chris,&nbsp;
+you've been nominated. Congratulations. Put that&nbsp;&nbsp;
+
+00:26:25.480 --> 00:26:29.040
+on your CV. But logistically, you need&nbsp;
+to come to London because we're having&nbsp;&nbsp;
+
+00:26:29.040 --> 00:26:32.360
+a red carpet ceremony. You know, it's like the&nbsp;
+Oscars, right? There's all these famous people,&nbsp;&nbsp;
+
+00:26:32.360 --> 00:26:37.240
+and it was movies and TV and games, and someone's&nbsp;
+gonna have to go on stage and accept the award. So&nbsp;&nbsp;
+
+00:26:37.240 --> 00:26:41.680
+bring a tux, write a speech, and we'll see&nbsp;
+you in London". And I respond with, "Uh,&nbsp;&nbsp;
+
+00:26:41.680 --> 00:26:45.480
+there's a pandemic. I'm not getting on a plane,&nbsp;
+right? You know, I'm not gonna get stuck in&nbsp;&nbsp;
+
+00:26:45.480 --> 00:26:49.120
+London. They might close the borders. I'm not&nbsp;
+really that interested." And they're like, "Okay,&nbsp;&nbsp;
+
+00:26:49.120 --> 00:26:52.720
+but you do have to come to the ceremony, right?&nbsp;
+That's what this is for. You don't just take the&nbsp;&nbsp;
+
+00:26:52.720 --> 00:26:57.680
+nomination and..." And I'm like, "Yeah, but are&nbsp;
+we really gonna win? We're up against Fortnite,&nbsp;&nbsp;
+
+00:26:57.680 --> 00:27:02.880
+and No Man's Sky, and Final Fantasy 14, and&nbsp;
+Apex Legends, and a bunch of other games that&nbsp;&nbsp;
+
+00:27:02.880 --> 00:27:06.120
+are really good. We're not, we're not winning&nbsp;
+this." And they're like, "Cool, but you still&nbsp;&nbsp;
+
+00:27:06.120 --> 00:27:08.960
+need to be there. And if you can't be there,&nbsp;
+send someone." I said, "That's easy. Okay,&nbsp;&nbsp;
+
+00:27:08.960 --> 00:27:12.240
+I've got someone in London, a friend of mine.&nbsp;
+Can he do it on my behalf?" And they said, "Yeah,&nbsp;&nbsp;
+
+00:27:12.240 --> 00:27:16.000
+that's fine." So I contacted my friend in London.&nbsp;
+I said, "Dude, I need you to pick something up for&nbsp;&nbsp;
+
+00:27:16.000 --> 00:27:19.360
+me. Chances are you won't have to. You just--&nbsp;
+you get some free food and some cocktails."
+
+00:27:19.360 --> 00:27:23.880
+"And you probably don't need to pick it up,&nbsp;
+but if you do, you need to read the thing I&nbsp;&nbsp;
+
+00:27:23.880 --> 00:27:28.360
+email you. It might be on stage." And the guy's&nbsp;
+like, "Oh, okay." And I'm like, "Buy a suit."&nbsp;&nbsp;
+
+00:27:28.360 --> 00:27:31.640
+So, he's busy getting ready for the BAFTAs&nbsp;
+without really understanding what it was.
+
+00:27:33.400 --> 00:27:37.560
+I get an email from them saying, "Hey, look, we've&nbsp;
+canceled the event because of COVID. Turns out&nbsp;&nbsp;
+
+00:27:37.560 --> 00:27:43.080
+there's a pandemic, and we are moving it online.&nbsp;
+You need to prepare a digital acceptance video,"&nbsp;&nbsp;
+
+00:27:43.080 --> 00:27:46.720
+which as far as I was concerned, would not be&nbsp;
+played, because there's no way we're beating&nbsp;&nbsp;
+
+00:27:46.720 --> 00:27:50.760
+those other games. So I didn't put much effort&nbsp;
+into the planning for this. You know, I emailed&nbsp;&nbsp;
+
+00:27:50.760 --> 00:27:54.280
+them back with, "What should we include?" You&nbsp;
+know, as a way of stalling. And they said, "Look,&nbsp;&nbsp;
+
+00:27:54.280 --> 00:27:57.040
+you're in New Zealand. You could do something&nbsp;
+really cool, right? Play up the New Zealand&nbsp;&nbsp;
+
+00:27:57.040 --> 00:28:00.960
+angle." And they were right. You know, "Find a&nbsp;
+waterfall out in Kerikeri or something. Get your&nbsp;&nbsp;
+
+00:28:00.960 --> 00:28:06.040
+team there. You know, do something really cool."&nbsp;
+And I thought, "Okay, I mean we're busy, but I'll&nbsp;&nbsp;
+
+00:28:06.040 --> 00:28:10.360
+see what I can do." So I stalled a little bit, and&nbsp;
+then we got plunged into lockdown. So I'm at home&nbsp;&nbsp;
+
+00:28:10.360 --> 00:28:15.040
+the next day, and I've got one day to deliver this&nbsp;
+video, and I don't have anyone to hold the camera,&nbsp;&nbsp;
+
+00:28:15.040 --> 00:28:19.280
+and I don't have… I found a shirt with&nbsp;
+buttons. It was the wrong size, but it worked,&nbsp;&nbsp;
+
+00:28:19.280 --> 00:28:22.440
+and I found a jacket, but I couldn't find any&nbsp;
+dress pants, and I thought, "Well, you can't see&nbsp;&nbsp;
+
+00:28:22.440 --> 00:28:27.760
+it in selfie cam." So I recorded a video like this&nbsp;
+with my camera, and I'm like, "Hey, it's Chris. So&nbsp;&nbsp;
+
+00:28:27.760 --> 00:28:30.920
+happy to win this thing." And I'm not putting&nbsp;
+much effort in because, again, it's not gonna&nbsp;&nbsp;
+
+00:28:30.920 --> 00:28:36.480
+be played for anyone, I'm just ticking the box&nbsp;
+so we get our nomination, and, yeah. So we won.
+
+00:28:38.000 --> 00:28:41.600
+The Best Evolving Game category, which is&nbsp;
+basically for ongoing games, and that's how&nbsp;&nbsp;
+
+00:28:41.600 --> 00:28:46.080
+in the background of my YouTube setup I've got&nbsp;
+at home with my, YouTube Play Award and stuff,&nbsp;&nbsp;
+
+00:28:46.080 --> 00:28:50.240
+I've got my BAFTA, which people do not&nbsp;
+recognize on YouTube. It's kinda cute.&nbsp;&nbsp;
+
+00:28:50.240 --> 00:28:53.720
+And Jonathan and Erik also got one of these&nbsp;
+statues, and it's one of the cool achievements for&nbsp;&nbsp;
+
+00:28:53.720 --> 00:28:57.800
+Path of Exile that we're quite happy with, even&nbsp;
+if people in New Zealand don't really understand,&nbsp;&nbsp;
+
+00:28:57.800 --> 00:29:02.720
+British award structures and so on.&nbsp;
+So hiding some vegetables in the talk.
+
+00:29:02.720 --> 00:29:06.640
+One of the other reasons why New Zealand is great&nbsp;
+place to develop games is government support.&nbsp;&nbsp;
+
+00:29:06.640 --> 00:29:11.840
+And it's not only GDSR, which is obviously very&nbsp;
+impactful, but also CODE as a program to do that.&nbsp;&nbsp;
+
+00:29:11.840 --> 00:29:16.160
+And the government really clearly cares about&nbsp;
+the games industry now. This wasn't the case&nbsp;&nbsp;
+
+00:29:16.160 --> 00:29:19.840
+twenty years ago, but we're now too large to&nbsp;
+ignore, and that's really important, and other,&nbsp;&nbsp;
+
+00:29:19.840 --> 00:29:22.840
+much better speakers have done a better&nbsp;
+job talking about this at the convention,&nbsp;&nbsp;
+
+00:29:22.840 --> 00:29:26.760
+so I'm not gonna belabour the point too much,&nbsp;
+but a really cool thing is, and I don't know if&nbsp;&nbsp;
+
+00:29:26.760 --> 00:29:30.840
+people have made a good point of this, is that,&nbsp;
+this is both sides of the political spectrum&nbsp;&nbsp;
+
+00:29:30.840 --> 00:29:34.240
+that appear to support this. This isn't a thing&nbsp;
+that appears to be flip-flopping back and forth,&nbsp;&nbsp;
+
+00:29:34.240 --> 00:29:37.360
+where one party hates games and the other&nbsp;
+one loves it. This appears to be a thing,&nbsp;&nbsp;
+
+00:29:37.360 --> 00:29:40.360
+that we're going to have for quite a while, and&nbsp;
+that's really important, and lets us actually&nbsp;&nbsp;
+
+00:29:40.360 --> 00:29:46.040
+rely on it, to get some serious stuff done.&nbsp;
+Another aspect of the government caring is that&nbsp;&nbsp;
+
+00:29:46.040 --> 00:29:51.000
+our internet infrastructure is a lot better than&nbsp;
+many countries. I took this picture on my laptop&nbsp;&nbsp;
+
+00:29:51.000 --> 00:29:55.120
+at home yesterday morning. It's meant to be four&nbsp;
+gigabits, so I'll be talking to my ISP about that.
+
+00:29:55.120 --> 00:30:00.600
+But, you can get up to eight gigabits symmetric&nbsp;
+internet in New Zealand, not that inexpensively.&nbsp;&nbsp;
+
+00:30:00.600 --> 00:30:04.320
+It's like $250 a month. So if your studio needs an&nbsp;
+eight gigabit connection, or your work-from-home&nbsp;&nbsp;
+
+00:30:04.320 --> 00:30:08.240
+staff, that's a very fast speed. That will&nbsp;
+give you a gigabyte per second of transfer,&nbsp;&nbsp;
+
+00:30:08.240 --> 00:30:12.480
+and the reason why this is important is because&nbsp;
+our game builds these days are huge, right? We're,&nbsp;&nbsp;
+
+00:30:12.480 --> 00:30:15.280
+you know, dealing with, you know,&nbsp;
+whole hundreds of gigs of assets, and&nbsp;&nbsp;
+
+00:30:15.280 --> 00:30:18.120
+patches that are gigabytes in size,&nbsp;
+and if you're sitting there waiting,&nbsp;&nbsp;
+
+00:30:18.120 --> 00:30:21.440
+like, let's say you're using a cloud service where&nbsp;
+your stuff has to go up, and then come down again,&nbsp;&nbsp;
+
+00:30:21.440 --> 00:30:25.680
+doing it fast saves you a lot of time, especially&nbsp;
+as this is a thing where ideally your game has&nbsp;&nbsp;
+
+00:30:25.680 --> 00:30:29.360
+thousands and thousands of iterations as you work&nbsp;
+on it. So saving a few minutes or more each is&nbsp;&nbsp;
+
+00:30:29.360 --> 00:30:33.600
+important, and this is because the government&nbsp;
+took it seriously. I spoke at the fibre to the&nbsp;&nbsp;
+
+00:30:33.600 --> 00:30:36.840
+home thingamajig a number of years ago, when&nbsp;
+we were trying to persuade the government,&nbsp;&nbsp;
+
+00:30:36.840 --> 00:30:40.760
+and their answer was basically, yes, and then we&nbsp;
+got fibre to the home as a result of different&nbsp;&nbsp;
+
+00:30:40.760 --> 00:30:44.840
+industries explaining why it was important,&nbsp;
+and, the result here is, we get to develop&nbsp;&nbsp;
+
+00:30:44.840 --> 00:30:48.440
+stuff despite our distance from the rest&nbsp;
+of the world, at full speed. And countries&nbsp;&nbsp;
+
+00:30:48.440 --> 00:30:52.320
+like Australia do not have this, right? They've&nbsp;
+got spotty... Well, yeah, there's a rant there.
+
+00:30:53.760 --> 00:30:58.080
+Even America has spotty fibre. It's kind of like&nbsp;
+us, and Korea, and Japan, having good internet,&nbsp;&nbsp;
+
+00:30:58.080 --> 00:31:01.040
+and the important thing is, yes, the rest of&nbsp;
+the world has caught up with these speeds,&nbsp;&nbsp;
+
+00:31:01.040 --> 00:31:04.240
+but we were here very early on, and that&nbsp;
+means when the next fast thing comes out,&nbsp;&nbsp;
+
+00:31:04.240 --> 00:31:07.960
+our government probably jumps on it and&nbsp;
+says, "Yes, tech industry, game industry,&nbsp;&nbsp;
+
+00:31:07.960 --> 00:31:11.080
+you can have this thing you need to do your&nbsp;
+jobs well", and that's really important.
+
+00:31:12.120 --> 00:31:17.080
+So, around this time Path of Exile was also&nbsp;
+getting big in China. We hadn't quite released it,&nbsp;&nbsp;
+
+00:31:17.080 --> 00:31:23.320
+and here's a screenshot from 17173.com, which is a&nbsp;
+game journalist site that ranks upcoming games in&nbsp;&nbsp;
+
+00:31:23.320 --> 00:31:28.840
+China, and you can see number one there is 流放之路,&nbsp;
+which is Path of Exile in Chinese, and it's ahead&nbsp;&nbsp;
+
+00:31:28.840 --> 00:31:34.320
+of Maple Story 2, and Lost Ark, Minecraft, and so&nbsp;
+on, and this was a very surreal thing to think,&nbsp;&nbsp;
+
+00:31:34.320 --> 00:31:38.440
+to see at the time, because I felt that, whatever&nbsp;
+success we had in the West, we'd worked really&nbsp;&nbsp;
+
+00:31:38.440 --> 00:31:42.400
+hard for, right? We'd, you know, killed ourselves&nbsp;
+over this to get this game out and popular in the&nbsp;&nbsp;
+
+00:31:42.400 --> 00:31:47.560
+West, and from the ground up, we'd drummed up&nbsp;
+interest, and it was a long battle. In China,&nbsp;&nbsp;
+
+00:31:47.560 --> 00:31:51.120
+we had done nothing until this point, right?&nbsp;
+We'd signed a publishing deal with Tencent,&nbsp;&nbsp;
+
+00:31:51.120 --> 00:31:54.160
+and we’re sitting there at number one on&nbsp;
+the upcoming games list, and that was,&nbsp;&nbsp;
+
+00:31:54.160 --> 00:31:58.640
+that was crazy. A number of years later, we&nbsp;
+also got this in the post, with no explanation,&nbsp;&nbsp;
+
+00:31:58.640 --> 00:32:04.400
+which appears to say, that Path of Exile 2 was the&nbsp;
+most anticipated Western MMO, from the same site.&nbsp;&nbsp;
+
+00:32:04.400 --> 00:32:09.400
+And this is a thing that I think is sitting on&nbsp;
+Mark's desk at GGG. And so, China was cool. I&nbsp;&nbsp;
+
+00:32:09.400 --> 00:32:14.520
+got to attend a Path of Exile event in Shanghai&nbsp;
+in 2018. They decked out this entire church to&nbsp;&nbsp;
+
+00:32:14.520 --> 00:32:19.600
+be Path of Exile themed. You know, there was, the&nbsp;
+whole kit and kaboodle going on there, and I found&nbsp;&nbsp;
+
+00:32:19.600 --> 00:32:24.960
+this photo of me standing next to the PoE China&nbsp;
+team on stage from this event. Now, eagle-eyed&nbsp;&nbsp;
+
+00:32:24.960 --> 00:32:29.440
+people will notice that I'm standing next to David&nbsp;
+Brevik on my left in the photo, the creator of the&nbsp;&nbsp;
+
+00:32:29.440 --> 00:32:33.880
+Diablo series, and so it was really cool that they&nbsp;
+got David to be a spokesperson for Path of Exile's&nbsp;&nbsp;
+
+00:32:33.880 --> 00:32:37.880
+China launch. We got to hang out in Shanghai. They&nbsp;
+had these cool things like, you know, the photo&nbsp;&nbsp;
+
+00:32:37.880 --> 00:32:41.780
+shoot they wanted us to do, was working out in the&nbsp;
+gym together. I don't know why they picked that.
+
+00:32:41.780 --> 00:32:47.160
+But it was cool. And so, we had a great&nbsp;
+week promoting Path of Exile. And okay,&nbsp;&nbsp;
+
+00:32:47.160 --> 00:32:51.240
+so if David's on my left, who's on my right? Well,&nbsp;
+that's Sir Richard Taylor from Weta Workshop,&nbsp;&nbsp;
+
+00:32:51.240 --> 00:32:54.480
+and I had no idea he was gonna be there.&nbsp;
+Turns out Tencent had commissioned Weta&nbsp;&nbsp;
+
+00:32:54.480 --> 00:32:57.920
+to do a bunch of sculptures and models and&nbsp;
+stuff, related to Path of Exile in China,&nbsp;&nbsp;
+
+00:32:57.920 --> 00:33:01.640
+and Sir Richard was at the event, and it was just&nbsp;
+so cool, getting to meet these guys who I saw&nbsp;&nbsp;
+
+00:33:01.640 --> 00:33:06.040
+as heroes, while also promoting the game over&nbsp;
+there, and it was just a blast. And I really,&nbsp;&nbsp;
+
+00:33:06.040 --> 00:33:11.480
+really liked working with the PoE China team on&nbsp;
+the publishing side and for Path of Exile, and,&nbsp;&nbsp;
+
+00:33:12.160 --> 00:33:16.440
+I had a really good relationship with them, and,&nbsp;
+there's a story here. So they approached us and&nbsp;&nbsp;
+
+00:33:16.440 --> 00:33:20.360
+asked to publish Path of Exile in China, and,&nbsp;
+I had a friend in the games industry who knows&nbsp;&nbsp;
+
+00:33:20.360 --> 00:33:23.520
+everyone, and knows all the big players. And I&nbsp;
+said to him, "Okay, we've got this important deal&nbsp;&nbsp;
+
+00:33:23.520 --> 00:33:27.960
+here. Tell me about it. Should we be using Tencent&nbsp;
+as a publisher? What are their capabilities like?"&nbsp;&nbsp;
+
+00:33:27.960 --> 00:33:31.320
+And he said, "Okay, Chris, I've got two&nbsp;
+things to tell you. Number one is yes,&nbsp;&nbsp;
+
+00:33:31.320 --> 00:33:34.680
+they are Chinese games, essentially. They're gonna&nbsp;
+be a great publisher for you. They'll get the game&nbsp;&nbsp;
+
+00:33:34.680 --> 00:33:39.240
+popular. They're easy to work with. You should&nbsp;
+definitely use Tencent. The second thing, though,&nbsp;&nbsp;
+
+00:33:39.240 --> 00:33:42.600
+is what they're doing here is, they're gonna try&nbsp;
+to work with you, and find out how easy you are to&nbsp;&nbsp;
+
+00:33:42.600 --> 00:33:46.360
+work with. They wanna test your game, and find&nbsp;
+out more about you, and in a couple of years,&nbsp;&nbsp;
+
+00:33:46.360 --> 00:33:50.320
+they're gonna make you an acquisition offer that&nbsp;
+you will not be able to refuse." And he was right.
+
+00:33:51.000 --> 00:33:56.520
+So, speaking about collaborating overseas,&nbsp;
+here's a map, and I almost cut New Zealand off.&nbsp;&nbsp;
+
+00:33:56.520 --> 00:34:00.520
+You can see it there, but we have New&nbsp;
+Zealand on the map. And it shows that,&nbsp;&nbsp;
+
+00:34:00.520 --> 00:34:05.240
+we are equidistant from, we're in the&nbsp;
+middle between North America and Asia, and,&nbsp;&nbsp;
+
+00:34:05.240 --> 00:34:09.520
+this is really cool because it means our workday&nbsp;
+overlaps a little bit with both. North America is&nbsp;&nbsp;
+
+00:34:09.520 --> 00:34:13.920
+three to five hours different, and Asia is three&nbsp;
+to five hours different, but it means that you can&nbsp;&nbsp;
+
+00:34:14.480 --> 00:34:17.840
+overlap the things you need to talk to these&nbsp;
+countries about, without having to stay up late&nbsp;&nbsp;
+
+00:34:17.840 --> 00:34:21.520
+at night. If you're in America and trying to talk&nbsp;
+to Asia, well, your staff are gonna have a really&nbsp;&nbsp;
+
+00:34:21.520 --> 00:34:26.960
+bad time having 9PM or 6AM phone calls. And, a&nbsp;
+consequence of this is you can do what's called,&nbsp;&nbsp;
+
+00:34:26.960 --> 00:34:31.760
+the follow-the-sun production methodology, where,&nbsp;
+you can have a team in America do some work,&nbsp;&nbsp;
+
+00:34:31.760 --> 00:34:35.240
+and then hand it over to you at the end of their&nbsp;
+workday, at the start of your New Zealand day.&nbsp;&nbsp;
+
+00:34:35.240 --> 00:34:39.160
+You're gonna continue the work, and then hand it&nbsp;
+over to Asia. Maybe QA is in one of these places,&nbsp;&nbsp;
+
+00:34:39.160 --> 00:34:42.920
+or outsourced development or something like that,&nbsp;
+and so you get to be developing around the clock,&nbsp;&nbsp;
+
+00:34:42.920 --> 00:34:46.960
+without people having to be inconvenienced working&nbsp;
+outside of office hours. And that's a thing that&nbsp;&nbsp;
+
+00:34:46.960 --> 00:34:51.640
+we uniquely get to do geographically with New&nbsp;
+Zealand. Also, New Zealand is an English-speaking&nbsp;&nbsp;
+
+00:34:51.640 --> 00:34:55.880
+country. It's got low corruption, and a really&nbsp;
+good commercial environment, and this makes it&nbsp;&nbsp;
+
+00:34:55.880 --> 00:34:59.640
+easier when arranging publishing agreements, and&nbsp;
+partnerships, and that kind of stuff. People do&nbsp;&nbsp;
+
+00:34:59.640 --> 00:35:03.760
+respect New Zealand as a jurisdiction. And while&nbsp;
+I've got this map up, I wanted to make another&nbsp;&nbsp;
+
+00:35:03.760 --> 00:35:08.000
+point about the vast distance here. If you're&nbsp;
+making a card game, or a board game, and you've&nbsp;&nbsp;
+
+00:35:08.000 --> 00:35:11.320
+got to ship products or, you know, you wanna get&nbsp;
+testing stuff from China, and you've got to ship&nbsp;&nbsp;
+
+00:35:11.320 --> 00:35:15.320
+it across and you have to wait a while, that's&nbsp;
+probably annoying. But we're mostly making digital&nbsp;&nbsp;
+
+00:35:15.320 --> 00:35:19.000
+games. And if you're making digital games, that's&nbsp;
+measured in hundreds of milliseconds at most.&nbsp;&nbsp;
+
+00:35:19.000 --> 00:35:23.000
+And so, while there are vast physical distances,&nbsp;
+our good internet infrastructure means that we've&nbsp;&nbsp;
+
+00:35:23.000 --> 00:35:27.840
+basically, you know, got rid of those as far as,&nbsp;
+you know, as far as our efficiency is concerned.
+
+00:35:28.920 --> 00:35:33.240
+So meanwhile, as all of this is going on, we're&nbsp;
+working on Path of Exile 2, and we knew that we&nbsp;&nbsp;
+
+00:35:33.240 --> 00:35:38.840
+wanted to announce it with a bang. Our regular&nbsp;
+press tours just wouldn't suffice. And so in 2019,&nbsp;&nbsp;
+
+00:35:38.840 --> 00:35:43.400
+we ran ExileCon, a Path of Exile convention&nbsp;
+that we have in the Aotea Centre, in Auckland,&nbsp;&nbsp;
+
+00:35:43.400 --> 00:35:48.040
+and almost two thousand fans from around the world&nbsp;
+flew to attend. Now, this is the New Zealand thing&nbsp;&nbsp;
+
+00:35:48.040 --> 00:35:51.840
+again. People need almost no excuse to come to&nbsp;
+New Zealand. You mention it's over there, they&nbsp;&nbsp;
+
+00:35:51.840 --> 00:35:55.840
+book tickets before having a schedule of what's&nbsp;
+happening. And, this isn't just true for your&nbsp;&nbsp;
+
+00:35:55.840 --> 00:36:00.160
+conference attendees, but also for yourselves,&nbsp;
+and your potential employees. To some extent,&nbsp;&nbsp;
+
+00:36:00.160 --> 00:36:04.760
+this is the most important slide, right? We live&nbsp;
+there. If you work in a New Zealand company,&nbsp;&nbsp;
+
+00:36:04.760 --> 00:36:08.920
+you get to live, you know, you get to have this&nbsp;
+lifestyle, without having to go overseas and&nbsp;&nbsp;
+
+00:36:08.920 --> 00:36:13.160
+compromise your lifestyle, in order to, you know,&nbsp;
+make games in another country. It also means that&nbsp;&nbsp;
+
+00:36:13.160 --> 00:36:17.440
+prospective employees are really happy to move&nbsp;
+to New Zealand, because of the great lifestyle.&nbsp;&nbsp;
+
+00:36:17.440 --> 00:36:22.000
+I've had to talk dozens and dozens of people&nbsp;
+to move over here permanently over my career,&nbsp;&nbsp;
+
+00:36:22.000 --> 00:36:26.760
+and no one's needed any convincing. They already&nbsp;
+know that New Zealand is an amazing place to live.&nbsp;
+
+00:36:26.760 --> 00:36:30.040
+There's also a really sensible and fair&nbsp;
+immigration process for getting people in.&nbsp;&nbsp;
+
+00:36:30.040 --> 00:36:33.080
+If you have a talented, experienced&nbsp;
+person overseas and you need them,&nbsp;&nbsp;
+
+00:36:33.080 --> 00:36:37.320
+you can do that. And again, that's the government&nbsp;
+making it easy for us. Anyway, because of this,&nbsp;&nbsp;
+
+00:36:37.320 --> 00:36:42.000
+it's super easy to get thousands of fans to come&nbsp;
+over for your conventions when you run them. So,&nbsp;&nbsp;
+
+00:36:43.560 --> 00:36:46.760
+Jonathan, Erik, and I got to stand on&nbsp;
+stage and announce Path of Exile 2,&nbsp;&nbsp;
+
+00:36:46.760 --> 00:36:51.520
+not only to the thousands of fans in person,&nbsp;
+but millions watching online. I got, uh,&nbsp;&nbsp;
+
+00:36:51.520 --> 00:36:55.080
+very emotional and almost cried. There's clips&nbsp;
+of that on YouTube, that we're not gonna look up.
+
+00:36:55.920 --> 00:36:59.920
+We had hundreds of computers where attendees&nbsp;
+could play the newly announced Path of Exile 2,&nbsp;&nbsp;
+
+00:36:59.920 --> 00:37:05.080
+we decked out the Aotea Centre in all this cool&nbsp;
+theming, we had a custom merchandise shop, we had,&nbsp;&nbsp;
+
+00:37:05.080 --> 00:37:09.520
+you know, T-shirts, and maps, and plushies,&nbsp;
+and decals, and pins, and all sorts of stuff.&nbsp;&nbsp;
+
+00:37:10.560 --> 00:37:15.400
+Merchandise was a really big deal, actually. We&nbsp;
+created these custom sets, like the hanging tree&nbsp;&nbsp;
+
+00:37:15.400 --> 00:37:18.920
+from Path of Exile 2’s Act One. It's hard&nbsp;
+to tell from this photo, but that tree cost&nbsp;&nbsp;
+
+00:37:19.720 --> 00:37:24.120
+hundreds of thousands of dollars, was three&nbsp;
+stories tall, and really impressive in person.&nbsp;&nbsp;
+
+00:37:24.120 --> 00:37:27.800
+And so, we had our interviews in front of it,&nbsp;
+and it was quite a large character, as it were,&nbsp;&nbsp;
+
+00:37:27.800 --> 00:37:31.960
+for the event. You'd see it just as soon as&nbsp;
+you walked in. It was right in front of you.&nbsp;&nbsp;
+
+00:37:31.960 --> 00:37:36.040
+And, here's a shot of it in the warehouse while it&nbsp;
+was being created. And this is another advantage&nbsp;&nbsp;
+
+00:37:36.040 --> 00:37:40.160
+of being based in New Zealand. The film industry&nbsp;
+is really mature here, and this means if you need&nbsp;&nbsp;
+
+00:37:40.160 --> 00:37:44.200
+animation help, and VFX help, and outsourcing,&nbsp;
+there are people that could help you with that.&nbsp;&nbsp;
+
+00:37:44.200 --> 00:37:47.920
+But, if you need a three-story gigantic tree that&nbsp;
+doesn't even fit in the warehouse, they can help&nbsp;&nbsp;
+
+00:37:47.920 --> 00:37:52.240
+you with that as well. And another advantage is,&nbsp;
+because of Lord of the Rings being made here,&nbsp;&nbsp;
+
+00:37:52.240 --> 00:37:55.600
+we've got this exotic factor that makes&nbsp;
+it really easy to market your game. The&nbsp;&nbsp;
+
+00:37:55.600 --> 00:37:59.400
+film industry has done an awful lot to make&nbsp;
+sure we're in a really easy place to kind of,&nbsp;&nbsp;
+
+00:37:59.400 --> 00:38:02.120
+you know, take over and do some&nbsp;
+really cool interactive stuff.&nbsp;&nbsp;
+
+00:38:02.120 --> 00:38:06.160
+People perceive of our games as being of high&nbsp;
+quality, because they come from New Zealand.
+
+00:38:07.000 --> 00:38:10.960
+So at the convention, we also made a card&nbsp;
+game, because when you have a game and you do a&nbsp;&nbsp;
+
+00:38:10.960 --> 00:38:15.560
+convention on the game, you need to have a game at&nbsp;
+the convention about the game. And this card game&nbsp;&nbsp;
+
+00:38:15.560 --> 00:38:20.200
+went really well. Basically, when you attend&nbsp;
+ExileCon, you get a swag bag of some goodies&nbsp;&nbsp;
+
+00:38:20.200 --> 00:38:24.360
+like a T-shirt and so on, but it includes a pack&nbsp;
+of cards that we've printed. And, these can be&nbsp;&nbsp;
+
+00:38:24.360 --> 00:38:28.400
+assembled into an outfit of equipment, that you&nbsp;
+can then look at the symbols on it, and work out&nbsp;&nbsp;
+
+00:38:28.400 --> 00:38:32.560
+how powerful your character is. You then find the&nbsp;
+Grinding Gear Games staff members walking around&nbsp;&nbsp;
+
+00:38:32.560 --> 00:38:36.680
+the convention who have T-shirts with monster&nbsp;
+properties on them. Basically, they represent&nbsp;&nbsp;
+
+00:38:36.680 --> 00:38:40.560
+a monster that you can attack. And you go up&nbsp;
+there, introduce yourself, make some chitchat,&nbsp;&nbsp;
+
+00:38:40.560 --> 00:38:44.400
+and then show them the cards you want to fight&nbsp;
+them with, and they will clip one of the cards&nbsp;&nbsp;
+
+00:38:44.400 --> 00:38:48.400
+with a ticket clipper to show the durability loss&nbsp;
+of you damaging it, and then they'll assess the&nbsp;&nbsp;
+
+00:38:48.400 --> 00:38:52.000
+symbols, and make sure that it's enough to destroy&nbsp;
+them, and if so, they hand you a card from the&nbsp;&nbsp;
+
+00:38:52.720 --> 00:38:56.080
+box of cards that they have with them. And so&nbsp;
+because of this, players can kind of grind their&nbsp;&nbsp;
+
+00:38:56.080 --> 00:39:00.840
+way up to higher tiers, throughout the convention.&nbsp;
+And it worked super well. It was basically a mini&nbsp;&nbsp;
+
+00:39:00.840 --> 00:39:05.440
+Action RPG item grind, run at a convention. And,&nbsp;
+there were all these cool things like crafting&nbsp;&nbsp;
+
+00:39:05.440 --> 00:39:08.600
+tables, and the map device, and that kind of&nbsp;
+stuff, where people would queue for a long time&nbsp;&nbsp;
+
+00:39:08.600 --> 00:39:13.680
+in order to upgrade their cards and so on, and&nbsp;
+this is a photo here of me as the Pinnacle Boss,&nbsp;&nbsp;
+
+00:39:13.680 --> 00:39:17.600
+considering these map pieces that someone gave me,&nbsp;
+and the guy's cards, and I think one of the cards&nbsp;&nbsp;
+
+00:39:17.600 --> 00:39:21.200
+there has a sticker on it from the crafting&nbsp;
+table, another one's been signed by Jonathan,&nbsp;&nbsp;
+
+00:39:21.200 --> 00:39:24.600
+and it was just so much fun. Going to the&nbsp;
+convention and getting to hang out with all&nbsp;&nbsp;
+
+00:39:24.600 --> 00:39:30.600
+these Path of Exile fans, reminds me of the vibe&nbsp;
+at NZGDC. Here's a photo from last year here, and,&nbsp;&nbsp;
+
+00:39:30.600 --> 00:39:33.200
+this is another reason why New Zealand&nbsp;
+is a great place to make games. There's&nbsp;&nbsp;
+
+00:39:33.200 --> 00:39:37.720
+this really good ecosystem of sharing, right?&nbsp;
+Studios are incredibly friendly to each other.&nbsp;&nbsp;
+
+00:39:37.720 --> 00:39:41.480
+I've been to these kind of conventions in America&nbsp;
+and Europe, and it's cool. People do share stuff,&nbsp;&nbsp;
+
+00:39:41.480 --> 00:39:45.000
+but not to the same extent and friendliness that&nbsp;
+we have here. There's almost no competition going&nbsp;&nbsp;
+
+00:39:45.000 --> 00:39:48.640
+on. Whereas overseas, there's a bit more kind&nbsp;
+of, you know, keeping trade secrets close,&nbsp;&nbsp;
+
+00:39:48.640 --> 00:39:52.240
+and so we need to really preserve that&nbsp;
+kind of sense of keeping community.
+
+00:39:53.440 --> 00:39:56.360
+So, in 2023, we ran another ExileCon convention,&nbsp;&nbsp;
+
+00:39:56.360 --> 00:39:59.640
+this one featuring even larger&nbsp;
+sculptures, thanks to the film industry.&nbsp;&nbsp;
+
+00:39:59.640 --> 00:40:04.960
+We had fully themed areas for players to&nbsp;
+hang out. We had another merchandise shop.&nbsp;&nbsp;
+
+00:40:05.560 --> 00:40:09.280
+You can see the queue here for the merchandise&nbsp;
+shop. It is insane how much money people spend&nbsp;&nbsp;
+
+00:40:09.280 --> 00:40:12.520
+on merchandise. I mean, I guess if they spent&nbsp;
+a lot of money coming to New Zealand and so on,&nbsp;&nbsp;
+
+00:40:12.520 --> 00:40:17.240
+then it's, you know, expected that they'll spend&nbsp;
+a few hundred dollars on merchandise, and they're&nbsp;&nbsp;
+
+00:40:17.240 --> 00:40:21.960
+probably taking some to give to friends back home&nbsp;
+who were really keen and weren't able to make it.
+
+00:40:23.080 --> 00:40:27.320
+We also took Path of Exile 2 to Gamescom in&nbsp;
+Germany that year. So here was our booth over&nbsp;&nbsp;
+
+00:40:27.320 --> 00:40:31.880
+there, with some nice big spikes. This is the&nbsp;
+queue of people waiting to play Path of Exile 2&nbsp;&nbsp;
+
+00:40:33.040 --> 00:40:38.760
+at these demo computers here. And so while the&nbsp;
+members of the GGG team were there helping the&nbsp;&nbsp;
+
+00:40:38.760 --> 00:40:42.640
+Europeans with the demo computers, Jonathan&nbsp;
+and I were hanging out in this media suite,&nbsp;&nbsp;
+
+00:40:42.640 --> 00:40:45.920
+showing our latest class to journalists.&nbsp;
+And it's amazing how far things have come,&nbsp;&nbsp;
+
+00:40:45.920 --> 00:40:50.040
+right? Previously, this would have been a&nbsp;
+motherboard and a desk, with a PSU next to it,&nbsp;&nbsp;
+
+00:40:50.040 --> 00:40:53.640
+and now we've got comfy chairs and, you know,&nbsp;
+a drinks fridge, and that kind of stuff.
+
+00:40:54.800 --> 00:40:59.640
+Another comparison is that in the year&nbsp;
+2000, when I was seventeen years old,&nbsp;&nbsp;
+
+00:40:59.640 --> 00:41:04.440
+Diablo II was coming out the next day, and I&nbsp;
+waited overnight next to a game store out in&nbsp;&nbsp;
+
+00:41:04.440 --> 00:41:09.000
+New Lynn in order to get my copy of Diablo II. The&nbsp;
+chance of rocking up the next day and missing out,&nbsp;&nbsp;
+
+00:41:09.000 --> 00:41:12.400
+just wasn't gonna happen. So I was&nbsp;
+there waiting at 9AM when they opened,&nbsp;&nbsp;
+
+00:41:12.400 --> 00:41:17.640
+and comparing that twenty-plus years later,&nbsp;
+when I go to pcgamer.com and the headline is,&nbsp;&nbsp;
+
+00:41:17.640 --> 00:41:22.840
+"What Diablo 4 can do to compete with Path of&nbsp;
+Exile." This is the sequel, to the sequel, of a&nbsp;&nbsp;
+
+00:41:22.840 --> 00:41:26.480
+game that I was obsessed with, getting compared&nbsp;
+against something that I've worked on, and,&nbsp;&nbsp;
+
+00:41:27.040 --> 00:41:32.440
+it was incredibly flattering, but it was also&nbsp;
+a really large burden for me to carry. By 2023,&nbsp;&nbsp;
+
+00:41:32.440 --> 00:41:36.640
+I was spending most of my time doing CEO work&nbsp;
+each day. Grinding Gear Games was a 200 person&nbsp;&nbsp;
+
+00:41:36.640 --> 00:41:41.680
+company that had to do big boy stuff. We were a&nbsp;
+subsidiary of a publicly traded multinational. We&nbsp;&nbsp;
+
+00:41:41.680 --> 00:41:45.840
+had to follow complicated international financial&nbsp;
+reporting standards, and deal with grown-up things&nbsp;&nbsp;
+
+00:41:45.840 --> 00:41:51.280
+like sanctions compliance audits, and that was all&nbsp;
+on me. Never in my wildest dreams had I imagined&nbsp;&nbsp;
+
+00:41:51.280 --> 00:41:55.880
+that we would get so serious, and so big. When we&nbsp;
+started, I expected we'd cap out at like, a couple&nbsp;&nbsp;
+
+00:41:55.880 --> 00:41:59.880
+of dozen developers and have tens of thousands&nbsp;
+of players, and, you know, if we made a million&nbsp;&nbsp;
+
+00:41:59.880 --> 00:42:04.440
+dollars of profit in a year, that would be totally&nbsp;
+insane. But things got so much larger than that,&nbsp;&nbsp;
+
+00:42:04.440 --> 00:42:08.520
+and there's a totally different skill set needed&nbsp;
+for being a CEO of a company of that size.&nbsp;&nbsp;
+
+00:42:08.520 --> 00:42:13.240
+I think I was decent at it, but it wasn't really&nbsp;
+my passion. So 17 years in, I decided to retire.&nbsp;&nbsp;
+
+00:42:13.920 --> 00:42:18.520
+And so, I spent 2023 preparing for my retirement&nbsp;
+at the end of the year. Jonathan Rogers,&nbsp;&nbsp;
+
+00:42:18.520 --> 00:42:22.560
+one of my co-founders, had already made every&nbsp;
+major decision alongside me since the start,&nbsp;&nbsp;
+
+00:42:22.560 --> 00:42:26.400
+and so I had full confidence in him being able to&nbsp;
+take over the company without me. I just needed&nbsp;&nbsp;
+
+00:42:26.400 --> 00:42:30.480
+to hire an operations manager to take over my&nbsp;
+paperwork responsibilities, and make sure that&nbsp;&nbsp;
+
+00:42:30.480 --> 00:42:35.880
+Path of Exile 1 was in good hands. Jonathan was&nbsp;
+already leading Path of Exile 2. Since I left,&nbsp;&nbsp;
+
+00:42:35.880 --> 00:42:39.600
+Path of Exile 1 and 2 have both broken records,&nbsp;
+and continue to do so, and that really pleases&nbsp;&nbsp;
+
+00:42:39.600 --> 00:42:44.280
+me. GGG moves from strength to strength. They're&nbsp;
+even running another ExileCon event next month in&nbsp;&nbsp;
+
+00:42:44.280 --> 00:42:48.800
+preparation for PoE 2's full launch at the end of&nbsp;
+the year. And, for the GGG people in the audience,&nbsp;&nbsp;
+
+00:42:48.800 --> 00:42:52.800
+which I understand is a quarter of the group,&nbsp;
+good luck with it. You've got a Path of Exile&nbsp;&nbsp;
+
+00:42:52.800 --> 00:42:57.800
+1 release at some stage, you've got your Path&nbsp;
+of Exile 2 stuff and ExileCon. Good luck, guys.
+
+00:42:58.800 --> 00:43:00.040
+I know what that feels like.
+
+00:43:01.000 --> 00:43:04.880
+So, I spent 2024 retired. I did a bunch&nbsp;
+of travel, got to see the world a bit,&nbsp;&nbsp;
+
+00:43:04.880 --> 00:43:10.280
+and tried to sort a quarter of a million Magic:&nbsp;
+The Gathering cards. But, retirement didn't last.&nbsp;&nbsp;
+
+00:43:10.280 --> 00:43:14.080
+I knew I still needed to be creative, and to&nbsp;
+make stuff. And so here's a photo of me in&nbsp;&nbsp;
+
+00:43:14.080 --> 00:43:18.400
+early 2025. I'm in a freight elevator full of&nbsp;
+computers and peripherals, excited to set up&nbsp;&nbsp;
+
+00:43:18.400 --> 00:43:22.640
+my new studio. Actually, this initial office was&nbsp;
+one floor below RocketWerkz for various reasons,&nbsp;&nbsp;
+
+00:43:22.640 --> 00:43:28.120
+but I wasn't spying. Eventually we moved to our&nbsp;
+own space. And so I founded Light Pattern. We've&nbsp;&nbsp;
+
+00:43:28.120 --> 00:43:32.040
+been running for around eighteen months so far.&nbsp;
+I'm keeping this one really small. We're currently&nbsp;&nbsp;
+
+00:43:32.040 --> 00:43:38.080
+at thirteen people as of Monday, and have an&nbsp;
+office in Parnell, out near the CBD. It'll be&nbsp;&nbsp;
+
+00:43:38.080 --> 00:43:41.840
+a few years before I'm ready to talk about what&nbsp;
+we're working on, but it's gonna be a lot smaller&nbsp;&nbsp;
+
+00:43:41.840 --> 00:43:46.040
+than what you may expect, especially given that I&nbsp;
+worked on Path of Exile before. And part of that's&nbsp;&nbsp;
+
+00:43:46.040 --> 00:43:50.720
+because we're in a unique situation. We've got&nbsp;
+no need for any external investors or publishers,&nbsp;&nbsp;
+
+00:43:50.720 --> 00:43:54.400
+and this means we get to make whatever&nbsp;
+type of game we want, even if it's weird,&nbsp;&nbsp;
+
+00:43:54.400 --> 00:43:58.160
+as opposed to having to make whatever type of game&nbsp;
+investors and publishers want to put money into.&nbsp;&nbsp;
+
+00:43:58.920 --> 00:44:02.240
+And so we're having a great time building&nbsp;
+technology, doing things the slow way, trying out&nbsp;&nbsp;
+
+00:44:02.240 --> 00:44:06.600
+weird stuff, and generally not rushing towards any&nbsp;
+particular kind of deadline. It's a lot of fun.&nbsp;&nbsp;
+
+00:44:06.600 --> 00:44:10.320
+It's a great opportunity. It feels like hanging&nbsp;
+out in a garage with a bunch of friends and doing&nbsp;&nbsp;
+
+00:44:10.320 --> 00:44:13.840
+stuff the way that game development used to be&nbsp;
+done back in the day, and that's a lot of fun.&nbsp;&nbsp;
+
+00:44:14.520 --> 00:44:18.240
+So when I founded Light Pattern, I could pick any&nbsp;
+country in the world to do it in, but I chose New&nbsp;&nbsp;
+
+00:44:18.240 --> 00:44:21.720
+Zealand. And, the reasons are, the things that&nbsp;
+I've talked about in this talk. But to recap,&nbsp;&nbsp;
+
+00:44:21.720 --> 00:44:24.920
+just in case the vegetables were too well-hidden,&nbsp;
+and I'll go through this quickly because it's the&nbsp;&nbsp;
+
+00:44:24.920 --> 00:44:29.680
+boring bit. Twenty years ago, I had concerns&nbsp;
+about the size of New Zealand's talent pool,&nbsp;&nbsp;
+
+00:44:29.680 --> 00:44:33.600
+but it has massively increased since then. In&nbsp;
+this room are some of the world's best developers.&nbsp;&nbsp;
+
+00:44:33.600 --> 00:44:37.200
+The government cares a lot about the games&nbsp;
+industry now, and it only appears to be improving,&nbsp;&nbsp;
+
+00:44:37.200 --> 00:44:40.480
+which is great. We've got GDSR, we've&nbsp;
+got CODE, we've got fast internet.&nbsp;&nbsp;
+
+00:44:41.680 --> 00:44:44.760
+Our time zone works really well for collaboration&nbsp;
+worldwide. That's something that people&nbsp;&nbsp;
+
+00:44:44.760 --> 00:44:48.800
+underestimate. We have a really good ecosystem of&nbsp;
+sharing. We're an English-speaking country with&nbsp;&nbsp;
+
+00:44:48.800 --> 00:44:52.960
+low corruption. We can get overseas people in if&nbsp;
+we need to, so we can rely on both our good talent&nbsp;&nbsp;
+
+00:44:52.960 --> 00:44:57.320
+pool and some overseas people to help grow it.&nbsp;
+We're a great place to live, which helps both you,&nbsp;&nbsp;
+
+00:44:57.320 --> 00:45:01.600
+and makes it easy to get people in. After Lord&nbsp;
+of the Rings, we've got the whole exotic factor,&nbsp;&nbsp;
+
+00:45:01.600 --> 00:45:06.000
+which still has value, and is still really&nbsp;
+important. And because of our world-leading film&nbsp;&nbsp;
+
+00:45:06.000 --> 00:45:09.840
+industry, there's a whole lot of spillover that&nbsp;
+benefits games. There's crazy good animators and&nbsp;&nbsp;
+
+00:45:09.840 --> 00:45:14.160
+VFX people around, and if you need it, they'll&nbsp;
+make you a three-story-high artificial tree.
+
+00:45:14.880 --> 00:45:18.000
+So here's a picture of Media Design&nbsp;
+School, because what else do you put&nbsp;&nbsp;
+
+00:45:18.000 --> 00:45:22.160
+on the screen about how we need to shape&nbsp;
+the next generation of developers? And so,&nbsp;&nbsp;
+
+00:45:22.160 --> 00:45:27.040
+I think that supporting and sponsoring NZGDC is&nbsp;
+really important if you're in a position to do it,&nbsp;&nbsp;
+
+00:45:27.040 --> 00:45:32.000
+right? This conference is exactly the type of&nbsp;
+thing we need to grow the engaged community, and&nbsp;&nbsp;
+
+00:45:32.000 --> 00:45:34.880
+they need all the help they can get in terms&nbsp;
+of, you know, people attending, and people doing&nbsp;&nbsp;
+
+00:45:34.880 --> 00:45:38.320
+sponsorships. So if you're in a position where&nbsp;
+you can help with that, it really helps, because&nbsp;&nbsp;
+
+00:45:38.320 --> 00:45:42.760
+the NZGDA uses the spare money, if there is any&nbsp;
+from the conference, to do advocacy on our behalf,&nbsp;&nbsp;
+
+00:45:42.760 --> 00:45:47.880
+and to help people get into games. And, I think&nbsp;
+it's really important that we help young people&nbsp;&nbsp;
+
+00:45:47.880 --> 00:45:52.080
+get interested in game development. I encourage&nbsp;
+you to mentor younger developers. There's a whole&nbsp;&nbsp;
+
+00:45:52.080 --> 00:45:55.880
+bunch of teenagers out there, and at the moment,&nbsp;
+the mentoring they're getting is from ChatGPT,&nbsp;&nbsp;
+
+00:45:55.880 --> 00:45:59.920
+right? Let's add some human experience into there&nbsp;
+as well, to help round it out. And there are&nbsp;&nbsp;
+
+00:45:59.920 --> 00:46:04.720
+schools you can go to to inspire kids, to become&nbsp;
+game developers, right? If you stand in front of a&nbsp;&nbsp;
+
+00:46:04.720 --> 00:46:08.080
+classroom of kids and say, "I'm a game developer,"&nbsp;
+they will listen to you. That's the one takeaway&nbsp;&nbsp;
+
+00:46:08.080 --> 00:46:12.120
+from school. Back in the day, kids wanted to be,&nbsp;
+like, astronauts and firemen and all those kind&nbsp;&nbsp;
+
+00:46:12.120 --> 00:46:16.520
+of glamorous things. These days, they wanna be&nbsp;
+Twitch streamers, and game developers. And so&nbsp;&nbsp;
+
+00:46:17.280 --> 00:46:21.440
+you can attend schools and really inspire the&nbsp;
+kids. And I know this because, I made a charity&nbsp;&nbsp;
+
+00:46:21.440 --> 00:46:26.040
+that gets programming lessons into schools.&nbsp;
+Here's that picture again of when I was eight. So,&nbsp;&nbsp;
+
+00:46:26.040 --> 00:46:29.600
+this is the picture of an incredibly privileged&nbsp;
+child, right? My parents said, "Here is a&nbsp;&nbsp;
+
+00:46:29.600 --> 00:46:34.240
+computer." It was thousands of 1980s dollars.&nbsp;
+"Here are all of the manuals you need to learn&nbsp;&nbsp;
+
+00:46:34.240 --> 00:46:37.600
+how to program." You know, my dad's friend who was&nbsp;
+a programmer, he came over and gave me lessons.&nbsp;&nbsp;
+
+00:46:37.600 --> 00:46:41.760
+This is not a thing that's typical. I was really&nbsp;
+lucky. And my parents' theory was, "Hey, look,&nbsp;&nbsp;
+
+00:46:41.760 --> 00:46:45.520
+we can justify these expenses, because it will&nbsp;
+set you up to have a good future in programming."&nbsp;&nbsp;
+
+00:46:46.200 --> 00:46:51.920
+And that worked, but not everyone gets to have&nbsp;
+that. And so, what we're doing with KeaCoding is,&nbsp;&nbsp;
+
+00:46:51.920 --> 00:46:55.680
+we're identifying schools in New Zealand at&nbsp;
+primary school level, where the kids just have&nbsp;&nbsp;
+
+00:46:55.680 --> 00:46:59.320
+no chance they're going to get into any kind of,&nbsp;
+holiday programming program, because honestly,&nbsp;&nbsp;
+
+00:46:59.320 --> 00:47:02.280
+that stuff's like a hundred dollars an hour. It's&nbsp;
+only rich families that are sending their kids&nbsp;&nbsp;
+
+00:47:02.280 --> 00:47:06.680
+to private programming lessons. And so we try to&nbsp;
+get programming tutors to come into the schools,&nbsp;&nbsp;
+
+00:47:06.680 --> 00:47:10.360
+and provide those lessons. And at the moment, we&nbsp;
+have around a hundred and thirty kids benefiting&nbsp;&nbsp;
+
+00:47:10.360 --> 00:47:13.680
+from this in Auckland. We're keeping it moderately&nbsp;
+small, and trying to make sure that we're having&nbsp;&nbsp;
+
+00:47:13.680 --> 00:47:16.880
+an impact, before we scale it up too much.&nbsp;
+But it's been going for a number of years,&nbsp;&nbsp;
+
+00:47:16.880 --> 00:47:20.640
+and it's so much fun, because I get to go to the&nbsp;
+schools, and they just treat you like a hero,&nbsp;&nbsp;
+
+00:47:20.640 --> 00:47:24.880
+even though they've never heard of Path of&nbsp;
+Exile, right? Just the concept of you being&nbsp;&nbsp;
+
+00:47:24.880 --> 00:47:28.640
+a games developer is enough that they respect it,&nbsp;
+and it's really cool to tell them the things that&nbsp;&nbsp;
+
+00:47:28.640 --> 00:47:33.120
+they need to hear, so that when they get into&nbsp;
+high school, they consider a creative future,&nbsp;&nbsp;
+
+00:47:33.120 --> 00:47:37.080
+or even just a programming future, because&nbsp;
+they may have had no exposure until then.
+
+00:47:37.760 --> 00:47:41.960
+So, for this slide, I had nothing to put on&nbsp;
+the slide visually, so you can have my company&nbsp;&nbsp;
+
+00:47:41.960 --> 00:47:46.120
+logo again. I'm gonna briefly close things out by&nbsp;
+giving some advice for New Zealand founders. This&nbsp;&nbsp;
+
+00:47:46.120 --> 00:47:51.400
+is me just ranting about topics that I care about.&nbsp;
+Okay, so first thing, scope management. Obviously,&nbsp;&nbsp;
+
+00:47:51.400 --> 00:47:55.240
+you need to pick a scope that you can deliver on,&nbsp;
+and you can afford to for your projects. And I say&nbsp;&nbsp;
+
+00:47:55.240 --> 00:47:59.640
+this, because what we did with Path of Exile was&nbsp;
+insane, right? If someone came to me now and said,&nbsp;&nbsp;
+
+00:47:59.640 --> 00:48:02.960
+"Hey, bunch of friends, no experience, we're&nbsp;
+quite young, not that much money available,&nbsp;&nbsp;
+
+00:48:03.600 --> 00:48:07.280
+we wanna make this huge thing. Should we do it?"&nbsp;
+I would say, "You're crazy. You can't do that."&nbsp;&nbsp;
+
+00:48:07.280 --> 00:48:11.240
+And if you got a thousand teams to do what&nbsp;
+Grinding Gear Games did, most of them would fail,&nbsp;&nbsp;
+
+00:48:11.240 --> 00:48:14.080
+and the only reason I am here is because&nbsp;
+of survivorship bias, right? There was a&nbsp;&nbsp;
+
+00:48:14.080 --> 00:48:18.760
+lot of hard work, but there was also a lot of&nbsp;
+luck. And, it's nice to be in that position,&nbsp;&nbsp;
+
+00:48:18.760 --> 00:48:21.800
+but I do acknowledge the fact that, scope&nbsp;
+management is actually way more important&nbsp;&nbsp;
+
+00:48:21.800 --> 00:48:25.880
+than I thought, and there would have been a much&nbsp;
+more sensible way to approach the whole thing. So,&nbsp;&nbsp;
+
+00:48:25.880 --> 00:48:29.560
+when you pick a scope, just be careful about not&nbsp;
+letting it creep. It's very easy to see what other&nbsp;&nbsp;
+
+00:48:29.560 --> 00:48:32.560
+companies are doing and say, "We’ll have some of&nbsp;
+that," and your game becomes an everything game,&nbsp;&nbsp;
+
+00:48:32.560 --> 00:48:37.480
+and that becomes unsustainable. Also, be careful&nbsp;
+about what bandwagons you get on. It's very easy&nbsp;&nbsp;
+
+00:48:37.480 --> 00:48:41.480
+for new fads to come out, and for you to chase&nbsp;
+them, because it looks like there's money there.&nbsp;&nbsp;
+
+00:48:41.480 --> 00:48:45.200
+Look at-- I mean, you know, VR gaming is a thing,&nbsp;
+and I don't mean to criticise it, but I know a lot&nbsp;&nbsp;
+
+00:48:45.200 --> 00:48:49.800
+of studios that pivoted to VR, and later, didn't&nbsp;
+get the success they wanted, because, you know,&nbsp;&nbsp;
+
+00:48:49.800 --> 00:48:53.040
+there's logistics involved in spending thousands&nbsp;
+of dollars for a device to put your head into,&nbsp;&nbsp;
+
+00:48:53.040 --> 00:48:56.160
+and not everyone's gonna wanna play games that&nbsp;
+way. But it's easy to accidentally get too&nbsp;&nbsp;
+
+00:48:56.160 --> 00:49:00.160
+excited about it. Crypto gaming is another one,&nbsp;
+right? A bunch of people pursued that, but where&nbsp;&nbsp;
+
+00:49:00.160 --> 00:49:04.280
+are the crypto games these days, you know? There's&nbsp;
+probably a bunch of AI stuff that may or may not,&nbsp;&nbsp;
+
+00:49:04.280 --> 00:49:07.600
+you know, obviously AI is a separate topic,&nbsp;
+but, there's probably faddy kinds of things in&nbsp;&nbsp;
+
+00:49:07.600 --> 00:49:11.000
+there you’ve just got to be careful about. So&nbsp;
+don't get too excited about new technologies.&nbsp;&nbsp;
+
+00:49:11.000 --> 00:49:15.040
+There is value in knowing how to do something&nbsp;
+well, and delivering that thing that you know.
+
+00:49:16.240 --> 00:49:20.320
+So also, make sure you have the money to make your&nbsp;
+game. And this is a tricky one. I glossed over&nbsp;&nbsp;
+
+00:49:20.320 --> 00:49:25.000
+the funding of GGG here, but it depleted my&nbsp;
+entire life savings, Erik's entire life savings,&nbsp;&nbsp;
+
+00:49:25.000 --> 00:49:28.960
+Jonathan's entire life savings. Then we&nbsp;
+raised money, made those people broke as well.&nbsp;&nbsp;
+
+00:49:28.960 --> 00:49:33.320
+Eventually, it worked out, right? That was all&nbsp;
+good. But if we hadn't had all of that money&nbsp;&nbsp;
+
+00:49:33.320 --> 00:49:36.600
+pool available, the game would not have been&nbsp;
+released. And we did it on the cheap, right?&nbsp;&nbsp;
+
+00:49:36.600 --> 00:49:42.120
+We didn't pay ourselves, we were doing it in New&nbsp;
+Zealand in the, you know, in the early 2000s. We&nbsp;&nbsp;
+
+00:49:43.680 --> 00:49:48.280
+tried as hard as possible with a number 8 wire&nbsp;
+mentality, to get the game released, without&nbsp;&nbsp;
+
+00:49:48.280 --> 00:49:53.200
+much expenditure, and it was still touch and go.&nbsp;
+So stay lean, stay small, and stay sustainable.&nbsp;&nbsp;
+
+00:49:53.760 --> 00:49:57.600
+Do not rely on external funding that you haven't&nbsp;
+received yet. And if you do receive external&nbsp;&nbsp;
+
+00:49:57.600 --> 00:50:01.480
+funding, you might want to consider that maybe&nbsp;
+all you're getting, especially in this climate,&nbsp;&nbsp;
+
+00:50:01.480 --> 00:50:06.480
+which is a bloodbath out there, there are studios&nbsp;
+that raise money, not enough to finish their game,&nbsp;&nbsp;
+
+00:50:06.480 --> 00:50:09.880
+we'll worry about that later. Then they get to the&nbsp;
+end, and they can't raise more money, and the game&nbsp;&nbsp;
+
+00:50:09.880 --> 00:50:14.640
+just dies. So, if you do get funding, make sure&nbsp;
+to treasure that, and to not accidentally run out.
+
+00:50:15.600 --> 00:50:19.800
+Also, now is the right time to be making games,&nbsp;
+because of the cyclicity of the industry. And what&nbsp;&nbsp;
+
+00:50:19.800 --> 00:50:24.040
+I'm referring to here is that during COVID, it was&nbsp;
+described as like every day is Christmas. Games&nbsp;&nbsp;
+
+00:50:24.040 --> 00:50:27.880
+were making a fortune, because everyone's stuck&nbsp;
+at home. And because of this, lots of projects&nbsp;&nbsp;
+
+00:50:27.880 --> 00:50:32.360
+got started. Publishers sunk tons of money. Each&nbsp;
+company that had an A team, now had a B team, then&nbsp;&nbsp;
+
+00:50:32.360 --> 00:50:37.640
+a C team, then a D team. And as you can imagine,&nbsp;
+this means that the B, C, and D ideas potentially&nbsp;&nbsp;
+
+00:50:37.640 --> 00:50:42.360
+weren't as good as the A idea. And those are the&nbsp;
+companies that are releasing large AAA games now&nbsp;&nbsp;
+
+00:50:42.360 --> 00:50:46.920
+that just die instantly, or have mass layoffs&nbsp;
+and so on, because the games industry as a whole&nbsp;&nbsp;
+
+00:50:46.920 --> 00:50:51.480
+probably oversubscribed to making too many games&nbsp;
+at once. We're having a contraction now. There's&nbsp;&nbsp;
+
+00:50:51.480 --> 00:50:56.160
+less funding available. It's hard to get jobs.&nbsp;
+This isn't a good thing, but it does mean that if&nbsp;&nbsp;
+
+00:50:56.160 --> 00:51:00.360
+you are making a high-quality game at the moment,&nbsp;
+in three or four years time when it comes out,&nbsp;&nbsp;
+
+00:51:00.360 --> 00:51:05.040
+there's gonna be a dearth, an absence, of&nbsp;
+other high-quality games. Combine that with&nbsp;&nbsp;
+
+00:51:05.040 --> 00:51:08.280
+the fact that there's gonna be a lot of AI slop&nbsp;
+happening in three or four years once the tools&nbsp;&nbsp;
+
+00:51:08.280 --> 00:51:13.120
+let literally, anyone can make, you know, a poorly&nbsp;
+implemented idea quite quickly, it means that if&nbsp;&nbsp;
+
+00:51:13.120 --> 00:51:16.440
+you're making a high-quality thing right now,&nbsp;
+you stand a good chance of being able to stick&nbsp;&nbsp;
+
+00:51:16.440 --> 00:51:22.320
+your head above the crowd of slop in a few years&nbsp;
+time. Finally, embrace your Kiwi roots. Mention&nbsp;&nbsp;
+
+00:51:22.320 --> 00:51:25.800
+being a Kiwi in your marketing. It will help&nbsp;
+you, and it's free to do so, and it also helps&nbsp;&nbsp;
+
+00:51:25.800 --> 00:51:31.480
+promote New Zealand. Be scrappy and resilient.&nbsp;
+Make your games out of number 8 wire. Thanks.
+
+00:51:38.720 --> 00:51:41.720
+If you enjoyed this video, please&nbsp;
+like it and consider subscribing.&nbsp;&nbsp;
+
+00:51:41.720 --> 00:51:43.520
+Thanks very much, and I'll see you next time!
+

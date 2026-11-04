@@ -1,0 +1,3763 @@
+WEBVTT
+Kind: captions
+Language: en
+
+00:00:09.600 --> 00:00:10.700
+Take it away,
+
+00:00:10.700 --> 00:00:11.816
+Hey everyone.
+
+00:00:11.816 --> 00:00:12.800
+I'm Dane.
+
+00:00:12.800 --> 00:00:18.066
+I'm a 3D art person
+at Grinding Gear Games
+
+00:00:18.150 --> 00:00:20.366
+I do a little bit more than that.
+
+00:00:20.366 --> 00:00:22.250
+I got my fingers
+in a few different pies.
+
+00:00:22.250 --> 00:00:26.466
+I kind of know a bit about rigging
+and animation.
+
+00:00:26.550 --> 00:00:28.100
+Come from a graphic design
+background.
+
+00:00:28.100 --> 00:00:33.333
+So I'm a bit particular
+about the 2D part of the item art.
+
+00:00:33.416 --> 00:00:37.083
+Despite being a 3D guy.
+
+00:00:37.166 --> 00:00:39.300
+So I'm going to get into the
+
+00:00:39.300 --> 00:00:43.050
+the art aspect of Path of Exile 2’s items
+and I'm going to pass over
+
+00:00:43.050 --> 00:00:43.916
+to Hrishi afterwards.
+
+00:00:43.916 --> 00:00:50.433
+To talk about the the wonderful
+numbers stuff you guys love so much.
+
+00:00:50.516 --> 00:00:53.100
+All right. So
+
+00:00:53.100 --> 00:00:54.950
+Art in our game is,
+
+00:00:54.950 --> 00:00:59.150
+you know, for items
+is in two different sort of fields
+
+00:00:59.150 --> 00:01:02.366
+of what we refer to as the 3D art,
+which is what you see on the character.
+
+00:01:02.366 --> 00:01:06.116
+Obviously. And the 2D art, which is
+
+00:01:06.200 --> 00:01:08.300
+I think
+is actually the most important part.
+
+00:01:08.300 --> 00:01:12.000
+And I say this as the guy that spends
+a lot of time modeling this stuff,
+
+00:01:12.083 --> 00:01:15.166
+the 2D art, is the part
+that you're picturing in your
+
+00:01:15.316 --> 00:01:18.266
+in your head it’s the part that-
+
+00:01:18.266 --> 00:01:21.266
+it's the icons, iconic you know
+
+00:01:21.383 --> 00:01:25.600
+all the way back to the nineties like
+when I was a kid playing Diablo 1
+
+00:01:25.666 --> 00:01:28.583
+you didn't see it on your character
+
+00:01:28.583 --> 00:01:30.683
+The inventory was
+where you saw it.
+
+00:01:30.683 --> 00:01:31.950
+So it was the most important thing.
+
+00:01:31.950 --> 00:01:35.183
+So you look at this little icon
+of like Griswold's Edge
+
+00:01:35.183 --> 00:01:38.366
+or the Butcher’s clever,
+and you’d be like, Oh, that's so cool.
+
+00:01:38.450 --> 00:01:41.766
+That's fire damage.
+
+00:01:41.850 --> 00:01:45.150
+But For Path of Exile-
+
+00:01:45.233 --> 00:01:49.766
+For Path of Exile 1, obviously
+you see your 2D art on your 3D model,
+
+00:01:49.766 --> 00:01:51.416
+but even to this day,
+
+00:01:51.416 --> 00:01:54.416
+there are still some uniques
+that don't have any 3D art,
+
+00:01:54.466 --> 00:01:57.450
+which is a bit of a fail.
+
+00:01:57.533 --> 00:01:59.633
+That's not going to happen anymore.
+
+00:01:59.633 --> 00:02:01.200
+In Path of Exile 2 the 2D art
+
+00:02:01.200 --> 00:02:03.200
+always comes from the 3D art
+
+00:02:03.200 --> 00:02:06.050
+because we render it out
+at high quality.
+
+00:02:06.050 --> 00:02:08.116
+In the past,
+
+00:02:08.116 --> 00:02:10.550
+the 2D art is a bit of a mishmash
+
+00:02:10.550 --> 00:02:13.550
+of all sorts of stuff.
+
+00:02:13.650 --> 00:02:17.016
+This is random stuff
+that I've grabbed
+
+00:02:17.100 --> 00:02:19.366
+from the icons folder.
+
+00:02:19.366 --> 00:02:22.366
+Some of it looks like 3D models,
+like a-posed,
+
+00:02:22.366 --> 00:02:25.366
+some of it's like a photo,
+just a straight up photo.
+
+00:02:25.583 --> 00:02:29.166
+Some of it's like super cartoony,
+like this guy down here.
+
+00:02:29.250 --> 00:02:33.450
+It it ends up
+with a very inconsistent
+
+00:02:33.533 --> 00:02:35.450
+kind of front end to the game.
+
+00:02:35.450 --> 00:02:37.133
+Like, you guys are used to it.
+
+00:02:37.133 --> 00:02:38.633
+You play the game so many years
+
+00:02:38.633 --> 00:02:42.400
+and items get added over time,
+that it doesn't really matter.
+
+00:02:42.466 --> 00:02:46.216
+But it was always a bit of a problem
+to me that things look inconsistent
+
+00:02:46.216 --> 00:02:49.900
+because different artists
+have different approaches to how they
+
+00:02:49.983 --> 00:02:52.700
+just paint and render and do things
+and sometimes they'll be like,
+
+00:02:52.700 --> 00:02:57.150
+we need a unique yesterday.
+So someone would just
+
+00:02:57.233 --> 00:02:58.216
+just get a photo of a
+
+00:02:58.216 --> 00:03:02.100
+shield, I guess
+
+00:03:02.183 --> 00:03:05.183
+so Path of Exile 2-
+
+00:03:05.266 --> 00:03:09.000
+these aren't the same items as the
+previous screen, so don't freak out.
+
+00:03:09.000 --> 00:03:10.150
+That Kaom’s Heart now
+looks like that
+
+00:03:10.150 --> 00:03:14.200
+because that's not it.
+
+00:03:14.266 --> 00:03:17.850
+This is just an example
+of similar sized stuff.
+
+00:03:17.933 --> 00:03:21.500
+Basically every single item,
+even if it's a small thing,
+
+00:03:21.533 --> 00:03:24.533
+gets through the full treatment.
+
+00:03:24.616 --> 00:03:26.600
+I was modeling little gum nuts
+for that
+
+00:03:26.600 --> 00:03:30.116
+little potion bottle right there
+just to render it.
+
+00:03:30.200 --> 00:03:35.133
+the flasks are all redone in 3D,
+Everything's redone in 3D.
+
+00:03:35.216 --> 00:03:39.483
+And the goal is that you get
+a consistent image on all the items.
+
+00:03:39.566 --> 00:03:42.566
+So everything in your inventory,
+everything in your stash,
+
+00:03:42.766 --> 00:03:45.716
+it's going to look clean
+and like it came from the same place
+
+00:03:45.716 --> 00:03:49.300
+because the rendering
+is like the great equaliser.
+
+00:03:49.300 --> 00:03:54.300
+It doesn't paint a certain
+way on this side or whatever.
+
+00:03:54.383 --> 00:03:56.216
+So everything's going to be clean.
+
+00:03:56.216 --> 00:03:59.066
+So this is an example of some shields
+
+00:03:59.150 --> 00:04:01.400
+top is dex, bottom is
+strength-dex
+
+00:04:01.400 --> 00:04:05.550
+and we call
+those obviously bucklers.
+
+00:04:05.633 --> 00:04:09.200
+And these ones we're calling a targe,
+or I just call them a shield
+
+00:04:09.200 --> 00:04:13.150
+because they're kind of
+like the standard shield.
+
+00:04:13.216 --> 00:04:16.216
+These things
+always highlighted a problem with me
+
+00:04:16.350 --> 00:04:18.750
+in the game
+because I'm a visual person
+
+00:04:18.750 --> 00:04:21.966
+and I'd glance at stuff and I’d go,
+What is that?
+
+00:04:22.050 --> 00:04:23.216
+It's round and it's a shield.
+
+00:04:23.216 --> 00:04:26.916
+And I'd be like-
+I'd have to like think a bit
+
+00:04:27.000 --> 00:04:29.266
+For people that play the game
+all the time,
+
+00:04:29.266 --> 00:04:31.050
+You get that vocabulary.
+You know what it is
+
+00:04:31.050 --> 00:04:32.816
+You've played it a million times,
+you've seen all these items.
+
+00:04:32.816 --> 00:04:36.666
+But I think for a brand new game,
+it's even more important to really
+
+00:04:36.750 --> 00:04:39.333
+get things nice and clear. So
+
+00:04:39.416 --> 00:04:42.650
+what I'm doing with
+all the main primary stat shields
+
+00:04:42.650 --> 00:04:47.500
+is they all point that way
+and the split ones go that way
+
+00:04:47.566 --> 00:04:49.283
+for stuff like this
+where they're all round.
+
+00:04:49.283 --> 00:04:53.116
+I think it's really important
+because again, as soon as it drops
+
+00:04:53.200 --> 00:04:57.266
+a, the name, it's always going to be
+something Buckler or a Targe
+
+00:04:57.266 --> 00:05:00.266
+and you just know, okay,
+that's the thing thats dex.
+
+00:05:00.266 --> 00:05:02.816
+and it's
+sitting in your inventory.
+
+00:05:02.816 --> 00:05:05.150
+You just-
+you don't even have to -
+
+00:05:05.150 --> 00:05:08.150
+You just glance at it and you’ll just - 
+you’ll just know.
+
+00:05:08.250 --> 00:05:11.116
+Same thing with like
+axes is a good example
+
+00:05:11.116 --> 00:05:14.816
+because axes to me always look
+like they can be two handed
+
+00:05:14.966 --> 00:05:18.600
+or one handed, and they're kind of
+frustrating to look at it again.
+
+00:05:18.600 --> 00:05:22.233
+I've chosen to make the one handed
+go this way, two handed that way
+
+00:05:22.316 --> 00:05:24.050
+it's like a small thing
+
+00:05:24.050 --> 00:05:27.050
+trying it out
+and might get rolled back later.
+
+00:05:27.050 --> 00:05:29.450
+They might wind up
+facing the same way.
+
+00:05:29.450 --> 00:05:32.000
+I personally like it
+
+00:05:32.000 --> 00:05:34.150
+just a few base types from the acts.
+
+00:05:34.150 --> 00:05:35.816
+This isn't-
+
+00:05:35.816 --> 00:05:37.166
+This isn't by any means all of them.
+
+00:05:37.166 --> 00:05:40.566
+This is just some of them
+
+00:05:40.650 --> 00:05:41.483
+like I said,
+
+00:05:41.483 --> 00:05:44.366
+even the small stuff
+gets the same treatment.
+
+00:05:44.366 --> 00:05:47.266
+So we've got some amulets
+and these three,
+
+00:05:47.266 --> 00:05:49.250
+I'll let you figure out
+what they might do.
+
+00:05:49.250 --> 00:05:52.800
+But, yeah!
+
+00:05:52.816 --> 00:05:54.150
+They go through the same treatment.
+
+00:05:54.150 --> 00:05:56.000
+We have a lot of control
+because they're 3D rendered.
+
+00:05:56.000 --> 00:06:00.450
+We can try to just play around
+with what they are- it's very hard
+
+00:06:00.450 --> 00:06:03.450
+to get an artist to say, Hey,
+I think I want this sword
+
+00:06:03.600 --> 00:06:06.050
+this way and painted like that.
+
+00:06:06.050 --> 00:06:08.000
+And they go, well, I just have to
+repaint the whole thing.
+
+00:06:08.000 --> 00:06:11.883
+Then I guess- which they don't.
+
+00:06:11.966 --> 00:06:15.300
+Currency orbs, same thing.
+
+00:06:15.383 --> 00:06:18.233
+And these were a fun one
+because we got to redesign
+
+00:06:18.233 --> 00:06:21.233
+what we thought of them as
+
+00:06:21.416 --> 00:06:23.483
+previous head honcho
+
+00:06:23.483 --> 00:06:26.950
+Erik, who's now retired.
+
+00:06:27.016 --> 00:06:29.966
+This was his little baby.
+
+00:06:29.966 --> 00:06:35.350
+He's actually printed massive scale,
+cast bronze of these things.
+
+00:06:35.416 --> 00:06:39.150
+He's got a huge exalted orb
+that's like this big.
+
+00:06:39.233 --> 00:06:42.866
+But yeah, it was mostly
+just to get them to be more cohesive.
+
+00:06:42.866 --> 00:06:46.750
+So they've got that same kind of-
+That Roman
+
+00:06:46.816 --> 00:06:51.750
+kind of bust
+head thing going on with a lot of them.
+
+00:06:51.833 --> 00:06:52.250
+Yeah.
+
+00:06:52.250 --> 00:06:53.066
+And so they all,
+
+00:06:53.066 --> 00:06:57.783
+they all get the same treatment,
+even if they're a little guy,
+
+00:06:57.866 --> 00:06:58.950
+Some armours.
+
+00:06:58.950 --> 00:07:04.950
+So these are the base types for six
+of the different
+
+00:07:05.033 --> 00:07:06.566
+character branches.
+
+00:07:06.566 --> 00:07:09.566
+So, I don't know
+if you're able to tell,
+
+00:07:09.800 --> 00:07:12.350
+but there is a gradient
+that occurs here.
+
+00:07:12.350 --> 00:07:15.350
+So it goes from dex, dex-int
+
+00:07:15.450 --> 00:07:19.950
+int, int-strength,
+strength, strength-dex
+
+00:07:19.950 --> 00:07:22.950
+and it kind of
+loops around where
+
+00:07:23.066 --> 00:07:28.016
+strength dex
+looks a little lighter and it kind of-
+
+00:07:28.100 --> 00:07:31.100
+that's a personal thing as well,
+just trying to get things
+
+00:07:31.216 --> 00:07:35.600
+to be very clearly gradients
+across the items so that it feels
+
+00:07:35.600 --> 00:07:40.350
+like you can just glance at stuff
+and just know what it is.
+
+00:07:40.433 --> 00:07:44.733
+And this comes into
+the naming of things, which is also,
+
+00:07:44.816 --> 00:07:47.650
+you know, as a visual person, it's
+another thing.
+
+00:07:47.650 --> 00:07:51.566
+It actually had an impact on the art
+in a cool way as well.
+
+00:07:51.650 --> 00:07:54.116
+So every single dex base type armour
+
+00:07:54.116 --> 00:07:57.900
+will be something vest
+or something coat
+
+00:07:57.983 --> 00:07:59.183
+Same with all these
+
+00:07:59.183 --> 00:08:01.200
+They're all going to be called that
+
+00:08:01.200 --> 00:08:03.916
+and you might go,
+Oh, that's kind of limiting.
+
+00:08:03.916 --> 00:08:06.616
+But that limitation actually
+kind of breeds
+
+00:08:06.616 --> 00:08:11.516
+really interesting creativity
+to actually accentuate them more.
+
+00:08:11.516 --> 00:08:14.850
+And like I said,
+you get a cool gradient that happens
+
+00:08:14.850 --> 00:08:19.950
+as you go from- through the stats
+and it loops back around.
+
+00:08:20.033 --> 00:08:20.366
+Yeah.
+
+00:08:20.366 --> 00:08:25.916
+So everything strength
+will just look massive
+
+00:08:26.000 --> 00:08:28.650
+like what’s the unique?
+
+00:08:28.650 --> 00:08:32.800
+The bronze one with the massive-
+
+00:08:32.866 --> 00:08:35.783
+Brass Dome?
+Brass Dome! There's a base type that just
+
+00:08:35.783 --> 00:08:39.716
+is that big,
+you know what I mean? Like-
+
+00:08:39.800 --> 00:08:42.766
+Same thing with all the items.
+
+00:08:42.766 --> 00:08:45.766
+The pet peeve is when you're
+working on all these things,
+
+00:08:45.833 --> 00:08:48.650
+so many things get called
+boots, helmet,
+
+00:08:48.650 --> 00:08:51.816
+gauntlets and after a while it just-
+from the art managing side.
+
+00:08:51.850 --> 00:08:53.300
+I got really annoyed.
+
+00:08:53.300 --> 00:08:56.300
+I was just like, What is this again?
+
+00:08:56.416 --> 00:08:59.150
+And so it was like affecting
+the management part
+
+00:08:59.150 --> 00:09:02.216
+as well as me just reading stuff
+in the game as well.
+
+00:09:02.216 --> 00:09:05.966
+So they're all going to be
+basically partitioned
+
+00:09:05.966 --> 00:09:09.266
+in a way, naming wise
+that affects the art a little bit.
+
+00:09:09.350 --> 00:09:12.100
+It's not
+as strict as you would think.
+
+00:09:12.166 --> 00:09:13.016
+Like, say,
+
+00:09:13.016 --> 00:09:16.016
+if I go- I'll let you look at that
+for a little bit.
+
+00:09:16.050 --> 00:09:18.450
+Like say there’s the gauntlets right?
+
+00:09:18.450 --> 00:09:19.766
+They've got like- These ones here
+
+00:09:19.766 --> 00:09:21.900
+have got a bit of a leather bracer aspect
+
+00:09:21.900 --> 00:09:25.166
+that kind of starts transitioning
+over to what the dex ones do,
+
+00:09:25.250 --> 00:09:28.683
+which will only focus
+more on this area
+
+00:09:28.766 --> 00:09:29.933
+and they kind of spread out.
+
+00:09:29.933 --> 00:09:33.933
+And so there's more- more-
+
+00:09:34.016 --> 00:09:36.683
+Just more identity between them
+
+00:09:36.683 --> 00:09:39.766
+every like- Here’s a good example
+actually versus Path of Exile 1
+
+00:09:39.766 --> 00:09:43.366
+because I think the dex-int gloves
+are called the mittens.
+
+00:09:43.366 --> 00:09:45.316
+Right?
+Mhm. Yep.
+
+00:09:45.316 --> 00:09:48.983
+And that always bothered me
+because a mitten style
+
+00:09:48.983 --> 00:09:52.050
+gauntlet is actually a thing
+and it's a very strong strength-y,
+
+00:09:52.166 --> 00:09:53.116
+bulky looking thing.
+
+00:09:53.116 --> 00:09:55.966
+So all the strength gauntlets
+are now called Mitts,
+
+00:09:55.966 --> 00:09:58.733
+all the strength-dex ones are
+the ones that are called Gauntlets.
+
+00:09:58.733 --> 00:10:02.700
+So every strength-dex Gauntlet will have this,
+real chunky vibe that
+
+00:10:02.783 --> 00:10:03.950
+just separates itself.
+
+00:10:03.950 --> 00:10:06.683
+You're not going to
+feel like it
+
+00:10:06.683 --> 00:10:09.966
+could blend across
+three different classes.
+
+00:10:10.050 --> 00:10:15.550
+So I think we just get more
+variety of gear this way.
+
+00:10:15.616 --> 00:10:18.616
+I think helmets is
+the best example of the gradient
+
+00:10:18.616 --> 00:10:23.800
+I keep talking about, where Dex
+is where I've got hoods,
+
+00:10:23.866 --> 00:10:27.383
+but you'll notice that dex-int
+there's a hood strength-dex
+
+00:10:27.383 --> 00:10:28.583
+There's a hood.
+
+00:10:28.583 --> 00:10:31.866
+But the defining feature of that
+is that it's a helmet
+
+00:10:31.950 --> 00:10:34.216
+The defining feature of
+that one is that there's a
+
+00:10:34.216 --> 00:10:36.333
+little covid mask in there.
+
+00:10:38.833 --> 00:10:40.950
+Yeah.
+
+00:10:40.950 --> 00:10:42.866
+So I've talked about base
+types for a bit.
+
+00:10:42.866 --> 00:10:46.350
+So, now I'm going to go over
+the difference between base types
+
+00:10:46.350 --> 00:10:52.150
+and uniques in Path of Exile 2 
+from an art perspective.
+
+00:10:52.216 --> 00:10:55.216
+It's something
+most people don't think about,
+
+00:10:55.250 --> 00:10:59.033
+but we're trying to treat
+the base type items with very clear,
+
+00:10:59.033 --> 00:11:02.116
+distinct lighting, but
+it's still stylistic.
+
+00:11:02.116 --> 00:11:05.716
+It's not just this flat, like
+I just throw it in the render and hit
+
+00:11:05.750 --> 00:11:07.516
+render type thing, like we have placed lights,
+
+00:11:07.516 --> 00:11:11.283
+and we've tried to make it
+look as cool as it can.
+
+00:11:11.366 --> 00:11:14.000
+It's very clear and subtle.
+
+00:11:14.000 --> 00:11:16.250
+There's a bit of warm lighting,
+a little bit of cool.
+
+00:11:16.250 --> 00:11:17.266
+That's about it.
+
+00:11:17.266 --> 00:11:19.133
+And the uniques
+don't really have any rules.
+
+00:11:19.133 --> 00:11:20.100
+We just,
+
+00:11:20.100 --> 00:11:22.916
+we just sort of
+make them look as bold and colorful
+
+00:11:22.916 --> 00:11:25.533
+and interesting as possible.
+
+00:11:25.616 --> 00:11:28.433
+And the other thing is every base
+type in Path of Exile 2,
+
+00:11:28.433 --> 00:11:33.633
+will have a unique associated
+with it at launch.
+
+00:11:33.716 --> 00:11:35.416
+Every single one of them
+
+00:11:35.416 --> 00:11:38.666
+and every single base
+type has unique art in and of itself.
+
+00:11:38.666 --> 00:11:40.250
+There's no base type that repeats.
+
+00:11:40.250 --> 00:11:43.283
+You will not get a shield later
+that has the same name-
+
+00:11:43.466 --> 00:11:44.866
+has a different name and same art
+
+00:11:44.866 --> 00:11:49.533
+Every single act has entirely unique
+art all the way through the game.
+
+00:11:49.616 --> 00:11:54.083
+So to me,
+the unique having a bit of a bond
+
+00:11:54.083 --> 00:11:58.150
+with the base type that it comes from
+is kind of important
+
+00:11:58.216 --> 00:12:01.866
+because otherwise it kind of ruins
+the item identity of both.
+
+00:12:01.950 --> 00:12:04.950
+If you had like a unique sword
+that was like a scimitar looking
+
+00:12:04.950 --> 00:12:08.183
+curvy thing, but the base type
+was just a straight blade.
+
+00:12:08.183 --> 00:12:09.716
+It's kind of like,
+
+00:12:09.800 --> 00:12:11.933
+shouldn't that be with the base type
+
+00:12:11.933 --> 00:12:15.633
+that has a curvy blade?
+This is like kind of common sense to me.
+
+00:12:15.716 --> 00:12:18.750
+So the shield in the middle
+is a pretty good example.
+
+00:12:18.750 --> 00:12:21.383
+They're very similar structurally,
+
+00:12:21.383 --> 00:12:24.816
+but very different in terms
+of what actually happens.
+
+00:12:24.900 --> 00:12:28.816
+This one being super Celtic
+and really ancient bronze looking
+
+00:12:28.816 --> 00:12:34.500
+and will do something very cool
+with the numbers I imagine.
+
+00:12:34.566 --> 00:12:35.516
+This little Shield.
+
+00:12:35.516 --> 00:12:42.250
+I like a lot, this little Buckler
+with a spooky man trapped in there.
+
+00:12:42.316 --> 00:12:45.316
+This is an example of
+of the lighting of these things.
+
+00:12:45.533 --> 00:12:49.383
+So this is actually a unique armor
+that they don't know about.
+
+00:12:49.466 --> 00:12:51.600
+Doesn't do anything yet
+
+00:12:51.600 --> 00:12:54.350
+that's lit
+how we would do a base type.
+
+00:12:54.350 --> 00:12:58.800
+And then here I remove it all and I
+try to give it some more character,
+
+00:12:58.883 --> 00:13:04.383
+make it look a little bit more moody
+and a little bit more special.
+
+00:13:04.566 --> 00:13:08.716
+we do this for all the items we
+hand place and we pose the meshes
+
+00:13:08.716 --> 00:13:11.783
+and we try and get a really iconic
+little look to it.
+
+00:13:11.783 --> 00:13:16.716
+So that's the difference
+between those two things.
+
+00:13:16.800 --> 00:13:19.800
+And here I might get Hrishi to sort of
+pitch me back in
+
+00:13:19.800 --> 00:13:25.600
+because this is going over the act
+specific run down of gear.
+
+00:13:25.666 --> 00:13:27.616
+So in each act
+
+00:13:27.616 --> 00:13:30.466
+you find the gear
+specifically for that act.
+
+00:13:30.466 --> 00:13:34.716
+So all the base types will look like
+they're very Maraketh in Act two.
+
+00:13:34.800 --> 00:13:37.800
+And as soon as you get to act three,
+they're going to look very vaal
+
+00:13:37.816 --> 00:13:40.433
+and you purchase them?
+ Yep.
+
+00:13:40.433 --> 00:13:42.016
+Just from the vendors?
+
+00:13:42.016 --> 00:13:42.233
+Yeah.
+
+00:13:42.233 --> 00:13:43.816
+So the vendors of each act
+
+00:13:43.816 --> 00:13:46.816
+only sell gear
+that comes from that particular act.
+
+00:13:46.950 --> 00:13:48.450
+They don't sell like
+
+00:13:48.450 --> 00:13:52.166
+you don’t go to act two
+and buy Act one gear. 
+
+00:13:53.600 --> 00:13:56.116
+And you just get more distinct looks.
+
+00:13:56.116 --> 00:14:00.716
+I personally really wanted
+that gigantic stone Aztec Shield
+
+00:14:00.800 --> 00:14:02.666
+and people were worried
+it was too big.
+
+00:14:02.666 --> 00:14:06.516
+And I said
+it might not be big enough for me.
+
+00:14:06.600 --> 00:14:09.600
+I wanted it this thick- anyway.
+
+00:14:09.833 --> 00:14:13.883
+So this sort of getting into the art
+
+00:14:13.883 --> 00:14:18.033
+focus of items in terms of
+
+00:14:18.116 --> 00:14:21.000
+some tropes
+that happen with fantasy art in games
+
+00:14:21.000 --> 00:14:22.950
+quite a lot, that kind of bugged me.
+
+00:14:22.950 --> 00:14:27.866
+All that stuff is obviously AI crap.
+
+00:14:27.950 --> 00:14:30.416
+But I mean, you know, it looks cool.
+
+00:14:30.416 --> 00:14:35.666
+When I was 13, I would be like, Hell
+yeah, it's got spikes all over it.
+
+00:14:35.750 --> 00:14:38.783
+But after a while you've seen these,
+
+00:14:38.783 --> 00:14:42.050
+they're in everything
+so many games that have that
+
+00:14:42.300 --> 00:14:46.450
+and just loads of it
+and you can infinitely produce-
+
+00:14:46.516 --> 00:14:50.683
+I mean AI just did four of
+them like in half a second.
+
+00:14:50.766 --> 00:14:54.266
+Where as this stuff is from our world
+
+00:14:54.350 --> 00:14:57.233
+and it goes back centuries
+and there's just a rich history
+
+00:14:57.233 --> 00:15:02.283
+and culture behind all this art
+making and weapon smithing from like
+
+00:15:02.366 --> 00:15:03.150
+just different
+
+00:15:03.150 --> 00:15:06.816
+metal making practices
+in all these different countries.
+
+00:15:06.900 --> 00:15:10.716
+India and like old cultures
+like the Scythians
+
+00:15:10.733 --> 00:15:12.683
+and the Mongols
+and how it all blends in.
+
+00:15:12.683 --> 00:15:17.583
+And I think artists need to do more
+to really learn from the past,
+
+00:15:17.666 --> 00:15:21.783
+to make more interesting
+looking stuff.
+
+00:15:21.866 --> 00:15:25.516
+This is what I want Path of Exile 2’s items
+to feel more like, more like these
+
+00:15:25.516 --> 00:15:30.066
+really rich, dense things that have
+all this history behind them.
+
+00:15:30.150 --> 00:15:32.816
+We do a lot of investigation on the
+
+00:15:32.816 --> 00:15:37.383
+on the environment side with stuff
+like early on there was talks of like
+
+00:15:37.466 --> 00:15:40.800
+how the Maraketh
+would write musical notation
+
+00:15:40.800 --> 00:15:41.700
+and how that would affect
+
+00:15:41.700 --> 00:15:44.700
+the sculptures on the walls
+and like the environment art
+
+00:15:44.716 --> 00:15:49.016
+and then trying to get that into like
+the item designs and stuff as well.
+
+00:15:49.100 --> 00:15:50.000
+So a lot of thought
+
+00:15:50.000 --> 00:15:53.783
+goes on there to get things
+to have a real rich sense of culture.
+
+00:15:53.783 --> 00:15:56.666
+Because for a game
+that's all about items,
+
+00:15:56.666 --> 00:15:58.516
+you don't want everything
+to just look like a jagged, spiky
+
+00:15:58.516 --> 00:16:03.566
+sword every single time
+or like cool, flaming blade of-
+
+00:16:03.650 --> 00:16:06.650
+like there's a place for them.
+
+00:16:06.800 --> 00:16:10.816
+But having just like a spoon, it's
+just a weird spoon.
+
+00:16:10.816 --> 00:16:11.850
+and that’s the unique
+
+00:16:11.850 --> 00:16:17.966
+It's kind of cool to me
+There will be a spoon.
+
+00:16:18.050 --> 00:16:19.550
+What is it going to do?
+
+00:16:19.550 --> 00:16:23.200
+You figure that?
+
+00:16:23.266 --> 00:16:26.266
+So this is-
+this is the part I really like,
+
+00:16:26.483 --> 00:16:30.450
+I personally
+make a lot of weapons and items
+
+00:16:30.450 --> 00:16:33.666
+and stuff, But the cool thing is
+I make all these unique items.
+
+00:16:33.683 --> 00:16:35.000
+This is a drop, by the way.
+
+00:16:35.000 --> 00:16:36.266
+This is nothing
+
+00:16:36.266 --> 00:16:39.683
+they- if I could have a screen
+that went all around
+
+00:16:39.683 --> 00:16:42.266
+the whole building,
+it still wouldn't get them all.
+
+00:16:42.266 --> 00:16:45.550
+They'd keep going there’s many
+
+00:16:45.616 --> 00:16:48.583
+anyway, They don't know about them,
+Most of the time...
+
+00:16:48.583 --> 00:16:51.850
+I'm just making them
+and then I sort of,
+
+00:16:51.916 --> 00:16:53.366
+I sort of give it to them.
+
+00:16:53.366 --> 00:16:55.050
+And to me it's
+kind of like they've found it.
+
+00:16:55.050 --> 00:16:58.050
+They've actually found a unique
+and they don't know what it does.
+
+00:16:58.283 --> 00:17:00.316
+Like it's actually unidentified
+
+00:17:00.316 --> 00:17:03.350
+and they have to be their own
+little Deckard Cain and be like,
+
+00:17:03.350 --> 00:17:06.383
+What the hell does this do?
+
+00:17:06.466 --> 00:17:07.733
+Which is really exciting to me.
+
+00:17:07.733 --> 00:17:11.750
+Like, I don't know, this little
+weird wand up the top
+
+00:17:11.750 --> 00:17:14.750
+that is basically a hand
+holding a bell.
+
+00:17:14.933 --> 00:17:15.900
+I just wanted a hand.
+
+00:17:15.900 --> 00:17:18.900
+You hold a hand that holds a bell.
+
+00:17:18.900 --> 00:17:21.900
+And so I just think, well,
+there's cool stuff there.
+
+00:17:21.916 --> 00:17:24.716
+Does it like, reverberate
+your spells?
+
+00:17:24.716 --> 00:17:27.266
+Does it bounce things back?
+
+00:17:27.266 --> 00:17:28.250
+I don't know.
+
+00:17:28.250 --> 00:17:29.783
+It does stuff.
+
+00:17:29.783 --> 00:17:32.333
+It'll be cool, I promise.
+
+00:17:32.333 --> 00:17:39.333
+But- I have bad hearing,
+I didn’t hear that.
+
+00:17:39.416 --> 00:17:40.850
+Anyway-
+
+00:17:40.850 --> 00:17:43.100
+That's just a little tease of stuff.
+
+00:17:43.100 --> 00:17:45.450
+I just wanted to show you that,
+
+00:17:45.450 --> 00:17:49.233
+the items in Path of Exile 2
+are going to be very rich and
+
+00:17:49.316 --> 00:17:52.633
+every unique
+is going to have a lot of interest
+
+00:17:52.750 --> 00:17:56.916
+and just flair and just feel like it
+came from somewhere.
+
+00:17:56.916 --> 00:17:59.933
+And it wasn't just like
+it looks cool.
+
+00:17:59.966 --> 00:18:02.000
+Like some of them are just
+they look cool,
+
+00:18:02.000 --> 00:18:05.916
+but a lot of them are going
+to be really well thought out
+
+00:18:06.000 --> 00:18:07.016
+From the art side...
+
+00:18:07.016 --> 00:18:09.150
+I don't know about the numbers.
+
+00:18:09.150 --> 00:18:14.350
+This is where I pass over
+to this guy.
+
+00:18:14.416 --> 00:18:20.766
+And thank you.
+
+00:18:20.833 --> 00:18:24.650
+Hey, so let's talk about item
+mechanics then.
+
+00:18:24.833 --> 00:18:26.400
+So my name is Hrishi
+
+00:18:26.400 --> 00:18:29.400
+I'm a game designer at Grinding
+Gear Games.
+
+00:18:29.516 --> 00:18:31.400
+I mostly work on item stuff.
+
+00:18:31.400 --> 00:18:33.166
+I've been working on them
+for a really long time,
+
+00:18:33.166 --> 00:18:37.016
+although of course I do
+other stuff as well,
+
+00:18:37.100 --> 00:18:40.100
+so it is no secret
+
+00:18:40.100 --> 00:18:43.100
+that we that we think items
+are very important to this game.
+
+00:18:43.100 --> 00:18:44.966
+Like we just spent,
+you know, all this time
+
+00:18:44.966 --> 00:18:46.850
+talking about
+just what they look like.
+
+00:18:46.850 --> 00:18:48.833
+And there's so much more to them,
+right?
+
+00:18:48.833 --> 00:18:50.900
+Like, we want items to feel real.
+
+00:18:50.900 --> 00:18:54.450
+They're more than just
+a collection of stats.
+
+00:18:54.533 --> 00:18:57.533
+And now that  Path of Exile 2, is a game
+in itself.
+
+00:18:57.683 --> 00:19:01.133
+We have a chance to look at items
+all the way- At it's
+
+00:19:01.133 --> 00:19:02.066
+very fundamentals
+
+00:19:02.066 --> 00:19:06.316
+and try to make some changes that
+we couldn't make in an existing game
+
+00:19:06.533 --> 00:19:10.250
+because of the worry of how
+you would port existing items over
+
+00:19:10.250 --> 00:19:12.850
+to a new system.
+
+00:19:12.916 --> 00:19:16.766
+So I'd like to go over some of
+these fundamental changes with you.
+
+00:19:16.850 --> 00:19:22.300
+So this is the first problem
+that we really wanted to tackle,
+
+00:19:22.366 --> 00:19:24.800
+in Path of Exile 1
+
+00:19:24.800 --> 00:19:27.000
+different weapon classes
+don't necessarily
+
+00:19:27.000 --> 00:19:30.433
+feel that different
+from each other, like
+
+00:19:30.516 --> 00:19:33.450
+just take an axe and take a sword.
+
+00:19:33.450 --> 00:19:35.366
+There are some light
+stat differences, you know,
+
+00:19:35.366 --> 00:19:36.500
+some of them have,
+
+00:19:36.500 --> 00:19:40.450
+you know, faster swing
+speeds or faster damage per hit.
+
+00:19:40.516 --> 00:19:44.800
+But how- Like how much does
+that difference actually matter?
+
+00:19:44.866 --> 00:19:48.316
+So for this reason,
+we added implicits to all the weapons.
+
+00:19:48.316 --> 00:19:52.250
+So, you know, every sword
+has an accuracy related implicit,
+
+00:19:52.250 --> 00:19:56.550
+In most cases. Axes don't have
+implicits, Maces have stun related.
+
+00:19:56.550 --> 00:19:58.216
+Implicits, and so on.
+
+00:19:58.216 --> 00:19:59.416
+And it helps.
+
+00:19:59.416 --> 00:20:01.400
+It gives them a bit of identity,
+
+00:20:01.400 --> 00:20:05.566
+but it doesn't really make them feel
+that different. Right?
+
+00:20:05.566 --> 00:20:09.716
+Like you'll still just swinging
+a bunch of stats.
+
+00:20:09.800 --> 00:20:12.833
+The other problem too,
+is that most skills you can use
+
+00:20:12.833 --> 00:20:15.416
+with kind of any weapons,
+what you really care about
+
+00:20:15.416 --> 00:20:17.700
+is at the end of the day,
+which is the weapon
+
+00:20:17.700 --> 00:20:22.900
+that's going to do the most damage
+and I'm going to use that weapon. So
+
+00:20:22.966 --> 00:20:24.900
+I want to talk about
+
+00:20:24.900 --> 00:20:28.166
+the attribute
+alignments in this game.
+
+00:20:28.166 --> 00:20:32.750
+And we consider this very important
+as a way of aligning
+
+00:20:32.750 --> 00:20:37.900
+certain attributes
+with different mechanics in the game.
+
+00:20:37.966 --> 00:20:39.300
+There are some new weapons in there.
+
+00:20:39.300 --> 00:20:42.300
+I'll let you look to see
+what they are.
+
+00:20:42.316 --> 00:20:45.616
+But effectively what we do is
+we associate different weapons
+
+00:20:45.766 --> 00:20:50.216
+with different attributes
+and that sort of gives us a
+
+00:20:50.300 --> 00:20:54.666
+some guidance
+on what their stats will be.
+
+00:20:54.750 --> 00:20:57.500
+For example, armor
+related stats are usually aligned
+
+00:20:57.500 --> 00:21:00.950
+to strength in our game, Evasion
+is aligned to dexterity.
+
+00:21:00.950 --> 00:21:02.933
+Energy shield is aligned
+ to intelligence
+
+00:21:02.933 --> 00:21:05.666
+and damage is no different, right?
+
+00:21:05.666 --> 00:21:10.266
+Strength aligned weapons
+generally have higher
+
+00:21:10.350 --> 00:21:12.783
+damage per individual hit.
+Dex aligned
+
+00:21:12.783 --> 00:21:16.383
+weapons are usually faster
+when it comes to their swing speeds
+
+00:21:16.466 --> 00:21:17.150
+and Int aligned
+
+00:21:17.150 --> 00:21:20.033
+Weapons are usually really good
+at dealing critical strikes.
+
+00:21:20.033 --> 00:21:24.200
+So, you know, using this as 
+a baseline, it's
+
+00:21:24.200 --> 00:21:25.166
+kind of clear that you know,
+
+00:21:25.166 --> 00:21:28.166
+a Mace is going to have higher damage
+per individual hit,
+
+00:21:28.200 --> 00:21:30.833
+whereas a Claw is going to be faster
+and, you know, a
+
+00:21:30.833 --> 00:21:34.416
+Dagger is going
+to have more crit and so on.
+
+00:21:34.500 --> 00:21:36.083
+So we have tried to
+
+00:21:36.083 --> 00:21:39.650
+emphasise these differences
+really heavily in Path of Exile 2
+
+00:21:39.900 --> 00:21:41.450
+So I just have, you know,
+
+00:21:41.450 --> 00:21:44.150
+a random dagger from the
+from the dagger based types
+
+00:21:44.150 --> 00:21:45.350
+picked up in a random axe.
+
+00:21:45.350 --> 00:21:46.666
+And you can see the difference
+in critical
+
+00:21:46.666 --> 00:21:50.466
+strike chances is much higher
+than what you might be used to.
+
+00:21:50.550 --> 00:21:53.216
+So a dagger
+is going to start with 15%
+
+00:21:53.216 --> 00:21:55.466
+and then you have mods
+that improve it over and above that.
+
+00:21:55.466 --> 00:21:56.850
+So when you are using a dagger,
+
+00:21:56.850 --> 00:21:59.850
+you're really going to feel like
+you're like you're critting a lot.
+
+00:22:00.000 --> 00:22:02.400
+Whereas an axe,
+you can see the, the base
+
+00:22:02.400 --> 00:22:05.250
+damage of the weapon is going to be,
+you know,
+
+00:22:05.250 --> 00:22:08.150
+like per hit
+is going to be quite a bit higher.
+
+00:22:08.150 --> 00:22:11.666
+But all this
+is going to change like how you view
+
+00:22:11.666 --> 00:22:15.316
+weapons, but it's still not
+entirely enough as well,
+
+00:22:15.566 --> 00:22:18.716
+because ultimately the difference
+between a mace and an axe,
+
+00:22:18.716 --> 00:22:21.900
+for example, is the sort of attacks
+you can do with it.
+
+00:22:21.983 --> 00:22:24.916
+So in Path of Exile 2
+
+00:22:24.916 --> 00:22:28.650
+most attacks are going to be usable
+with a single weapon.
+
+00:22:28.733 --> 00:22:33.350
+So this immediately makes designing
+new attacks a lot more interesting
+
+00:22:33.350 --> 00:22:35.716
+because you're not thinking
+what's a cool attack?
+
+00:22:35.716 --> 00:22:39.966
+You're thinking what is a cool thing
+that an axe in particular can do?
+
+00:22:40.050 --> 00:22:43.050
+So let's talk about Axes.
+
+00:22:43.166 --> 00:22:46.100
+So Axes, as you can see from the
+
+00:22:46.100 --> 00:22:49.683
+from the chart, they will be
+slightly faster than maces.
+
+00:22:49.683 --> 00:22:52.366
+They do slightly less damage per
+individual hit than a mace,
+
+00:22:52.366 --> 00:22:54.316
+but they're still primarily
+strength aligned.
+
+00:22:54.316 --> 00:22:57.000
+So they're going to do
+a lot of damage per hit.
+
+00:22:57.000 --> 00:22:59.150
+But on top of this,
+what defines an axe
+
+00:22:59.150 --> 00:23:03.933
+thematically are themes
+such as culling and executes.
+
+00:23:04.016 --> 00:23:06.716
+And in Path of Exile 2,
+you can throw them.
+
+00:23:06.716 --> 00:23:10.650
+So that leads
+to really interesting skill design
+
+00:23:10.650 --> 00:23:12.716
+because you can throw them,
+wait for them to return.
+
+00:23:12.716 --> 00:23:16.000
+You know,
+it's almost like a boomerang.
+
+00:23:16.066 --> 00:23:18.533
+Daggers. So daggers are
+
+00:23:18.533 --> 00:23:21.716
+sort of 50% in the Int section,
+50% of the dex section.
+
+00:23:21.716 --> 00:23:24.850
+So they're both high crit
+
+00:23:24.866 --> 00:23:28.450
+and have decent swing speed,
+but obviously per hit,
+
+00:23:28.516 --> 00:23:31.466
+their damage will be slow-
+Will be lower.
+
+00:23:31.466 --> 00:23:32.033
+Thematically.
+
+00:23:32.033 --> 00:23:33.916
+What do you think of
+when you think of a dagger?
+
+00:23:33.916 --> 00:23:36.533
+They're mostly
+all about fast attacks,
+
+00:23:36.533 --> 00:23:38.216
+trying to find the weak
+spot of enemies
+
+00:23:38.216 --> 00:23:43.116
+which sort of perfectly matches
+what they are in this in this chart.
+
+00:23:43.200 --> 00:23:44.966
+And they're also
+thematically linked to poison,
+
+00:23:44.966 --> 00:23:48.633
+which will really come out
+in the skill design for daggers.
+
+00:23:48.716 --> 00:23:52.083
+So when you have this identity
+of item class sorted in this way,
+
+00:23:52.166 --> 00:23:54.116
+you don't need to have an implicit
+
+00:23:54.116 --> 00:23:56.300
+that is on every single weapon
+of that type.
+
+00:23:56.300 --> 00:23:58.050
+So we've removed them.
+
+00:23:58.133 --> 00:24:01.650
+All Swords do not have, you know,
+an accuracy implicit,
+
+00:24:01.733 --> 00:24:05.133
+all daggers don't have, you know, a
+crit implicit or whatever.
+
+00:24:05.216 --> 00:24:07.616
+So now that
+the implicit slot is empty,
+
+00:24:07.616 --> 00:24:10.966
+we can make interesting implicits
+that sort of make certain bases
+
+00:24:10.966 --> 00:24:13.583
+throughout the game
+feel very different to each other
+
+00:24:13.583 --> 00:24:15.416
+because it's not really-
+
+00:24:15.416 --> 00:24:17.416
+it's not super interesting
+if you're just going up
+
+00:24:17.416 --> 00:24:20.333
+a ladder of slightly stronger
+and stronger bases.
+
+00:24:20.333 --> 00:24:23.700
+We want to throw something in there
+to make the upgrades not feel too-
+
+00:24:23.900 --> 00:24:24.566
+Too monotonous.
+
+00:24:24.566 --> 00:24:26.816
+So we've added some wacky implicits,
+
+00:24:26.816 --> 00:24:30.150
+and I'd like to show you
+some of them.
+
+00:24:30.233 --> 00:24:31.850
+So this is an axe.
+
+00:24:31.850 --> 00:24:34.883
+You'll find it at a certain level
+and you might notice
+
+00:24:34.883 --> 00:24:37.966
+that this deals no Physical damage
+what so ever.
+
+00:24:37.966 --> 00:24:41.050
+Its base Damage
+is just pure fire.
+
+00:24:41.116 --> 00:24:43.466
+So this is going to give
+you some interesting considerations
+
+00:24:43.466 --> 00:24:45.350
+when you find it, like
+how are you going to build for it,
+
+00:24:45.350 --> 00:24:49.233
+especially if the axe before
+and the axe after is mostly physical.
+
+00:24:49.316 --> 00:24:52.366
+So it's not just that it's a damage
+upgrade from the previous axe there-
+
+00:24:52.466 --> 00:24:53.966
+There are
+there are these other interesting
+
+00:24:53.966 --> 00:24:57.600
+considerations
+to think about as you go through.
+
+00:24:57.683 --> 00:24:59.483
+Here's another one.
+
+00:24:59.483 --> 00:25:00.016
+Yeah.
+
+00:25:00.016 --> 00:25:01.350
+So this is a mace
+
+00:25:01.350 --> 00:25:04.350
+that destroys enemies
+that you kill with critical strikes.
+
+00:25:04.400 --> 00:25:07.016
+Now, it's
+it sounds pretty useful, right, that,
+
+00:25:07.016 --> 00:25:10.016
+you know, because who doesn't
+want corpse removal on their weapon.
+
+00:25:10.200 --> 00:25:11.900
+But note that this is a mace.
+
+00:25:11.900 --> 00:25:14.900
+Maces are not necessarily that good
+at dealing critical strikes.
+
+00:25:15.150 --> 00:25:19.216
+So it- So you know it
+it could be useful
+
+00:25:19.350 --> 00:25:20.366
+but how do you make it
+
+00:25:20.366 --> 00:25:23.366
+useful it's not Int Aligned
+so it's going to have low crit.
+
+00:25:23.550 --> 00:25:26.516
+There will be mods that can increase-
+That can increase its crit.
+
+00:25:26.516 --> 00:25:29.550
+But still the way you build for it,
+it's supposed to really make
+
+00:25:29.550 --> 00:25:30.316
+you think.
+
+00:25:30.316 --> 00:25:33.166
+It's not that it's
+necessarily immediately useful.
+
+00:25:33.166 --> 00:25:36.166
+It's cool to have these sort of
+thematic things throughout the game
+
+00:25:36.383 --> 00:25:39.050
+and it's just a puzzle piece
+that is there, you know,
+
+00:25:39.050 --> 00:25:42.050
+so that sometime in the future
+someone might find something
+
+00:25:42.050 --> 00:25:46.800
+that that they can do with this,
+that only this would allow you to do.
+
+00:25:46.883 --> 00:25:47.483
+If some of you have
+
+00:25:47.483 --> 00:25:50.483
+played the demo
+and have played the warrior class,
+
+00:25:50.483 --> 00:25:54.483
+you might have noticed that they have
+a mechanic that breaks enemy armor.
+
+00:25:54.566 --> 00:25:59.100
+It's primarily a mace mechanic, but
+there is a dagger that does it here.
+
+00:25:59.166 --> 00:26:02.366
+Like- the mace skills,
+are normally the ones that interact
+
+00:26:02.366 --> 00:26:05.116
+with this in a number of ways.
+But I mean a dagger does it.
+
+00:26:05.116 --> 00:26:08.666
+Breaking armor is obviously useful
+and that makes this very special.
+
+00:26:08.666 --> 00:26:09.800
+And build defining.
+
+00:26:09.800 --> 00:26:12.800
+But how are you going to best
+make use of something like this?
+
+00:26:12.983 --> 00:26:15.983
+Well, that's an exercise
+left to the user.
+
+00:26:15.983 --> 00:26:17.716
+I'm sure there'll be a million
+different
+
+00:26:17.716 --> 00:26:21.550
+broken things
+that'll come out of all of this.
+
+00:26:21.616 --> 00:26:24.833
+So I've spent a bunch of time
+talking about attack weapons.
+
+00:26:24.833 --> 00:26:27.833
+So let me briefly touch
+on caster weapons.
+
+00:26:27.866 --> 00:26:30.500
+So in Path of Exile 1,
+they were quite strange, right?
+
+00:26:30.500 --> 00:26:33.333
+Like you had a- like you had a staff
+
+00:26:33.416 --> 00:26:34.216
+and they had attack
+
+00:26:34.216 --> 00:26:37.216
+mod- They had attack attributes
+and they could roll attack mods.
+
+00:26:37.283 --> 00:26:39.083
+But you're a mage,
+you don't want to hit people
+
+00:26:39.083 --> 00:26:41.033
+with the staff,
+you want to cast your spells.
+
+00:26:41.033 --> 00:26:43.050
+And as a result,
+their mod pools are a lot worse
+
+00:26:43.050 --> 00:26:46.050
+because you have both attack
+mods and spell caster mods rolling.
+
+00:26:46.250 --> 00:26:48.166
+Like of course they did improve
+your spell caster mods,
+
+00:26:48.166 --> 00:26:49.500
+but because there were all these mods
+
+00:26:49.500 --> 00:26:52.500
+rolling on the same item,
+it was really hard to get a good one.
+
+00:26:52.733 --> 00:26:54.866
+We tried a bunch of band aid fixes
+over the years.
+
+00:26:54.866 --> 00:26:58.616
+Like I'm sure you're well aware of us
+introducing Rune daggers and
+
+00:26:58.700 --> 00:27:01.583
+splitting staves
+into regular staves and war staves,
+
+00:27:01.583 --> 00:27:04.433
+but they didn't really fix
+the underlying issue.
+
+00:27:04.433 --> 00:27:08.666
+So we feel it's better to break
+out these concepts entirely
+
+00:27:08.750 --> 00:27:11.850
+so, in Path of Exile 2
+
+00:27:11.850 --> 00:27:14.333
+Wands And Staves will have no attack
+stats whatsoever.
+
+00:27:14.333 --> 00:27:18.750
+They just come with a skill
+that costs no mana.
+
+00:27:18.833 --> 00:27:22.216
+These spells can be a number
+of things from just a straight up
+
+00:27:22.216 --> 00:27:26.033
+damage spell like this one,
+which is the first staff you get as
+
+00:27:26.033 --> 00:27:29.033
+you wash up on the beach
+or a number of other things
+
+00:27:29.116 --> 00:27:33.400
+that can be used alongside
+your other skills.
+
+00:27:33.466 --> 00:27:35.750
+The later ones
+obviously tend to have a few more
+
+00:27:35.750 --> 00:27:37.466
+interesting considerations.
+
+00:27:37.466 --> 00:27:40.350
+Like this one obviously
+will be very familiar with anyone
+
+00:27:40.350 --> 00:27:44.916
+who's played Path of Exile where this lets
+you triple cast your next skill,
+
+00:27:45.000 --> 00:27:50.133
+which is obviously really good
+for skills with really long cast times.
+
+00:27:50.216 --> 00:27:57.633
+Here's an example of-
+
+00:27:57.716 --> 00:28:00.500
+pretty fun, right?
+
+00:28:00.500 --> 00:28:01.850
+So you might be wondering
+
+00:28:01.850 --> 00:28:05.066
+what about people
+that want to hit people with staves?
+
+00:28:05.150 --> 00:28:07.816
+So we have split out
+the melee portion of staves
+
+00:28:07.816 --> 00:28:10.100
+into its own weapon
+class called a quarterstaff.
+
+00:28:10.100 --> 00:28:12.900
+And it's sort of
+thematically linked to the monk.
+
+00:28:12.900 --> 00:28:14.850
+But again, this is Path of Exile.
+
+00:28:14.850 --> 00:28:17.850
+Anyone can use any weapon
+and do anything.
+
+00:28:18.016 --> 00:28:20.850
+All the mods here
+are obviously attack related mods
+
+00:28:20.850 --> 00:28:22.700
+and here is a
+particularly interesting one
+
+00:28:22.700 --> 00:28:25.850
+which has a longer range
+than every other quarterstaff.
+
+00:28:26.033 --> 00:28:28.916
+And you can actually see its art
+looking longer
+
+00:28:28.916 --> 00:28:30.000
+than the others in-game.
+
+00:28:30.000 --> 00:28:34.300
+If you compare the
+two quarter staves together.
+
+00:28:34.366 --> 00:28:37.050
+So we've talked about the two,
+
+00:28:37.050 --> 00:28:40.950
+I would say core archetypes
+that we sort of support in Path of
+
+00:28:40.950 --> 00:28:43.200
+Exile one,
+with attackers and spell casters.
+
+00:28:43.200 --> 00:28:48.083
+But trappers and miners
+of course, are another archetype
+
+00:28:48.083 --> 00:28:49.750
+that sort of got left in the dust
+a little bit.
+
+00:28:49.750 --> 00:28:51.800
+In Path of Exile 1,
+They were fully supported
+
+00:28:51.800 --> 00:28:53.666
+with a bunch of skills
+and everything,
+
+00:28:53.666 --> 00:28:57.116
+but they didn't really have gear that
+was specifically designed for them.
+
+00:28:57.200 --> 00:29:00.266
+They just sort of used,
+you know, caster weapons because,
+
+00:29:00.500 --> 00:29:03.700
+you know, it increased
+the damage of their skills.
+
+00:29:03.766 --> 00:29:07.366
+But it's really thematically weird
+because they're not a mage.
+
+00:29:07.366 --> 00:29:10.916
+They're supposed to be mechanically
+aligned and that sort of thing.
+
+00:29:11.000 --> 00:29:12.716
+So we wanted to add
+
+00:29:12.716 --> 00:29:16.000
+an item type that can be used
+specifically with trappers.
+
+00:29:16.066 --> 00:29:19.250
+So the first major change is traps
+are no longer spells,
+
+00:29:19.500 --> 00:29:22.800
+traps are just trap damage
+and there will be ways to improve.
+
+00:29:22.800 --> 00:29:26.816
+Specifically trap damage
+that are not related to spells.
+
+00:29:26.900 --> 00:29:28.166
+So, this is an
+
+00:29:28.166 --> 00:29:31.466
+example of the new base type
+that you can use and your main hand,
+
+00:29:31.550 --> 00:29:34.550
+it takes both your hands
+and you can see that
+
+00:29:34.766 --> 00:29:38.800
+the throw time of the trap is listed
+on the item itself.
+
+00:29:38.866 --> 00:29:43.650
+And yes, that means you can modify
+it further with mods on the item.
+
+00:29:43.733 --> 00:29:46.583
+The other thing you might notice
+is that
+
+00:29:46.583 --> 00:29:49.400
+it has a detonation type.
+
+00:29:49.400 --> 00:29:51.500
+That is because we have sort of
+
+00:29:51.500 --> 00:29:54.650
+combined the concept of trappers
+and miners into one thing.
+
+00:29:54.683 --> 00:29:58.083
+Mines are also trap skills,
+but with a different detonation type.
+
+00:29:58.166 --> 00:30:02.216
+So you can take any trap skill,
+swap your weapon that you're using
+
+00:30:02.216 --> 00:30:03.833
+and it's now a mine.
+
+00:30:03.833 --> 00:30:06.683
+It's not that you have
+to specifically find a mine skill
+
+00:30:06.683 --> 00:30:10.000
+to use, you know, to
+to actually have that playstyle.
+
+00:30:10.066 --> 00:30:12.950
+And the other interesting thing
+is with the new weapons
+
+00:30:12.950 --> 00:30:16.316
+swapping system, you can have a trap
+in your alternate weapon set.
+
+00:30:16.516 --> 00:30:19.733
+So you can still use other skills,
+but still trap occasionally
+
+00:30:19.733 --> 00:30:22.833
+if you really want to as well.
+
+00:30:22.916 --> 00:30:24.833
+I do have an example of a mine as well.
+
+00:30:24.833 --> 00:30:26.250
+So this one, as you can see,
+
+00:30:26.250 --> 00:30:28.100
+will have the detonation type,
+which is manual,
+
+00:30:28.100 --> 00:30:30.416
+which requires you
+to detonate them afterwards.
+
+00:30:30.416 --> 00:30:33.633
+And yes, just like all the weapons
+there will be implicits
+
+00:30:33.716 --> 00:30:36.350
+on some of these
+throughout the progression.
+
+00:30:36.350 --> 00:30:42.033
+So you'll have these interesting
+considerations on trappers as well.
+
+00:30:42.116 --> 00:30:46.050
+So the other archetype
+that doesn't- That never had,
+
+00:30:46.133 --> 00:30:49.733
+you know, a specific item class
+dedicated to it was minion builds
+
+00:30:49.733 --> 00:30:53.066
+and you know, general support
+type characters
+
+00:30:53.150 --> 00:30:56.416
+like we've tried a bunch of,
+you know, band aid fixes over the years
+
+00:30:56.416 --> 00:30:57.950
+like,
+you know, about the convoking wand
+
+00:30:57.950 --> 00:30:58.433
+and we've added
+
+00:30:58.433 --> 00:31:00.166
+bone rings
+and we've done a few of those things,
+
+00:31:00.166 --> 00:31:02.266
+but they don't really fix
+the root of the problem.
+
+00:31:02.266 --> 00:31:03.200
+They do help.
+
+00:31:03.200 --> 00:31:05.300
+But you know, what you really want
+
+00:31:05.300 --> 00:31:07.733
+is a set of items
+that you can find throughout the game
+
+00:31:07.733 --> 00:31:11.883
+that is specifically for,
+you know, this particular class.
+
+00:31:11.966 --> 00:31:15.300
+And we, as you know,
+we've added spirit as a concept,
+
+00:31:15.300 --> 00:31:19.050
+which is for our skills that were
+previously reserving your mana,
+
+00:31:19.200 --> 00:31:22.966
+but it also is about your like
+permanent minions
+
+00:31:22.966 --> 00:31:24.316
+also use your spirit.
+
+00:31:24.316 --> 00:31:25.800
+So if you want more zombies,
+
+00:31:25.800 --> 00:31:27.900
+there's no such thing
+as just getting plus zombies.
+
+00:31:27.900 --> 00:31:30.150
+It's just increasing
+Your spirit gives you more zombies.
+
+00:31:30.150 --> 00:31:32.450
+You can use as much of
+as much of your spirit as you like.
+
+00:31:32.450 --> 00:31:34.166
+To get as many zombies as you like.
+
+00:31:34.166 --> 00:31:37.166
+It is completely dependent on
+how much spirit you have.
+
+00:31:37.350 --> 00:31:40.050
+So we obviously wanted a base type
+to support this and scepters
+
+00:31:40.050 --> 00:31:41.816
+are thematically perfect
+for this kind of thing
+
+00:31:41.816 --> 00:31:43.200
+because they were also kind of weird.
+
+00:31:43.200 --> 00:31:47.016
+with the whole half attack half
+spell caster type of thing.
+
+00:31:47.100 --> 00:31:51.483
+So I have some
+examples of scepters here.
+
+00:31:51.566 --> 00:31:52.950
+As you can see,
+
+00:31:52.950 --> 00:31:56.700
+the mods almost always grant
+aura like effects
+
+00:31:56.783 --> 00:31:59.700
+or they improve the spirit
+on the item itself.
+
+00:31:59.700 --> 00:32:01.350
+So it's almost like you get to build
+
+00:32:01.350 --> 00:32:05.100
+your own aura and hold it in either
+your main hand or your off-hand.
+
+00:32:05.183 --> 00:32:07.400
+You get to have that flexibility
+where you know,
+
+00:32:07.400 --> 00:32:10.350
+if you're not planning on doing much
+attacking or spell casting yourself,
+
+00:32:10.350 --> 00:32:12.866
+then hold it in your main hand,
+have a shield
+
+00:32:12.866 --> 00:32:15.233
+and you're pretty defensive
+and you get to buff your allies.
+
+00:32:15.233 --> 00:32:18.233
+or your minions- Well,
+your allies and your minions,
+
+00:32:18.233 --> 00:32:19.100
+I should say.
+
+00:32:19.100 --> 00:32:22.200
+But if you want to, let's say,
+do some attacking as well,
+
+00:32:22.200 --> 00:32:24.316
+then you can just hold it
+in your off-hand if you like,
+
+00:32:24.316 --> 00:32:26.250
+and then you can still have a weapon
+in your main hand.
+
+00:32:26.250 --> 00:32:28.766
+You can do some damage,
+you know, for something like,
+
+00:32:28.766 --> 00:32:30.300
+you know, a build
+that would be similar
+
+00:32:30.300 --> 00:32:32.100
+to dominating blow,
+you can still have a weapon
+
+00:32:32.100 --> 00:32:35.350
+and you can still buff
+your minions in your off-hand.
+
+00:32:35.416 --> 00:32:37.283
+You can also
+put it in your alternate weapon set
+
+00:32:37.283 --> 00:32:38.516
+if you want to just
+
+00:32:38.516 --> 00:32:41.450
+buff your allies once in a while
+and not all the time,
+
+00:32:41.450 --> 00:32:43.733
+but just be careful
+not to use the extra spirit
+
+00:32:43.733 --> 00:32:45.150
+that you gain to use your minions,
+
+00:32:45.150 --> 00:32:50.350
+because when you swap out,
+your minions will go away.
+
+00:32:50.416 --> 00:32:53.250
+So we've talked a bit about skills
+before.
+
+00:32:53.250 --> 00:32:56.516
+So as
+you might have seen in the keynote,
+
+00:32:56.600 --> 00:33:01.366
+we had a big problem with how skill
+gems dropped in Path of Exile 1
+
+00:33:01.366 --> 00:33:04.833
+because the more skill gems
+we add,
+
+00:33:04.916 --> 00:33:08.066
+the less chance you have of finding
+the one that you particularly want.
+
+00:33:08.300 --> 00:33:11.483
+And because- To solve this problem,
+we added gem vendors in
+
+00:33:11.483 --> 00:33:12.350
+Path of Exile 1
+
+00:33:12.350 --> 00:33:14.566
+So you could get one
+at any time that you like.
+
+00:33:14.566 --> 00:33:17.400
+But that isn't 
+the correct solution, because what
+
+00:33:17.400 --> 00:33:20.400
+that means is it's just trivial
+to get any gem at any time.
+
+00:33:20.550 --> 00:33:22.216
+And at that point,
+why are they even itemised?
+
+00:33:22.216 --> 00:33:24.466
+like you should just have access
+to your skills? Right?
+
+00:33:24.466 --> 00:33:27.083
+So in Path of Exile 2,
+we wanted to both
+
+00:33:27.083 --> 00:33:30.366
+have the fun moment where you find
+a gem of like a higher tier.
+
+00:33:30.450 --> 00:33:33.650
+But also we wanted to not prevent you
+from just using a skill
+
+00:33:33.650 --> 00:33:37.500
+that you want to use
+at that particular time.
+
+00:33:37.583 --> 00:33:38.116
+So we've added
+
+00:33:38.116 --> 00:33:41.116
+Uncut Gems, so regular skill gems
+no longer drop
+
+00:33:41.366 --> 00:33:42.166
+and you just find
+
+00:33:42.166 --> 00:33:45.300
+uncut gems of a certain tier
+and you can use them
+
+00:33:45.300 --> 00:33:48.300
+to turn them into any skill
+of that particular tier.
+
+00:33:48.300 --> 00:33:49.966
+And they come pre-leveled.
+
+00:33:49.966 --> 00:33:52.550
+So what that means is
+
+00:33:52.550 --> 00:33:55.066
+it's a lot easier
+to switch into a new skill
+
+00:33:55.066 --> 00:33:55.800
+because you don't have to
+
+00:33:55.800 --> 00:33:59.216
+then re level that skill from level
+one and wait for, you know,
+
+00:33:59.300 --> 00:34:01.283
+wait for the wait for the damage
+to come back to
+
+00:34:01.283 --> 00:34:03.600
+what the current skill
+it was that you were using.
+
+00:34:03.600 --> 00:34:07.350
+Like you can just seamlessly
+swap from one to the other.
+
+00:34:07.433 --> 00:34:10.433
+What this means is certain
+gems just don't exist at low levels.
+
+00:34:10.616 --> 00:34:14.400
+For example, I think Firestorm is
+a 28 skill in Path of Exile 1
+
+00:34:14.483 --> 00:34:18.683
+So in this- So here you might find-
+You might get
+
+00:34:18.683 --> 00:34:25.750
+firestorm at level five and levels
+below level five just don't exist
+
+00:34:25.816 --> 00:34:27.866
+So this is- oh- So let's get
+
+00:34:27.866 --> 00:34:31.150
+into the meat of the matter
+which is item drops.
+
+00:34:31.216 --> 00:34:35.016
+As you all know, we want item
+drops on the ground to matter more.
+
+00:34:35.100 --> 00:34:36.916
+You generally don't
+pick up rares on the ground
+
+00:34:36.916 --> 00:34:38.750
+because you know,
+if you're going to pick them up
+
+00:34:38.750 --> 00:34:40.666
+nine times out of ten,
+they're probably going to suck,
+
+00:34:40.666 --> 00:34:41.916
+right like that?
+
+00:34:41.916 --> 00:34:43.766
+Like you're not going to use them
+
+00:34:43.766 --> 00:34:45.316
+there are a number of reasons
+for this,
+
+00:34:45.316 --> 00:34:48.050
+and we are trying to address
+a lot of these reasons
+
+00:34:48.050 --> 00:34:49.483
+when we're when we're redoing
+item drops
+
+00:34:49.483 --> 00:34:51.900
+from the ground up
+and in Path of Exile 2
+
+00:34:51.900 --> 00:34:54.750
+But there is one particular reason
+that I wanted to talk about,
+
+00:34:54.750 --> 00:34:59.050
+and that is actually because
+of how the chaos orb functions.
+
+00:34:59.116 --> 00:35:03.566
+So if I pick up,
+let's say a helmet of item level 70
+
+00:35:03.683 --> 00:35:07.266
+and another helmet of item level 70,
+and I use a chaos orb on both of them,
+
+00:35:07.350 --> 00:35:09.716
+it doesn't matter
+what you pick them up-
+
+00:35:09.716 --> 00:35:11.783
+it doesn't matter what item
+it was that you picked up originally
+
+00:35:11.783 --> 00:35:13.700
+because they're now completely
+new items.
+
+00:35:13.700 --> 00:35:15.616
+The only thing that mattered
+is the item
+
+00:35:15.616 --> 00:35:17.366
+level of the item that it started
+with.
+
+00:35:17.366 --> 00:35:18.650
+In both cases,
+
+00:35:18.650 --> 00:35:21.650
+the mods that they came with
+just no longer matter anymore.
+
+00:35:21.866 --> 00:35:24.533
+So every base type is effectively
+the same, just as good
+
+00:35:24.533 --> 00:35:25.550
+as every other base type
+
+00:35:25.550 --> 00:35:29.316
+for the purposes of, you know, for
+for the purposes of a Chaos Orb anyway
+
+00:35:29.400 --> 00:35:33.550
+So picking up a rare at that point
+is identical to using a single Chaos Orb
+
+00:35:33.616 --> 00:35:35.733
+on that same base type.
+
+00:35:35.816 --> 00:35:36.766
+So we're
+
+00:35:36.766 --> 00:35:40.683
+making a change to how Chaos Orbs work
+in Path of Exile 2.
+
+00:35:40.766 --> 00:35:44.550
+So rather than rerolling
+the item entirely, it
+
+00:35:44.633 --> 00:35:48.483
+replaces one mod on the item,
+just one.
+
+00:35:48.566 --> 00:35:51.200
+So this means the item that you start
+
+00:35:51.200 --> 00:35:54.200
+with matters a whole lot more
+when it comes to this
+
+00:35:54.383 --> 00:35:57.700
+because you pick up a rare
+it has, you know,
+
+00:35:57.766 --> 00:36:01.166
+two to three great mods,
+maybe one or two really bad mods.
+
+00:36:01.316 --> 00:36:03.383
+Those rares previously
+were not going to be useful
+
+00:36:03.383 --> 00:36:05.783
+because it didn't matter
+that it had a few good mods
+
+00:36:05.783 --> 00:36:08.783
+because it also had those bad mods
+that sort of made the item not worth-
+
+00:36:09.016 --> 00:36:10.066
+not worth using.
+
+00:36:10.066 --> 00:36:12.616
+But now what you can do
+is you can just,
+
+00:36:12.616 --> 00:36:15.500
+you know, like every item
+could be one or two chaos orbs away
+
+00:36:15.500 --> 00:36:17.450
+from becoming a really great item,
+
+00:36:17.450 --> 00:36:19.766
+whereas previously those
+rares were still not good
+
+00:36:19.766 --> 00:36:22.350
+because they didn't
+have those good mods and now you will-
+
+00:36:22.350 --> 00:36:25.366
+And now I- You will hopefully
+use your chaos orbs
+
+00:36:25.583 --> 00:36:28.366
+for a lot of these sort of near
+miss rares.
+
+00:36:28.366 --> 00:36:29.216
+Just use one.
+
+00:36:29.216 --> 00:36:33.233
+And if it- If it doesn't work out
+well the item wasn't that- Wasn't
+
+00:36:33.233 --> 00:36:37.116
+that fantastic to begin with anyway
+because it still had those bad mods.
+
+00:36:37.183 --> 00:36:40.283
+But if one of those bad mods
+turns into a good one
+
+00:36:40.400 --> 00:36:41.516
+then that would be fantastic.
+
+00:36:41.516 --> 00:36:45.566
+and that would
+really improve this.
+
+00:36:45.650 --> 00:36:47.783
+This feeling of the
+items on the ground mattering more.
+
+00:36:47.783 --> 00:36:51.183
+Because what you started with
+now is of paramount importance.
+
+00:36:51.266 --> 00:36:54.300
+But if this was the only change,
+then the best way to make items
+
+00:36:54.300 --> 00:36:57.300
+would be to,
+you know, start from a magic item.
+
+00:36:57.466 --> 00:37:00.150
+Spam your alterations.
+How ever many thousands
+
+00:37:00.150 --> 00:37:03.050
+it would take, and then regal
+and then do that.
+
+00:37:03.050 --> 00:37:05.250
+So for that reason
+we are making a few changes.
+
+00:37:05.250 --> 00:37:07.216
+But the first one is that we
+
+00:37:07.216 --> 00:37:11.516
+alteration orbs will no longer exist
+in Path of Exile 2
+
+00:37:11.600 --> 00:37:14.900
+So the way to do this is
+you must start with a good magic item
+
+00:37:14.900 --> 00:37:15.983
+or a good rare item,
+
+00:37:15.983 --> 00:37:18.233
+or you can create
+one with the transmute or a chaos orb.
+
+00:37:18.233 --> 00:37:23.850
+Now to help all these changes,
+we have gone through every single
+
+00:37:23.933 --> 00:37:27.333
+item and looked at that mod pool
+and made changes to every single
+
+00:37:27.416 --> 00:37:28.366
+items mod pool
+
+00:37:28.366 --> 00:37:31.616
+So almost everything will be
+different to help you with this.
+
+00:37:31.700 --> 00:37:36.450
+With this process
+of making item drops matter more.
+
+00:37:36.533 --> 00:37:37.216
+So to
+
+00:37:37.216 --> 00:37:41.100
+quickly wind up,
+I want to touch on unique items.
+
+00:37:41.183 --> 00:37:43.966
+Oh. Oh, there we go.
+
+00:37:43.966 --> 00:37:45.983
+Our philosophy on unique
+items is that
+
+00:37:45.983 --> 00:37:48.983
+they must be the best item
+for somebody,
+
+00:37:49.100 --> 00:37:53.016
+but most uniques should not be
+the best item for everybody.
+
+00:37:53.100 --> 00:37:54.016
+Now obvious-
+
+00:37:54.016 --> 00:37:57.416
+now we obviously feel like unique
+items are very important to us.
+
+00:37:57.416 --> 00:37:58.500
+And as Dane mentioned,
+
+00:37:58.500 --> 00:38:02.500
+we want to have a unique item
+on every single base type.
+
+00:38:02.566 --> 00:38:06.050
+Some of you may not know this,
+but before I started working at GGG,
+
+00:38:06.300 --> 00:38:10.700
+I was- I designed one of the supporter
+uniques way back in the day.
+
+00:38:10.700 --> 00:38:11.483
+So I have
+
+00:38:11.483 --> 00:38:15.416
+I have had- I have had massive love
+for the unique items in this game.
+
+00:38:15.566 --> 00:38:19.250
+The supporter unique that I made
+back in 2013 was Cloak of Defiance
+
+00:38:19.500 --> 00:38:22.833
+which resulted
+in the Mind Over Matter Keystone.
+
+00:38:22.916 --> 00:38:24.533
+And I've
+been involved in making unique
+
+00:38:24.533 --> 00:38:28.400
+items ever since breach
+which is 2016.
+
+00:38:28.400 --> 00:38:31.016
+So it's been it's been quite a while.
+
+00:38:31.016 --> 00:38:35.816
+So we want to make many unique items
+for everybody.
+
+00:38:35.900 --> 00:38:38.000
+They are meant to enable wacky
+things.
+
+00:38:38.000 --> 00:38:41.000
+They are meant to let you do things
+that you thought
+
+00:38:41.150 --> 00:38:46.016
+would never be possible
+and possibly be build defining.
+
+00:38:46.016 --> 00:38:49.366
+So I have an example
+of a low level unique that we made.
+
+00:38:49.366 --> 00:38:53.166
+I wish we had more to show you,
+but this one here is
+
+00:38:53.250 --> 00:38:56.216
+is pretty interesting
+in that it always freezes
+
+00:38:56.216 --> 00:38:59.216
+enemies for its full duration
+when you hit them the first time.
+
+00:38:59.216 --> 00:38:59.816
+So you always
+
+00:38:59.816 --> 00:39:03.566
+have a really strong initiation
+as soon as you walk up to an enemy.
+
+00:39:03.650 --> 00:39:08.066
+So like men- Like Dane mentioned,
+every base type will have a unique
+
+00:39:08.150 --> 00:39:10.816
+and that and that includes
+a lot of new uniques.
+
+00:39:10.816 --> 00:39:12.533
+But don't worry
+
+00:39:12.533 --> 00:39:15.166
+what this also means is
+we are going to be bringing a lot
+
+00:39:15.166 --> 00:39:18.816
+of your favorites from Path of Exile 1
+into Path of Exile 2
+
+00:39:18.900 --> 00:39:21.800
+because is it really-
+Is it really a Path of Exile game
+
+00:39:21.800 --> 00:39:25.616
+if you don't have a
+Headhunter or a Shavs in it?
+
+00:39:25.700 --> 00:39:26.816
+Yeah, exactly.
+
+00:39:26.816 --> 00:39:30.250
+So they might be slightly different
+to what you might-
+
+00:39:30.366 --> 00:39:31.166
+You might be used to,
+
+00:39:31.166 --> 00:39:32.716
+you know,
+a few stats might be different here
+
+00:39:32.716 --> 00:39:34.800
+and there as a result
+of the mechanics changing,
+
+00:39:34.800 --> 00:39:37.283
+but they will be instantly
+recognisable as a result.
+
+00:39:37.283 --> 00:39:37.750
+And you'll
+
+00:39:37.750 --> 00:39:40.850
+have a lot of your favorites
+that you’re used to- That you-
+
+00:39:40.966 --> 00:39:42.950
+That you used to like playing
+with in Path of Exile 1
+
+00:39:42.950 --> 00:39:47.850
+And you will have a lot of new ones
+as well to find as you go through.
+
+00:39:47.933 --> 00:39:52.800
+So I think that's everything
+from my end.
+
+00:39:52.883 --> 00:39:56.166
+I guess we have some time
+for questions.
+
+00:39:56.250 --> 00:40:02.966
+Come on, Zaccie.
+
+00:40:03.050 --> 00:40:03.450
+Hello.
+
+00:40:03.450 --> 00:40:06.533
+My name's
+Zac and I'm a game designer for GGG,
+
+00:40:06.650 --> 00:40:08.716
+and I will be doing the questions
+here.
+
+00:40:08.716 --> 00:40:11.933
+And while I wait for people
+to submit some questions,
+
+00:40:11.933 --> 00:40:15.816
+I will ask one I prepared earlier,
+and that is
+
+00:40:15.900 --> 00:40:19.400
+does the art of the item
+dictate the design
+
+00:40:19.400 --> 00:40:23.050
+or do you design first
+and then get the art for the item?
+
+00:40:23.116 --> 00:40:27.416
+It can be very different depending on
+what is necessary at the time.
+
+00:40:27.500 --> 00:40:28.283
+Like sometimes
+
+00:40:28.283 --> 00:40:31.283
+we just have to make a lot of uniques
+in a really short amount-
+
+00:40:31.433 --> 00:40:32.666
+amount of time.
+
+00:40:32.666 --> 00:40:36.100
+And if we have art available,
+then we try to fit the stat
+
+00:40:36.166 --> 00:40:38.750
+to what the unique art
+is already there.
+
+00:40:38.750 --> 00:40:41.666
+But generally sometimes it's,
+you know,
+
+00:40:41.666 --> 00:40:45.450
+we have this crazy idea
+that we're like, Can we do this?
+
+00:40:45.450 --> 00:40:47.716
+And it's like, Well,
+it sounds cool, let's do it.
+
+00:40:47.716 --> 00:40:49.766
+And we make an item
+and it's just a blank item
+
+00:40:49.766 --> 00:40:51.466
+without a name, without any art.
+
+00:40:51.466 --> 00:40:52.583
+And then we try it and game.
+
+00:40:52.583 --> 00:40:55.916
+It's like this unique is awesome
+and then we make the art for it
+
+00:40:56.000 --> 00:40:57.416
+so it can go both ways.
+
+00:40:57.416 --> 00:41:01.216
+I would say more often than not,
+at least in Path of Exile 1, it's
+
+00:41:01.216 --> 00:41:06.100
+been mechanics first into art,
+but you know that may not be
+
+00:41:06.166 --> 00:41:09.683
+Yeah and for Path of Exile 2
+It's more the opposite for now
+
+00:41:09.683 --> 00:41:11.666
+because for a long time
+
+00:41:11.666 --> 00:41:14.966
+they didn't really know
+what they were doing with items
+
+00:41:15.050 --> 00:41:19.333
+and as basically a blacksmith that just
+smashes things out really quickly.
+
+00:41:19.383 --> 00:41:21.383
+It's just like that's a cool sword
+
+00:41:21.383 --> 00:41:25.500
+that's a cool sword, that's a cool sword.
+I just make all this stuff and
+
+00:41:25.583 --> 00:41:26.400
+yeah, they're going
+
+00:41:26.400 --> 00:41:29.400
+to find that treasure trove of stuff
+and turn it into stuff.
+
+00:41:29.400 --> 00:41:32.416
+But I think it's really valuable
+to have art
+
+00:41:32.416 --> 00:41:35.450
+that can inspire gameplay stuff
+that they weren't even thinking of.
+
+00:41:35.450 --> 00:41:38.716
+They might not even have- Never
+entered their mental space.
+
+00:41:38.716 --> 00:41:40.550
+Oh yeah, that happens a lot.
+I would say.
+
+00:41:40.550 --> 00:41:42.900
+They'll just see it and go, Oh,
+this thing's like split in two.
+
+00:41:42.900 --> 00:41:46.666
+And it could be like,
+you know, it hits the guy here.
+
+00:41:46.666 --> 00:41:48.150
+I don't know
+
+00:41:52.616 --> 00:41:54.833
+So let's
+see what else we've got here.
+
+00:41:54.833 --> 00:41:57.600
+Do you have any memorable uniques
+
+00:41:57.600 --> 00:42:00.383
+from Path of Exile 1
+that you have designed?
+
+00:42:00.383 --> 00:42:07.416
+Oh, that is a tough question
+because I've made so many,
+
+00:42:07.500 --> 00:42:09.566
+I think one of my favorites,
+
+00:42:09.566 --> 00:42:12.866
+or at least I would say
+very memorable, was Indigon
+
+00:42:12.950 --> 00:42:18.183
+because Indigon was probably
+the start of that entire set of
+
+00:42:18.266 --> 00:42:21.016
+mana related spells
+that followed later.
+
+00:42:21.016 --> 00:42:22.583
+But Indigon
+was really the first.
+
+00:42:22.583 --> 00:42:27.050
+It was the first item that weaponised
+mana into a form of damage.
+
+00:42:27.116 --> 00:42:29.416
+I have a thing for that as well.
+
+00:42:29.416 --> 00:42:29.850
+Yeah.
+
+00:42:29.850 --> 00:42:32.033
+I was going to ask for the art side
+if you have any like
+
+00:42:32.033 --> 00:42:33.566
+of your favorite pieces.
+
+00:42:33.566 --> 00:42:38.216
+I've been doing pretty much
+most of the unique item art since.
+
+00:42:38.300 --> 00:42:43.083
+I guess whenever betrayal happened,
+I came, I came on board a little after.
+2017?
+
+00:42:45.316 --> 00:42:48.316
+maybe? 
+The last five years or something like that.
+
+00:42:48.316 --> 00:42:51.350
+And so I've done
+a lot of the art for them
+
+00:42:51.350 --> 00:42:54.350
+and the art has a very different name
+to the final game.
+
+00:42:54.350 --> 00:42:55.883
+It's not even close.
+
+00:42:55.883 --> 00:42:57.900
+An interesting
+
+00:42:57.900 --> 00:43:00.900
+one to me is The Shield
+everyone knows as the Squire.
+
+00:43:01.050 --> 00:43:04.033
+I think it's the thing
+with three white sockets. Yep.
+
+00:43:04.033 --> 00:43:06.516
+Yeah, I made them have three white
+sockets from an art perspective
+
+00:43:06.516 --> 00:43:10.400
+Yeah, I remember!
+ Because I modeled three white sockets, eye ball things
+
+00:43:10.400 --> 00:43:12.650
+things on it and I was like, it's
+going to have three white sockets.
+
+00:43:12.650 --> 00:43:14.183
+Yeah, I actually remember this.
+
+00:43:14.183 --> 00:43:17.966
+And they were like, okay, well,
+it was busted anyway.
+
+00:43:18.200 --> 00:43:20.250
+So adding the three white sockets to,
+
+00:43:20.250 --> 00:43:21.700
+I don't know if it really changed
+too much.
+
+00:43:21.700 --> 00:43:23.216
+So I just made it more OP
+
+00:43:23.216 --> 00:43:25.666
+But on the same day I made that,
+
+00:43:25.666 --> 00:43:28.666
+I just made it and they were like,
+Oh, we need another shield.
+
+00:43:28.800 --> 00:43:32.516
+And I was like, okay,
+I'll make a cooler one! So I made a cooler shield
+
+00:43:32.600 --> 00:43:33.683
+Visually.
+
+00:43:33.683 --> 00:43:38.066
+And that
+ended up being the oppressor.
+
+00:43:38.150 --> 00:43:39.233
+And I was very bummed.
+
+00:43:39.233 --> 00:43:42.266
+Trash the trash!
+Definitely wasn't the coolest shield in game
+
+00:43:42.300 --> 00:43:46.316
+If knew I would have not made it
+that cool looking
+
+00:43:46.400 --> 00:43:49.733
+I would’ve dug some trash
+out of the unused folder.
+
+00:43:49.800 --> 00:43:53.016
+Yeah.
+
+00:43:53.100 --> 00:43:58.383
+Let's see what else we've got here
+
+00:43:58.466 --> 00:43:58.850
+in terms
+
+00:43:58.850 --> 00:44:02.150
+of making art
+and I guess items for an act.
+
+00:44:02.150 --> 00:44:06.166
+How are you like, getting inspired
+or taking inspiration from?
+
+00:44:06.383 --> 00:44:09.816
+We have really strong art direction
+people.
+
+00:44:09.900 --> 00:44:12.233
+Some have come and gone,
+
+00:44:12.233 --> 00:44:14.750
+shout out Chander.
+
+00:44:14.750 --> 00:44:15.500
+Yeah.
+
+00:44:15.500 --> 00:44:16.200
+And they,
+
+00:44:16.200 --> 00:44:20.250
+they really just put a really dense
+fabric of, of, of thinking over
+
+00:44:20.250 --> 00:44:21.266
+all of the acts
+
+00:44:21.266 --> 00:44:25.050
+like really going into Maraketh,
+Vaal and Karui and others.
+
+00:44:25.050 --> 00:44:27.466
+I'm not going to talk about.
+
+00:44:27.466 --> 00:44:31.100
+And just, basically we would work
+with them and establish like
+
+00:44:31.100 --> 00:44:34.566
+common shape language
+and like themes and stuff 
+
+00:44:34.650 --> 00:44:39.850
+just to make things
+feel cohesive and part of that world,
+
+00:44:39.916 --> 00:44:44.283
+same kind of patterns
+and shapes and stuff like that.
+
+00:44:44.366 --> 00:44:45.716
+yeah,
+
+00:44:45.716 --> 00:44:48.716
+it's the most interesting part,
+I think because it sort of
+
+00:44:48.866 --> 00:44:49.583
+you create stuff
+
+00:44:49.583 --> 00:44:53.466
+no one's ever seen before kind of
+because it's like it just doesn't,
+
+00:44:53.550 --> 00:44:57.400
+you know, there's like weapons
+made of like cactus wood,
+
+00:44:57.483 --> 00:45:01.083
+Like, no one
+makes weapons of cactus wood.
+
+00:45:01.166 --> 00:45:01.800
+But they were like, oh,
+
+00:45:01.800 --> 00:45:04.800
+these people, they
+they only have access to cactus wood.
+
+00:45:04.800 --> 00:45:07.800
+So the handle has to be cactus
+somewhere, right?
+
+00:45:07.950 --> 00:45:11.333
+Like I can't have just wood,
+otherwise it breaks the theme.
+
+00:45:11.333 --> 00:45:14.333
+It's like well hey,
+where’d they get that wood from?
+
+00:45:14.566 --> 00:45:15.850
+It's like small stuff like that.
+
+00:45:15.850 --> 00:45:18.050
+Another question we have here.
+
+00:45:18.050 --> 00:45:18.466
+Are there
+
+00:45:18.466 --> 00:45:22.616
+versions of the early game bases
+that have stats appropriate for,
+
+00:45:22.666 --> 00:45:24.266
+I guess, toward the end game?
+
+00:45:24.266 --> 00:45:26.716
+Oh, yes. So
+
+00:45:26.716 --> 00:45:29.566
+those implicit that you will see
+throughout the campaign
+
+00:45:29.566 --> 00:45:34.600
+will be repeated in end game
+in sort of end game bases
+
+00:45:34.666 --> 00:45:36.316
+So if you happen to like,
+
+00:45:36.316 --> 00:45:39.533
+you know, something that
+that an implicit enabled earlier on
+
+00:45:39.566 --> 00:45:43.683
+you will be able
+to use it later on as well.
+
+00:45:43.783 --> 00:45:46.366
+Probably should have mentioned that earlier
+
+00:45:46.366 --> 00:45:49.100
+I guess this is a reference
+to the Chaos Orbs
+
+00:45:49.100 --> 00:45:53.766
+Will alch scouring still work?
+
+00:45:53.850 --> 00:45:57.033
+No it won't because
+
+00:45:57.033 --> 00:45:59.566
+there will not be any scouring orbs
+
+00:45:59.566 --> 00:46:02.450
+Yep! They’re gone!
+
+00:46:02.450 --> 00:46:04.050
+If you want another item
+You’re going to have to alch
+
+00:46:04.050 --> 00:46:08.166
+a white one.
+
+00:46:08.250 --> 00:46:08.783
+Why is there
+
+00:46:08.783 --> 00:46:12.616
+no 75% Int 25% strength or dex weapon.
+
+00:46:12.633 --> 00:46:17.816
+So like why aren't you fitting
+more of the pie into the ratio?
+
+00:46:17.900 --> 00:46:20.816
+You haven't seen all the weapons yet.
+
+00:46:20.816 --> 00:46:24.166
+Maybe..
+There actually is a few, but it
+
+00:46:24.266 --> 00:46:25.650
+it wouldn't have really, you know,
+
+00:46:25.650 --> 00:46:29.300
+looked really nice in that graphic
+because some of the staves
+
+00:46:29.300 --> 00:46:32.300
+will have skills that are more,
+
+00:46:32.300 --> 00:46:36.366
+you know, strength int aligned spell
+and then that would actually take up
+
+00:46:36.366 --> 00:46:40.983
+the 75% Int 25%
+strength section of the tree
+
+00:46:41.066 --> 00:46:44.283
+that is slightly more,
+you know, nebulous
+
+00:46:44.366 --> 00:46:45.050
+like in a little way
+
+00:46:45.050 --> 00:46:48.750
+because the caster weapons
+don't actually have those base stats
+
+00:46:48.833 --> 00:46:52.166
+to, you know, change
+as a result of their attributes.
+
+00:46:52.366 --> 00:46:56.550
+But it's more just, I suppose,
+what attribute requirements,
+
+00:46:56.550 --> 00:47:00.933
+the skills that are aligned to that
+particular class requires.
+
+00:47:01.016 --> 00:47:02.600
+But again, this is Path of Exile
+
+00:47:02.600 --> 00:47:05.916
+You're going to use an Int weapon
+a strength skill and
+
+00:47:06.083 --> 00:47:10.716
+and everything. You know?
+
+00:47:10.800 --> 00:47:13.283
+there's just a lot of questions.
+
+00:47:13.283 --> 00:47:18.700
+It's really hard to filter
+through all of them
+
+00:47:19.100 --> 00:47:23.950
+Like there are way
+more than I expected.
+
+00:47:24.016 --> 00:47:24.900
+Oh, this is a good one.
+
+00:47:24.900 --> 00:47:29.416
+How does the art for items
+come from the story or the lore
+
+00:47:29.416 --> 00:47:32.666
+Does the art
+sometimes influence the lore?
+
+00:47:32.750 --> 00:47:35.400
+oh... I think that
+
+00:47:35.400 --> 00:47:38.800
+sometimes it kind of makes itself up
+as it goes.
+
+00:47:38.866 --> 00:47:43.216
+But there is- There are times where
+
+00:47:43.300 --> 00:47:46.300
+there's obviously characters and they have stuff.
+
+00:47:46.300 --> 00:47:48.916
+like there will be bosses
+and things that a unique.
+
+00:47:48.916 --> 00:47:50.216
+Weapon is just straight up,
+
+00:47:50.216 --> 00:47:53.116
+like you get it off them
+kind of thing.
+
+00:47:53.116 --> 00:47:54.383
+There’s definitely been times
+
+00:47:54.383 --> 00:47:58.300
+where we’ve made a unique
+with some story behind it
+
+00:47:58.366 --> 00:48:00.950
+and then we've expanded on it
+at a much later date.
+
+00:48:00.950 --> 00:48:02.516
+Yeah,
+So it's always nice to have these
+
+00:48:02.516 --> 00:48:07.950
+sort of story threads that we can
+then follow up on later.
+
+00:48:08.033 --> 00:48:09.300
+This could be interesting.
+
+00:48:09.300 --> 00:48:12.900
+Was there a memorable unique
+you tried to design that couldn't
+
+00:48:12.900 --> 00:48:15.016
+be implemented
+for a technical reason?
+
+00:48:15.016 --> 00:48:15.500
+Oh yes.
+
+00:48:15.500 --> 00:48:21.333
+Actually there are so many of these,
+but I think my favorite example is
+
+00:48:21.416 --> 00:48:24.766
+so there's that helmet
+that drops from Kurgal
+
+00:48:24.766 --> 00:48:28.050
+The boss in Delve, the Lich from Delve
+called Hale Negator
+
+00:48:28.050 --> 00:48:32.200
+I think? So
+originally the effect of what
+
+00:48:32.266 --> 00:48:35.250
+what that helmet was supposed to do
+was it was supposed to do what
+
+00:48:35.250 --> 00:48:37.350
+the Agnostic Keystone does,
+
+00:48:37.350 --> 00:48:40.166
+where it was supposed to drain
+your mana and heal your health.
+
+00:48:40.166 --> 00:48:44.333
+But for technical reasons
+that I don't actually remember now,
+
+00:48:44.550 --> 00:48:48.966
+it could not exist on an item
+that also had energy shield on it,
+
+00:48:49.050 --> 00:48:53.216
+and it couldn't exist unless
+it turned off your energy shield.
+
+00:48:53.300 --> 00:48:55.883
+So when
+we were doing the Legion Keystone-
+
+00:48:55.883 --> 00:48:59.216
+so we had to come up with something
+completely different in the last week
+
+00:48:59.216 --> 00:49:02.550
+before the release-
+the release of Delve.
+
+00:49:02.633 --> 00:49:05.116
+But I always really love that idea
+because it was just
+
+00:49:05.116 --> 00:49:07.916
+a really cool thing that, you know,
+
+00:49:07.916 --> 00:49:09.300
+And then when we were designing
+
+00:49:09.300 --> 00:49:13.416
+those millions of keystones,
+when we were doing the Legion,
+
+00:49:13.500 --> 00:49:15.083
+you know, like the Timeless Jewels,
+
+00:49:15.083 --> 00:49:17.600
+this idea just came back
+and I just kept pushing it.
+
+00:49:17.600 --> 00:49:19.400
+I was like, you know,
+we got to find a way to do this
+
+00:49:19.400 --> 00:49:20.550
+because it'll be really awesome.
+
+00:49:20.550 --> 00:49:21.833
+And eventually
+
+00:49:21.833 --> 00:49:23.550
+the way we were able to do it
+was, Well,
+
+00:49:23.550 --> 00:49:25.916
+if you turn off Energy Shield entirely,
+then we can do it.
+
+00:49:25.916 --> 00:49:28.850
+So it sort of works as a downside,
+which I mean, it
+
+00:49:28.850 --> 00:49:32.033
+probably did need one,
+at least at the time, but it also
+
+00:49:32.033 --> 00:49:35.800
+was a technical reason
+why it needed to exist.
+
+00:49:35.866 --> 00:49:38.966
+And I guess as the last question
+before you run out of time
+
+00:49:38.966 --> 00:49:44.666
+here, are there item types with three-
+all three attributes split.
+
+00:49:44.750 --> 00:49:46.433
+Not currently, no.
+
+00:49:46.433 --> 00:49:49.433
+I want them. 
+Yeah?
+
+00:49:49.466 --> 00:49:51.866
+For now. For now.
+
+00:49:51.866 --> 00:49:57.116
+And with that we have run out of time
+for this panel.
+
+00:49:57.200 --> 00:49:57.766
+All right.
+
+00:49:57.766 --> 00:50:03.116
+Thank you very much. And-
+
+00:50:04.883 --> 00:50:08.250
+and hope you enjoy
+the rest of ExileCon
+
+00:50:08.316 --> 00:50:10.433
+Anyone from Australia?
+
+00:50:10.433 --> 00:50:13.800
+anyone from Australia? ayyy my people!
+

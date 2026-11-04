@@ -5,7 +5,7 @@ import test from "node:test";
 // global object; importing it for side effects mirrors that environment.
 import "../extension/content/overlay-history.js";
 
-const { createHistoryLog, resetHistoryLog, syncHistoryLog } =
+const { createHistoryLog, planHistoryRows, resetHistoryLog, syncHistoryLog } =
   globalThis.ShengmuOverlayHistory;
 
 function line(id, order, source, translation = "") {
@@ -125,4 +125,48 @@ test("history log reset clears entries and the id index", () => {
   resetHistoryLog(log);
   assert.equal(log.entries.length, 0);
   assert.equal(log.byId.size, 0);
+});
+
+test("row plan keeps the rendered order and names only the moved nodes", () => {
+  // New line slides in at the bottom, the oldest visible row slides out: one
+  // node added, one dropped, and the rest keep their nodes (no re-create flash).
+  assert.deepEqual(planHistoryRows(["a", "b", "c", "d"], ["b", "c", "d", "e"]), {
+    order: ["b", "c", "d", "e"],
+    added: ["e"],
+    removed: ["a"]
+  });
+  // Wheel up reveals an older row at the top.
+  assert.deepEqual(planHistoryRows(["b", "c"], ["a", "b", "c"]), {
+    order: ["a", "b", "c"],
+    added: ["a"],
+    removed: []
+  });
+  // Wheel down drops the oldest row.
+  assert.deepEqual(planHistoryRows(["a", "b", "c"], ["b", "c"]), {
+    order: ["b", "c"],
+    added: [],
+    removed: ["a"]
+  });
+});
+
+test("row plan is empty when the window did not change", () => {
+  assert.deepEqual(planHistoryRows(["a", "b"], ["a", "b"]), {
+    order: ["a", "b"],
+    added: [],
+    removed: []
+  });
+  assert.deepEqual(planHistoryRows([], []), { order: [], added: [], removed: [] });
+  assert.deepEqual(planHistoryRows(["a"], []), { order: [], added: [], removed: ["a"] });
+});
+
+test("row plan isolates a row that left the middle of the window", () => {
+  // A line dropped by the log can only be the oldest, but a session switch or a
+  // filtered row can vanish anywhere: the rest must keep their nodes instead of
+  // being rebuilt around the hole.
+  assert.deepEqual(planHistoryRows(["a", "b", "c", "d"], ["a", "c", "d"]), {
+    order: ["a", "c", "d"],
+    added: [],
+    removed: ["b"]
+  });
+  assert.deepEqual(planHistoryRows(null, undefined), { order: [], added: [], removed: [] });
 });

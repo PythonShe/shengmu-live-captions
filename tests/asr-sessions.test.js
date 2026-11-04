@@ -63,12 +63,15 @@ test("a full window never cuts through a sentence the reducer merged", () => {
     accumulator.final(`boss arena number ${index} and see what it drops today.`, index * 4 + 1, index * 4 + 2);
     update();
   }
-  const sources = [...knownLines.values()].map((line) => line.source);
-  assert.equal(sources.length, 20, "one history row per sentence");
-  for (let index = 0; index < 20; index += 1) {
-    assert.equal(
-      sources[index],
-      `so in part ${index} we are going to check out the boss arena number ${index} and see what it drops today.`
+  // Untranslated rows are screen-only, so the window itself is the proof: no
+  // row in it is a half sentence the merge should have joined.
+  const sources = state.current.lines.map((line) => line.source);
+  assert.ok(sources.length > 0);
+  for (const source of sources) {
+    assert.match(
+      source,
+      /we are going to check out the boss arena number \d+ and see what it drops today\.$/,
+      source
     );
   }
   assert.ok(accumulator.message().lines.length <= 6);

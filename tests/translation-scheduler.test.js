@@ -2,8 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  TRANSLATION_BUFFER_DEBOUNCE_MS,
-  TRANSLATION_BUFFER_MIN_INTERVAL_MS,
   TRANSLATION_LINE_CONCURRENCY,
   TRANSLATION_LINE_DEBOUNCE_MS,
   TRANSLATION_LINE_RETRY_DELAYS_MS,
@@ -40,7 +38,7 @@ function row(id, source, extra = {}) {
   return { id, source, translation: "", translationPending: true, ...extra };
 }
 
-function setup({ lines = [], bufferSource = "", auto = null, config = {}, partial = true, random = () => 0 } = {}) {
+function setup({ lines = [], bufferSource = "", auto = null, config = {}, random = () => 0 } = {}) {
   const clock = createFakeClock();
   const translator = createTranslator({ auto });
   const state = {
@@ -61,7 +59,6 @@ function setup({ lines = [], bufferSource = "", auto = null, config = {}, partia
   const scheduler = createTranslationScheduler({
     getState: () => state,
     getConfig: () => settings,
-    partialEnabled: () => partial,
     translateTexts: translator.translate,
     knownLines,
     enqueueHistory: (batch) => history.push(...batch),
@@ -104,9 +101,14 @@ test("completed rows debounce, batch together and leave their own ids out of the
   assert.equal(state.current.lines[1].translation, "译甲", "polishTranslation ran");
   assert.equal(state.current.lines[2].translation, "译乙");
   assert.deepEqual(history.map((line) => line.id), ["a", "b"]);
-  assert.equal(history[0].signature, `Um, ${LONG}\u0000译甲`);
+  assert.equal(history[0].signature, `Um, ${LONG}\u0000译甲\u00000`);
   assert.deepEqual(published.at(-1), { reason: "lines", lineIds: ["a", "b"] });
-  assert.deepEqual(scheduler.usage, { requests: 1, promptTokens: 4, completionTokens: 2 });
+  assert.deepEqual(scheduler.usage, {
+    requests: 1,
+    promptTokens: 4,
+    completionTokens: 2,
+    billedCharacters: 0
+  });
   assert.equal(state.translation.usage.requests, 1);
   assert.equal(scheduler.inspect().pending.size, 0);
 });
@@ -157,19 +159,34 @@ test("a non-retryable failure marks the row failed at once and never re-queues i
   assert.equal(shouldRetryTranslationError({ code: "network" }), true);
 });
 
-test("a row that grew while its request was in flight is retranslated with the new source", async () => {
-  const { clock, translator, state, scheduler } = setup({ lines: [row("a", LONG)] });
+test("a row that grew while its request was in flight keeps the answer as a stage translation", async () => {
+  const { clock, translator, state, history, scheduler } = setup({ lines: [row("a", LONG)] });
   scheduler.scheduleLines(0);
   await clock.advance(0);
-  state.current.lines[0] = row("a", `${LONG} And it kept going.`);
+  // The recogniser appended a few words: not enough to make the answer wrong,
+  // and not enough to spend another request yet (see shouldRetranslateLine).
+  // The appended words form a complete short sentence, so the batch planner
+  // does not hold the row as a trailing fragment.
+  state.current.lines[0].source = `${LONG} Nice.`;
+  state.current.lines[0].translationPending = true;
   translator.calls[0].resolve({ translations: ["旧译文"] });
   await settleAsync();
 
+  assert.equal(state.current.lines[0].translation, "旧译文");
+  assert.equal(state.current.lines[0].translationPending, true, "the row is still behind");
+  assert.deepEqual(history, [], "a stage translation is screen-only");
+  assert.equal(translator.calls.length, 1, "the newer source is held by the throttle");
+  assert.equal(scheduler.inspect().wakeTimer, true);
+
+  // The wake timer re-runs the queue even though no new ASR update arrives.
+  await clock.advance(400);
+  await clock.advance(0);
   assert.equal(translator.calls.length, 2);
-  assert.deepEqual(translator.calls[1].texts, [`${LONG} And it kept going.`]);
   translator.calls[1].resolve({ translations: ["新译文"] });
   await settleAsync();
   assert.equal(state.current.lines[0].translation, "新译文");
+  assert.equal(state.current.lines[0].translationPending, false);
+  assert.equal(history.at(-1).translation, "新译文");
 });
 
 test("reset discards a response that arrives for the previous generation", async () => {
@@ -217,114 +234,6 @@ test("a row that finishes while a request runs gets its own request, up to the c
   assert.equal(scheduler.inspect().lineWorkers, 0);
 });
 
-test("a row the buffer request already translated takes that translation without a request", async () => {
-  const spoken = "the boss drops a divine orb when you kill it fast";
-  const { clock, translator, state, scheduler } = setup({ bufferSource: spoken });
-  scheduler.scheduleBuffer();
-  await clock.advance(TRANSLATION_BUFFER_DEBOUNCE_MS);
-  translator.calls[0].resolve({ translations: ["快速击杀首领会掉落神圣石"] });
-  await settleAsync();
-
-  // The speaker paused: the half-sentence is committed (Chrome capitalizes it).
-  state.current.bufferSource = "";
-  state.current.lines.push(row("a", "The boss drops a Divine Orb when you kill it fast."));
-  scheduler.scheduleLines();
-  await settleAsync();
-  assert.equal(state.current.lines[0].translation, "快速击杀首领会掉落神圣石");
-  assert.equal(state.current.lines[0].translationPending, false);
-  await clock.advance(TRANSLATION_LINE_DEBOUNCE_MS);
-  assert.equal(translator.calls.length, 1, "no line request was sent");
-  assert.equal(scheduler.inspect().prefetchHits, 1);
-});
-
-test("a buffer translation that lands while the row is in flight shows first, then the full one wins", async () => {
-  const spoken = "now the searing exarch is a little different";
-  const { clock, translator, state, scheduler } = setup({ bufferSource: spoken });
-  scheduler.scheduleBuffer();
-  await clock.advance(TRANSLATION_BUFFER_DEBOUNCE_MS);
-  const bufferCall = translator.calls[0];
-
-  state.current.bufferSource = "";
-  scheduler.abortStaleBuffer();
-  assert.equal(bufferCall.signal.aborted, false, "the committed half-sentence keeps its request");
-  state.current.lines.push(row("a", spoken));
-  scheduler.scheduleLines();
-  await clock.advance(TRANSLATION_LINE_DEBOUNCE_MS);
-  assert.equal(translator.calls.length, 2, "the row went out before the buffer answer");
-  const lineCall = translator.calls[1];
-
-  bufferCall.resolve({ translations: ["焚界者有点不同"] });
-  await settleAsync();
-  assert.equal(state.current.lines[0].translation, "焚界者有点不同");
-
-  lineCall.resolve({ translations: ["现在焚界者有点不一样"] });
-  await settleAsync();
-  assert.equal(state.current.lines[0].translation, "现在焚界者有点不一样");
-  assert.equal(state.current.lines[0].translationFailed, false);
-});
-
-test("the buffer request debounces, keeps a minimum interval and yields to a line backlog", async () => {
-  const { clock, translator, state, scheduler } = setup({
-    lines: [row("a", LONG), row("b", LONG), row("c", LONG)],
-    bufferSource: "and then the streamer"
-  });
-  // Three queued rows are a backlog above the limit: the buffer waits.
-  scheduler.scheduleLines(10_000);
-  scheduler.scheduleBuffer();
-  await clock.advance(TRANSLATION_BUFFER_DEBOUNCE_MS);
-  assert.equal(translator.calls.length, 0);
-  assert.equal(scheduler.inspect().bufferTimer, true);
-
-  state.current.lines = [];
-  scheduler.reset({ keepUsage: true });
-  scheduler.scheduleBuffer();
-  await clock.advance(TRANSLATION_BUFFER_DEBOUNCE_MS);
-  assert.equal(translator.calls.length, 1);
-  assert.equal(translator.calls[0].partial, true);
-  translator.calls[0].resolve({ translations: ["嗯，然后主播"] });
-  await settleAsync();
-  assert.equal(state.current.bufferTranslation, "然后主播");
-
-  state.current.bufferSource = "and then the streamer opened the map";
-  scheduler.scheduleBuffer();
-  await clock.advance(TRANSLATION_BUFFER_DEBOUNCE_MS);
-  assert.equal(translator.calls.length, 1, "the min interval is not over yet");
-  await clock.advance(TRANSLATION_BUFFER_MIN_INTERVAL_MS - TRANSLATION_BUFFER_DEBOUNCE_MS);
-  assert.equal(translator.calls.length, 2);
-});
-
-// Regression for ca4c2bf: an aborted buffer request that settles late must not
-// clear the in-flight slot that a newer request already owns.
-test("only the owning buffer request clears the in-flight slot", async () => {
-  const { clock, translator, state, scheduler } = setup({ bufferSource: "the first half" });
-  scheduler.scheduleBuffer();
-  await clock.advance(TRANSLATION_BUFFER_DEBOUNCE_MS);
-  const first = translator.calls[0];
-
-  state.current.bufferSource = "the first half keeps growing";
-  scheduler.abortStaleBuffer();
-  assert.equal(first.signal.aborted, true);
-  scheduler.scheduleBuffer();
-  await clock.advance(TRANSLATION_BUFFER_MIN_INTERVAL_MS);
-  assert.equal(translator.calls.length, 2);
-  const second = translator.calls[1];
-  assert.equal(scheduler.inspect().bufferInFlight, true);
-
-  // The first request only now reports its abort.
-  first.reject(abortError());
-  await settleAsync();
-  assert.equal(scheduler.inspect().bufferInFlight, true, "the newer request still owns the slot");
-
-  // A stale-buffer abort must still reach the request that owns the slot,
-  // and no third request may start while the second is in flight.
-  state.current.bufferSource = "the first half keeps growing and growing";
-  scheduler.abortStaleBuffer();
-  assert.equal(second.signal.aborted, true);
-  second.reject(abortError());
-  await settleAsync();
-  assert.equal(translator.calls.length, 2);
-});
-
 test("settle waits for the line queue, then aborts at the deadline and marks leftovers failed", async () => {
   const { clock, translator, state, scheduler } = setup({ lines: [row("a", LONG)] });
   let settled = false;
@@ -362,7 +271,12 @@ test("settle without an enabled API applies the server fallbacks", async () => {
 test("restore and config changes reset the error and requeue failed rows", async () => {
   const { clock, translator, state, scheduler } = setup({ lines: [row("a", LONG)] });
   scheduler.restore({ usage: { requests: 3, promptTokens: "9", completionTokens: 1 }, error: "old" });
-  assert.deepEqual(scheduler.usage, { requests: 3, promptTokens: 9, completionTokens: 1 });
+  assert.deepEqual(scheduler.usage, {
+    requests: 3,
+    promptTokens: 9,
+    completionTokens: 1,
+    billedCharacters: 0
+  });
   assert.equal(scheduler.lastError, "old");
 
   scheduler.scheduleLines(0);
@@ -425,11 +339,8 @@ test("a single row that still fails after splitting goes through the normal retr
   assert.deepEqual(translator.calls[3].texts, [`A: ${LONG}`]);
 });
 
-test("a Retry-After from one stream holds back both streams", async () => {
-  const { clock, translator, scheduler } = setup({
-    lines: [row("a", LONG)],
-    bufferSource: "and the buffer keeps talking about the next thing"
-  });
+test("a Retry-After holds back the line queue until the cooldown ends", async () => {
+  const { clock, translator, scheduler } = setup({ lines: [row("a", LONG)] });
   scheduler.scheduleLines(0);
   await clock.advance(0);
   translator.calls[0].reject(
@@ -437,10 +348,8 @@ test("a Retry-After from one stream holds back both streams", async () => {
   );
   await settleAsync();
   assert.equal(scheduler.inspect().cooldownMs, 5000);
-  scheduler.scheduleBuffer();
   await clock.advance(TRANSLATION_LINE_RETRY_DELAYS_MS[0]);
-  await clock.advance(TRANSLATION_BUFFER_MIN_INTERVAL_MS);
-  assert.equal(translator.calls.length, 1, "neither the line retry nor the buffer jumps the cooldown");
-  await clock.advance(5000 - TRANSLATION_LINE_RETRY_DELAYS_MS[0] - TRANSLATION_BUFFER_MIN_INTERVAL_MS);
+  assert.equal(translator.calls.length, 1, "the retry does not jump the cooldown");
+  await clock.advance(5000 - TRANSLATION_LINE_RETRY_DELAYS_MS[0]);
   assert.ok(translator.calls.length >= 2, "requests resume once the cooldown ends");
 });

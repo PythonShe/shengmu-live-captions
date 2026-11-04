@@ -1,5 +1,180 @@
 # 项目进度记录 (PROGRESS.md)
 
+## 2026-11-04 · 固定测试音频入库（`test-assets/quality-samples`）
+
+- 把 `.research/quality-samples` 中的 7 个 120 s / 16 kHz 单声道 WAV（每个 3.84 MB）、3 套 VTT 与 3 个 silence 标注复制到 `test-assets/quality-samples/`（共 28 MB），并附 `README.md` 写清来源、切片、探针用法，让没有 `.research/` 的机器也能跑同一套端到端探针。
+- `.gitignore`：`/test-assets/` 改为 `/test-assets/*` + `!/test-assets/quality-samples/`，`tab_capture`/`tts_lcv` 等旧资产仍只留本地；199 MB 的完整 webm 不入库。
+- `AGENTS.md` 实测验收条样本路径改为 `test-assets/quality-samples/*poe*.wav`。
+- 验证：`git check-ignore` 确认 `quality-samples` 不被忽略、`test-assets/tab_capture/target.wav` 仍被忽略；入库文件总 28 MB。
+
+## 2026-11-04 · 全量跨模型审阅（`origin/master..port/0.5.10`）
+
+审阅人同上（`Code Review` profile / `qwen3.7-plus`），快照 `a1e6268`，只读。范围 `c8fdab4..a1e6268`（41 文件 +2506/−812）。
+
+### 结论
+- **0 P0 / 0 P1**，可合入发布；1 条 P2（`composeLiveSource` 在 `content-overlay.js` 与 `lib/caption-utils.js` 各一份，改一份必改另一份——现有注释已写 “Change both or neither”，维持现状）。
+- plan 第 3 节四个阶段的清单逐条核对全为“已完成”，无漏项；三个 `_locales` 键集 419 条一致；已删名字（buffer 送翻、`scrollbackSnapshot`、`translationTranslatePartial` 行为）无悬空引用，残留仅注释中的旧脚本名。
+
+### 合入前需告知用户的行为变化
+1. 历史与 SRT 不再收阶段译文：只有 `translationPending === false` 的行落盘，停采时 `commitRuntimeLinesToHistory` 定格补写。
+2. API 模式不再发 buffer 请求，半句中文由成长行的阶段译文提供（8 字符 / 400 ms 限流）。
+3. DeepSeek 模型锁 `deepseek-flash`，旧存储的 `deepseek-chat` 自动归一，面板模型框置灰。
+4. 回看面板改 tail-follow，不再冻结打开瞬间的行。
+5. 浮层高度 160 ms 缓动、英文槽单行左侧渐隐、量宽多 12 px 余量。
+
+### 验收状态
+- `pnpm run verify` 285 项（284 pass / 1 skip）、`pnpm run smoke` 11 项全过。
+- 实测：阶段 3 回看 tail-follow（节点重建 0、译文 A→B→A 0）、阶段 4 bilingual/dual 两种模式（wrap rebound 0、英文槽恒 28 px、`top changes = line changes`）均达标。
+- 未做：`.research/layout-synthetic.py`、server 模式浮层复测、真实 DeepL Key 的端到端（单测只用 mock server）。
+
+## 2026-11-04 · 移植阶段 4：浮层高度缓动 + 英文单行 + 版本收口（0.5.10）
+
+任务书：`plan.md` 阶段 4。分支 `port/0.5.10`。
+
+### 已修改文件
+- `extension/content/content-overlay.js`：
+  - CSS：删 `.translation` / `.prev-translation` 的 `text-wrap: balance`；`.caption-stack` 去掉常驻 `transition: width`，只留 `.caption-stack.shrinking` 的 170 ms；`.caption-shell` 加 `transition: height 160ms cubic-bezier(0.22, 1, 0.36, 1)`；新增 `.caption-shell.resizing .prev-translation, .translation { flex: 0 0 auto }`；`.source` 改单行（`max-height: 1.38em`、`nowrap`、`align-items: flex-end`）+ `.source.overflowing` 水平 `to right` 渐隐。
+  - JS：新增 `SHELL_WIDTH_SLACK_PX = 12`、`SHELL_WIDTH_TRANSITION_MS = 170`、`SHELL_HEIGHT_RESIZE_LOCK_MS = 200`、`SHELL_HEIGHT_EPSILON_PX = 2`；`applyShellWidth(width, animate)` 只在缩窄时挂 `.shrinking`；`scheduleShellShrink` 在宽度落地后补一次 `syncShellHeight` + `refreshCaptionOverflow`；新增 `measureShellNaturalHeight` / `syncShellHeight`；`markCaptionOverflow` 同时判垂直与水平溢出；`handleWindowResize` 与 `render` 都调 `syncShellHeight`；`buildOverlay` / `teardown` 清理四个定时器并复位 `shellWidthPx` / `shellHeightPx`；`OVERLAY_VERSION` 9 → 10；旧 worker 分支内联 `composeLiveSource` 并改成与新 `selectDisplayCaption` 一致的 pending 语义。
+- `package.json` / `extension/manifest.json`：`0.5.6` → `0.5.10`。
+- `AGENTS.md`：按 0.5.10 现状重写 Commands（pnpm、测试数、探针/启动采集注意）、分层表（`background/` `lib/` `storage/` `content/` `scripts/`）、模型档位与 WLK 参数落点、浮层宽高/英文槽/阶段译文/tail-follow 红线、DeepL 说明。
+- `README.md`：版本 0.5.10、翻译引擎表加 DeepL、字幕行为补 4 条。
+- `paseo/01-translation-api-design.md`：新增「0.5.7~0.5.10 现状」节（分层落点、DeepL、阶段译文、回看/浮层）。
+- `paseo/18-overlay-bounce-0.5.10.md`：把 `160ms ease-out` 改成与代码一致的 `cubic-bezier(0.22, 1, 0.36, 1)`。
+- `.pit/pits/research-chrome-extension-c9e4ff.md`：更正绕法——`chrome.action.openPopup()` 不授予 activeTab，实测要用 `Ctrl+Shift+Y`（`_execute_action`）打开面板再点开始。
+
+### 已执行验证
+- `pnpm run verify` 284 项（283 pass / 1 skip）、`pnpm run smoke` 11 项。
+- 防缓存重载（pit `dev-395f5a`）：关 9223 浏览器 → 删 `chrome-profile/Default/{Service Worker,Code Cache}` → `pnpm dev-browser` 重启。
+- 实测（固定样本 `GHEBkhT1K7A-05m41-07m41.wav`、DeepL 后端、60 s bilingual）：英文槽高度恒 28 px、source `A→B→A` 0、译文 `A→B→A` 0、空译文 0、same-text wrap rebounds 0、height bounces 8（1↔2 行，属预期）、`top changes = line changes`（14/14）、无预留空白行、译文最多 3 行；dual 模式 100 s 复测 rebounds 0 / wrap rebounds 0。
+
+### 未执行 / 待后续
+- 未跑 `.research/layout-synthetic.py`（长句↔短句、四模式切换、缩窄 420 ms 时序）。
+- 未在 server 模式（WLK 自带译文）下复测浮层。
+- 跨模型审阅（`bc75dd0..0cd4bc1`）：0 P0/P1；P2 已处理（`tests/version-sync.test.js` 新增 `OVERLAY_VERSION` 为数字且 ≥10 的断言，285 项全过）；`measureShellNaturalHeight` 因依赖真实 DOM 仍未抽纯函数，记作已知取舍。
+- 全量跨模型审阅（`origin/master..port/0.5.10`）待统一做。
+
+## 2026-11-04 · 移植阶段 3：滚轮回看窗口实时跟随（0.5.9）
+
+任务书：`plan.md` 阶段 3。分支 `port/0.5.10`。
+
+### 已修改文件
+- `extension/content/overlay-history.js`：新增纯函数 `planHistoryRows(previousIds, nextIds)` → `{ order, added, removed }`，挂入 `ShengmuOverlayHistory` 导出。
+- `extension/content/content-overlay.js`：
+  - 删 `scrollbackSnapshot` / `renderedScrollbackKey` / `scrollbackView()`，改 `scrollbackRows`（与 `.history-line` 一一对应的行对象数组）；
+  - `HISTORY_API` 降级 shim 补 `planHistoryRows`（运行期委托，缺 `overlay-history.js` 时整表重建，仍可用）；
+  - `maxScrollBack` 直接读 `scrollbackEntries().length`；`openScrollback` 不再冻结列表；
+  - 新增 `historyRowText`（双语模式未译行不把英文重复印进译文槽）、`createHistoryRow`（挂 `data-line-id`）、`patchHistoryRow`（文本真变才写）、`syncScrollbackRows`（按 plan 复用节点）、`clearScrollbackRows`；
+  - `renderScrollback` 每帧从 `scrollbackEntries()` 取最新 `scrollBack` 行（排除正在生长的实时尾行），只在行集合或文本真变时重算 `scrollTop` 与 `.overflowing`；chip 文案继续走 `t()`；
+  - `buildOverlay` / `resetSessionHistory` / `teardown` 与滚轮归零处同步复位。
+- `tests/overlay-history.test.js`：+3 例（滑动窗口与上下滚、无变化与清空、中间行消失时只拆该节点），11 项通过。
+- `AGENTS.md` §2：回看期描述由 `scrollbackSnapshot` 冻结改为 tail-follow + `data-line-id` 节点复用。
+
+### 已执行验证
+- `pnpm run verify`：284 项（阶段 2 的 281 + 3），283 pass / 1 skip / 0 fail；`pnpm run smoke` 11 项全过（含 overlay 注入与 shadow root）。
+- 首次 verify 有 1 项 `tests/service-manager.test.js` 偶发失败（WhisperLiveKit 端口时序），单跑与复跑均通过，与本阶段改动无关，未记 pit（根因未证）。
+
+### 行为变化
+- 面板不再冻结：新句从底部滑入、最老一行从顶部滑出，行数恒等于 `scrollBack`（上限 40）。
+- 行节点按 `data-line-id` 复用，晚到译文原地刷新，不整表重建。
+- 双语模式下未译行不再把英文同时印在原文槽和译文槽。
+- `OVERLAY_VERSION` 本阶段不动（按 plan 阶段 4 由 `9` 升 `10` 收口）。
+
+### 实测（dev 9223 + 真实 tabCapture + 固定样本 `GHEBkhT1K7A-05m41-07m41.wav` + DeepL 后端）
+- 启动姿势：`node scripts/services.mjs dev-browser --port 9223` 重载扩展 → 打开 `extension/subtitle/subtitle.html` → 激活 player tab → `chrome.action.openPopup()` 后点 `#primaryButton`（UIA 找不到工具栏图标；旧 `.research` 探针硬编码 `subtitle.html` 旧路径，已记 pit `research-chrome-extension-c9e4ff`）。探针复制到仓库外改路径后跑 60 s。
+- 结果：面板 60 s 内行数恒 8、打开后新进 20 行、每行节点重建 0、译文 A→B→A 0、面板高恒 283 px；深滚后 30 行、重建 0；滚回最新后 `hidden=true`、行数 0。与 `paseo/17` 的判据一致。
+- 未跑 `rebound-probe.py`（浮层本体回弹，属阶段 4 验收）。
+
+### 未执行 / 待后续
+- 未在 server 模式（WLK 自带译文）下复测面板实时性。
+
+### 跨模型审阅（`fef5b13..2cab460`，qwen3.7-plus，只读 worktree）
+- P1 旧 worker shim 的 `planHistoryRows` 恒返回 `removed: []`，滑出行的节点会残留在 DOM 里 → 改成按 `nextSet` 过滤 `removed`，`added` 仍为全量（降级路径整表重建）。
+- P2 `resetSessionHistory()` 未清 `scrollbackRows` → 补 `clearScrollbackRows()`。
+- 自查补的一处：行滑入/滑出使面板高度变化时 `historyRectCache` 未失效，滚轮命中区还是旧矩形，新增区域滚轮会漏到页面 → `changed` 时先清 cache 再取 `lastPanelRect`。
+- 复跑 `pnpm run verify`（283 pass / 1 skip）+ `pnpm run smoke`（11 pass）全过。
+
+## 2026-11-04 · 阶段 2 跨模型审阅：0 条 P0/P1 + 修掉测试里的裸 NUL
+
+审阅人：paseo `Code Review` profile（`pi/magpie/opencode-go/qwen3.7-plus`，thinking medium），独立 `--new-workspace` + `git worktree` 快照 `C:/Users/moule/Documents/ChatGPT/shengmu-review-058-stage2`（detach `d4a079c`），只读约束写在 prompt 里；审完 `git status` 干净，未动手。范围 `9df92c2..d4a079c`。
+
+### 审阅结论（3 条必须修 → 复核后 0 条）
+- 原报 P0（`content-overlay.js` 内联 `selectDisplayCaption` 与 `caption-utils.js` 不一致）→ 降 P2：`latestCaption()` 先取 `current.displayCaption`，内联副本只是旧 worker 降级 shim（AGENTS.md §1 要求保留），`caption-utils.js` 注释已写「change both」。
+- 原报 P1（`finalize` 里 offscreen 丢失分支跳过 `commitRuntimeLinesToHistory`）→ 不成立：`finalize` 内无 `hasDocument` 分支；offscreen 丢失由 `recover` 调 `finalize("error")`，走完整路径，settle → commit → seal 必执行。
+- 原报 P1（`recover` 把 `translationPending` 行写进历史）→ 不成立：`linesChangedSince` 首句即 `translationPending === true → false`，恢复路径同样过滤。
+- 原报 P2「缺 wakeTimer 集成测试」→ 不成立：`tests/translation-scheduler.test.js:162-190` 已覆盖 hold → 400 ms 唤醒 → 重译落终态。
+
+### 本轮实际修复
+- `tests/translation-scheduler.test.js:104` 的 signature 断言里写进了两个裸 NUL 字节（本意 `\u0000` 转义），git / `rg` 把整个文件当 binary，diff 不可读、审阅者直接跳过该文件。已改成转义写法（`node --check` + `node --test tests/translation-scheduler.test.js` 12 项通过）。
+
+### 遗留 P2（记录，不在阶段 2 处理）
+- `shouldRetranslateLine` 用字符数算增量（8 字符 ≈ 英文 1~2 词），当前只支持英文 ASR，可接受。
+- `resolveTranslationConfig` 仍输出 `translatePartial`，全仓无消费者（`DEFAULT_SETTINGS` 保留该键是为了兼容旧存储）。
+- `content-overlay.js` 旧 worker fallback 与新 `selectDisplayCaption` 行为有差异（`bufferSource` 非空时旧代码屏蔽行译文）；无实测样本覆盖旧 worker 场景，不动。
+
+## 2026-11-04 · 移植阶段 2：阶段译文单调递进 + 英文单行源槽 + 停用 buffer 送翻（0.5.8）
+
+任务书：`plan.md` 阶段 2。分支 `port/0.5.10`。
+
+### 已修改文件
+- `extension/lib/caption-utils.js`：
+  - `mergeCaptionFragments` 记 `fragmentIds`（单元拆分时新行可承接旧译文），合并后不再清空 `translation`，只置 `translationPending`；
+  - 新增 `reconcileLineTranslations(previousLines, nextLines, { useApi, knownLines })`（行保留译文并记 `translatedSource`，源文变长只标 pending）、`shouldRetranslateLine(line, guard, { now })`、常量 `TRANSLATION_RETRANSLATE_MIN_NEW_CHARS = 8` / `TRANSLATION_RETRANSLATE_MIN_INTERVAL_MS = 400`、`composeLiveSource(lineSource, bufferSource)`；
+  - `selectDisplayCaption` 改为读最新行译文（阶段译文优先），源槽 = 行文本 + buffer 尾部拼接，`pending` 不再由 buffer 非空触发。
+- `extension/lib/transcript-reducer.js`：`lineSignature(source, translation, translationPending)`；`linesChangedSince` 过滤 `translationPending === true`（阶段译文与未译行都不入 IndexedDB/SRT）；`reduceTranscriptUpdate` 改走 `reconcileLineTranslations`；API 模式 `bufferTranslation` 恒为 `""`。
+- `extension/lib/translation-scheduler.js`：删除 `createBufferTranslation` 实例与 `scheduleBuffer`/`flushBuffer`/`cancelBuffer`/`abortStaleBuffer`/`reusePrefetched`/prefetch；`collectPending` 放行 `translation && translationPending` 的行；`waitingEntries` 接入重译限流并在被限流时 `scheduleTranslationWake`（`wakeTimer`）；`requestBatch` 发送前记 `retranslateGuards`；`applyLineTranslations` 把源文已变的响应当作阶段译文上屏（不再丢弃）、只有源文匹配时才写 `knownLines` 与历史。
+- `extension/background/session-lifecycle.js`：`handleTranscriptUpdate` 去掉 buffer 相关调用；新增 `commitRuntimeLinesToHistory()`（`finalize` 里 `settle()` 之后、`historySealed` 之前把屏上阶段译文/未译行定稿写入历史，未译行记 `translationFailed`）。
+- `extension/background/service-worker.js`：创建 scheduler 时移除 `partialEnabled`。
+- `extension/background/settings-store.js`：`TRANSLATION_SETTING_KEYS` 移除 `translationTranslatePartial`（`caption-utils` 的 `DEFAULT_SETTINGS` 保留该字段兼容旧存储）。
+- `extension/popup/popup.html` / `popup.js`：删除「半句预翻译」开关及其绑定；`_locales` 三语删 `popup_partial` / `popup_partial_hint`。
+- 删除 `extension/lib/buffer-translation.js`（远端无对应单测文件，测试都在 `tests/translation-scheduler.test.js`）。
+
+### 已执行验证
+- `pnpm run verify`：281 项（1 skip）全过；`pnpm run smoke` 11 项全过。
+- 测试同步：删除 4 个 buffer 送翻用例；新增阶段译文上屏/限流唤醒/`reconcileLineTranslations`/`composeLiveSource`/`shouldRetranslateLine` 用例；`asr-sessions`、`session-lifecycle`、`service-worker.restart`、`transcript-reducer` 的断言改成“未译行与阶段译文不落盘，`finalize` 补齐”。
+
+### 行为变化（与 0.5.6 基线不同，属于 0.5.8 设计）
+- 英文源槽 = 最新行 + buffer 尾部（不再用 buffer 替换整行）；`pending` 只在“屏上中文落后于源文”时为真。
+- 历史与 SRT 只收“译文与源文匹配”的行；停止采集时由 `commitRuntimeLinesToHistory` 把屏上版本定格写入。
+- 同一句在 `8 字符 / 400 ms` 限流窗口内只重译一次，被限流时由 `wakeTimer` 补发，不会丢更新。
+
+### 未执行 / 待后续
+- 阶段 3（回看实时跟随）、阶段 4（浮层缓动 + 版本收口）未动。
+- 跨模型 `code review` 仍在全部阶段后统一做。
+- 未跑真实样本探针（`.research/rebound-probe.py` 等，存在 Windows 本机栈）。
+
+## 2026-11-04 · 移植阶段 0~1：分支基底 + DeepL 协议分支（0.5.7）+ DeepSeek 锁 `deepseek-flash`
+
+任务书：仓库根 `plan.md`（以 `origin/master` = `c8fdab4`（v0.5.6）为唯一代码基底，逐阶段重做 0.5.7~0.5.10）。本分支 `port/0.5.10`，起点就是 `origin/master`。
+
+### 阶段 0（分支与零冲突资产）
+- 本地旧 0.5.10 线保留在 `backup/pre-merge-0.5.10`（`d97884c`）；文档改动另提交在 `master`（`353a9aa`）。
+- 从备份分支检出 `.pit/pits/{chrome-uia-2caea5,dev-395f5a,dpi-unaware-python-317843}.md` 与 `paseo/{15-deepl-0.5.7,16-stage-translation-0.5.8,17-scrollback-live-0.5.9,18-overlay-bounce-0.5.10}.md`。
+- `paseo/README.md` 索引表补 15~18 四行（顺接远端 `14-zero-setup-0.5.6.md`）。
+- `plan.md` 随分支搬运，供后续阶段对齐。
+
+### 阶段 1（0.5.7 DeepL + 0.5.8 DeepSeek 锁模型）
+- `extension/lib/translation-api.js`：
+  - `TRANSLATION_PROVIDERS` 全量补 `protocol` / `requiresModel`；`deepseek` 改 `model: "deepseek-flash"` + `fixedModel: true`；新增 `deepl` 预设（`protocol: "deepl"`、`api.deepl.com/v2`、`requiresModel: false`、`keyUrl`）。
+  - 新增 `safeTranslationBaseUrl`；`normalizeTranslationSettings` 按 `requiresModel === false` 归零模型、`fixedModel` 强制预设模型（旧存储里的 `deepseek-chat` 自动归一）。
+  - `resolveTranslationConfig` 补 `protocol` / `requiresModel`，DeepL 经 `deeplBaseUrl` 切 host（`:fx` Key + 地址仍是官方预设 → `api-free.deepl.com`，手改地址优先）。
+  - 新增 `deeplTranslateUrl`、`buildDeepLRequestBody`（`text[]` + `target_lang` + 免计费 `context` 只放英文原文 + `show_billed_characters`）、`parseDeepLResponse`、`DEEPL_TARGET_LANG = "ZH-HANS"`。
+  - 抽出 `postJson`（OpenAI / DeepL 共用超时与 AbortSignal 转发），`postChatCompletion` 退化为薄封装；新增 `translateWithDeepL`（`ZH-HANS` 被 400 拒绝时回退 `ZH` 重试一次，累计 `usage.billedCharacters`）；`translateTexts` 按 `protocol` 分流。
+  - `mapHttpError` 新增 `456 -> code: "quota"`；`normalizeUsage` 补 `billedCharacters`；`translationConfigIssue` 只在 `requiresModel !== false` 时要求模型。
+- `extension/lib/translation-scheduler.js`：`NON_RETRYABLE_CODES` 加 `quota`；`emptyUsage`/`addUsage`/`restore` 补 `billedCharacters`。
+- `extension/popup/popup.js`：新增 `modelForPreset`；`requiresModel === false` 或 `fixedModel` 时禁用模型输入框；未知 provider 显式报错并禁用下拉（不再静默回退 DeepSeek）；DeepL 展示计费字符数（`popup_usage_characters`）与 `:fx` Key 提示；开始采集/测试按钮不再对 DeepL 强制要求模型。
+- `extension/popup/popup.html`：服务商下拉新增 `deepl`。
+- `extension/_locales/{zh_CN,en,zh_TW}/messages.json`：各 +5 键（`provider_deepl`、`translation_error_quota`、`popup_usage_characters`、`popup_deepl_key_hint`、`popup_provider_unknown`），三语参数集一致。
+- `tests/`：`translation-api.test.js` 新增 DeepL 5 项 + DeepSeek 固定模型 1 项；把“同端点不同模型重学请求形状”改用 OpenAI 预设（DeepSeek 已锁模型，无法在同端点复现两种形状）；`caption-utils` / `service-worker.integration` / `translation-scheduler` 的 `translationApiKeys`、`translationApiKeyConfigured`、`deepseek-chat→deepseek-flash`、`usage.billedCharacters` 断言同步。
+
+### 已执行验证
+- `pnpm run verify`：语法检查 + ESLint + `tsc`（两个 project）+ 275 项单测全过（269 基线 + 6 新增，1 项 skip）。
+- `pnpm run smoke`：11 项全过。
+
+### 未执行 / 待后续
+- 阶段 2（阶段译文 + 删 buffer 送翻）、阶段 3（回看实时跟随）、阶段 4（浮层缓动 + 版本收口）未动。
+- 按 `plan.md` 第 4 节，跨模型 `code review` 统一在全部阶段做完后对 `origin/master..port/0.5.10` 全量 diff 执行；本阶段尚未送审。
+- DeepL 尚未用真实 Key 端到端实测（单测用本地 mock server）。
+
 ## 2026-11-03 · 0.5.6：零配置（Chrome 内置识别与翻译、阿里云百炼、Windows 助手）、多语言界面、后台拆分与门禁
 
 设计/验收记录：`paseo/14-zero-setup-0.5.6.md`。目标是终端用户装上扩展即可使用，不运行脚本、不填 Key、不要求本地显卡。

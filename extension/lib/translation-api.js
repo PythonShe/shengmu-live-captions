@@ -31,28 +31,38 @@ export const TRANSLATION_PROVIDERS = Object.freeze({
   // but literal quality and no context, so the popup suggests a key.
   chrome: Object.freeze({
     id: "chrome",
+    protocol: "openai",
     baseUrl: "",
     model: "builtin",
     requiresApiKey: false,
+    requiresModel: true,
     builtin: true,
     disableThinking: false,
     keyUrl: ""
   }),
   deepseek: Object.freeze({
     id: "deepseek",
+    protocol: "openai",
     baseUrl: "https://api.deepseek.com/v1",
-    model: "deepseek-chat",
+    // DeepSeek ships one flash model id now (V4.1-Flash); V4-Pro is on its way
+    // out. The field stays filled but locked, so an old `deepseek-chat` stored
+    // in settings cannot travel with the config.
+    model: "deepseek-flash",
     requiresApiKey: true,
+    requiresModel: true,
+    fixedModel: true,
     disableThinking: true,
     keyUrl: "https://platform.deepseek.com/api_keys"
   }),
   openai: Object.freeze({
     id: "openai",
+    protocol: "openai",
     baseUrl: "https://api.openai.com/v1",
     // The cheapest current model; reasoning is switched off for it (see
     // thinkingOffFields), since its default "medium" effort adds seconds.
     model: "gpt-6-luna",
     requiresApiKey: true,
+    requiresModel: true,
     disableThinking: true,
     tokenField: "max_completion_tokens",
     keyUrl: "https://platform.openai.com/api-keys"
@@ -61,19 +71,37 @@ export const TRANSLATION_PROVIDERS = Object.freeze({
   // fun-asr-realtime speech backend, so one key covers both halves.
   bailian: Object.freeze({
     id: "bailian",
+    protocol: "openai",
     baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
     model: "qwen-plus",
     requiresApiKey: true,
+    requiresModel: true,
     disableThinking: true,
     keyUrl: "https://bailian.console.aliyun.com/?tab=model#/api-key"
   }),
   custom: Object.freeze({
     id: "custom",
+    protocol: "openai",
     baseUrl: "http://127.0.0.1:11434/v1",
     model: "",
     requiresApiKey: false,
+    requiresModel: true,
     disableThinking: false,
     keyUrl: ""
+  }),
+  // DeepL has its own protocol (/v2/translate): no model name, no system
+  // prompt, no glossary injection, and keys from the retired Free plan end in
+  // ":fx" and are served by a different host.
+  deepl: Object.freeze({
+    id: "deepl",
+    protocol: "deepl",
+    baseUrl: "https://api.deepl.com/v2",
+    freeBaseUrl: "https://api-free.deepl.com/v2",
+    model: "",
+    requiresApiKey: true,
+    requiresModel: false,
+    disableThinking: false,
+    keyUrl: "https://www.deepl.com/your-account/keys"
   })
 });
 
@@ -97,6 +125,11 @@ const BAILIAN_COMPATIBLE_URLS = Object.freeze({
 });
 const DEFAULT_CONTEXT_LINES = 4;
 const MAX_CONTEXT_CHARS = 480;
+
+/** DeepL cannot be told which model to use, but it must be told the target
+ * language; the project only ships English-to-Simplified-Chinese captions. */
+export const DEEPL_TARGET_LANG = "ZH-HANS";
+const DEEPL_MAX_CONTEXT_CHARS = 1000;
 
 // The system prompt must stay byte-identical for every request: DeepSeek and
 // similar providers cache the longest common message prefix automatically, so
@@ -253,19 +286,36 @@ export function normalizeTranslationApiKeys(value) {
   return keys;
 }
 
+/**
+ * Normalises a stored endpoint and falls back instead of throwing: the value is
+ * user data, so an unparsable URL has to be replaced, not surfaced as a fault.
+ * Cross-layer callers use this instead of wrapping the throwing version in
+ * their own swallow-everything try/catch.
+ * @param {unknown} value
+ * @param {string} [fallback]
+ * @returns {string}
+ */
+export function safeTranslationBaseUrl(value, fallback = "") {
+  try {
+    return normalizeTranslationBaseUrl(value, fallback);
+  } catch {
+    return fallback;
+  }
+}
+
 export function normalizeTranslationSettings(value = {}) {
   const provider = normalizeTranslationProvider(value.translationProvider);
   const preset = TRANSLATION_PROVIDERS[provider];
-  let baseUrl;
-  try {
-    baseUrl = normalizeTranslationBaseUrl(
-      value.translationBaseUrl,
-      preset.baseUrl
-    );
-  } catch {
-    baseUrl = preset.baseUrl;
-  }
-  const model = String(value.translationModel ?? preset.model).trim();
+  const baseUrl = safeTranslationBaseUrl(value.translationBaseUrl, preset.baseUrl);
+  // DeepL selects its own engine, so a leftover OpenAI model name must not
+  // travel with the config or block validation. A provider with a fixed model
+  // (DeepSeek) always uses the preset, ignoring whatever was stored before.
+  const model =
+    preset.requiresModel === false
+      ? ""
+      : preset.fixedModel
+        ? preset.model
+        : String(value.translationModel ?? preset.model).trim();
   const timeout = Number(value.translationTimeoutMs);
   return {
     mode: normalizeTranslationMode(value.translationMode),
@@ -361,7 +411,13 @@ export function resolveTranslationConfig(settings = {}) {
   }
   const config = {
     ...normalized,
+    baseUrl:
+      preset.protocol === "deepl"
+        ? deeplBaseUrl(normalized.baseUrl, apiKey, preset)
+        : normalized.baseUrl,
+    protocol: preset.protocol || "openai",
     requiresApiKey: preset.requiresApiKey,
+    requiresModel: preset.requiresModel !== false,
     builtin: Boolean(preset.builtin),
     disableThinking: false,
     thinkingOff: /** @type {Record<string, unknown> | null} */ (null),
@@ -383,7 +439,7 @@ export function resolveTranslationConfig(settings = {}) {
 
 export function translationConfigIssue(config = {}) {
   if (config.mode !== "api") return "";
-  if (!String(config.model || "").trim()) {
+  if (config.requiresModel !== false && !String(config.model || "").trim()) {
     return msg("translation_model_missing");
   }
   if (config.requiresApiKey && !config.apiKey) {
@@ -407,6 +463,96 @@ export function chatCompletionsUrl(baseUrl) {
   if (!trimmed) throw new LocalizedError(msg("translation_url_empty"));
   if (/\/chat\/completions$/i.test(trimmed)) return trimmed;
   return `${trimmed}/chat/completions`;
+}
+
+/**
+ * DeepL keys issued by the retired Free plan end in ":fx" and are only valid
+ * on api-free.deepl.com. The switch happens on resolve, so changing plans only
+ * needs a new key. A hand-edited URL always wins.
+ * @param {string} baseUrl
+ * @param {string} apiKey
+ * @param {any} [preset]
+ * @returns {string}
+ */
+export function deeplBaseUrl(baseUrl, apiKey, preset = TRANSLATION_PROVIDERS.deepl) {
+  const configured = String(baseUrl || "").trim().replace(/\/+$/, "");
+  if (!/:fx$/i.test(String(apiKey || "").trim())) {
+    return configured || preset.baseUrl;
+  }
+  if (!configured || configured === preset.baseUrl) {
+    return preset.freeBaseUrl;
+  }
+  return configured;
+}
+
+/** @param {string} baseUrl */
+export function deeplTranslateUrl(baseUrl) {
+  const trimmed = String(baseUrl || "").trim().replace(/\/+$/, "");
+  if (!trimmed) throw new LocalizedError(msg("translation_url_empty"));
+  if (/\/translate$/i.test(trimmed)) return trimmed;
+  return `${trimmed}/translate`;
+}
+
+/**
+ * DeepL translates every text independently and understands no prompts, so
+ * the only way to keep a fragment attached to the sentence before it is the
+ * free `context` field (not billed, applies to the whole request).
+ * @param {{ texts?: string[], context?: Array<{ source?: string }>,
+ *   targetLang?: string }} [options]
+ * @returns {Record<string, unknown>}
+ */
+export function buildDeepLRequestBody({
+  texts,
+  context = [],
+  targetLang = DEEPL_TARGET_LANG
+} = {}) {
+  if (!Array.isArray(texts) || texts.length === 0) {
+    throw new TranslationApiError(msg("translation_nothing_to_translate"), { code: "empty" });
+  }
+  const segments = texts.map((text) => String(text ?? "").trim());
+  if (segments.some((text) => !text)) {
+    throw new TranslationApiError(msg("translation_empty_segment"), { code: "empty" });
+  }
+  const contextText = (Array.isArray(context) ? context : [])
+    .map((item) => String(item?.source || "").replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .join(" ")
+    .slice(-DEEPL_MAX_CONTEXT_CHARS);
+  const body = {
+    text: segments,
+    target_lang: targetLang,
+    show_billed_characters: true
+  };
+  if (contextText) body.context = contextText;
+  return body;
+}
+
+/**
+ * @param {any} data
+ * @param {number} expectedCount
+ * @returns {string[]}
+ */
+export function parseDeepLResponse(data, expectedCount) {
+  const count = Math.max(0, Number(expectedCount) || 0);
+  const list = Array.isArray(data?.translations) ? data.translations : [];
+  if (list.length === 0) {
+    throw new TranslationApiError(msg("translation_empty_response"), {
+      code: "empty_response"
+    });
+  }
+  if (list.length !== count) {
+    throw new TranslationApiError(
+      msg("translation_count_mismatch", count, list.length),
+      { code: "count_mismatch" }
+    );
+  }
+  const translations = list.map((item) => String(item?.text ?? "").trim());
+  if (translations.every((item) => !item)) {
+    throw new TranslationApiError(msg("translation_no_usable"), {
+      code: "empty_translation"
+    });
+  }
+  return translations;
 }
 
 export function recentTranslationContext(
@@ -698,6 +844,14 @@ export function mapHttpError(
       status
     });
   }
+  // DeepL answers 456 when the character quota is used up; retrying cannot
+  // help until the plan is topped up or the month rolls over.
+  if (status === 456) {
+    return new TranslationApiError(msg("translation_error_quota", provider, suffix), {
+      code: "quota",
+      status
+    });
+  }
   if (status === 429) {
     return new TranslationApiError(msg("translation_error_rate_limit", provider, suffix), {
       code: "rate_limit",
@@ -727,7 +881,8 @@ function normalizeUsage(usage) {
   return {
     promptTokens: Number(usage?.prompt_tokens) || 0,
     completionTokens: Number(usage?.completion_tokens) || 0,
-    totalTokens: Number(usage?.total_tokens) || 0
+    totalTokens: Number(usage?.total_tokens) || 0,
+    billedCharacters: Number(usage?.billedCharacters) || 0
   };
 }
 
@@ -769,13 +924,14 @@ export function resetTranslationRequestShapeCache() {
   requestShapeCache.clear();
 }
 
-async function postChatCompletion({
-  endpoint,
-  body,
-  config,
-  fetchImpl,
-  signal
-}) {
+/**
+ * POST a JSON body with the configured timeout, forwarding the caller's abort.
+ * Both protocols share it so the timeout and network mapping stay identical.
+ * @param {{ url: string, body: unknown, headers?: Record<string, string>,
+ *   config: any, fetchImpl: any, signal: AbortSignal | null }} options
+ * @returns {Promise<{ response: any, bodyText: string }>}
+ */
+async function postJson({ url, body, headers = {}, config, fetchImpl, signal }) {
   const controller = new AbortController();
   const timeoutMs =
     Number(config.timeoutMs) || DEFAULT_TRANSLATION_TIMEOUT_MS;
@@ -790,14 +946,13 @@ async function postChatCompletion({
     else signal.addEventListener("abort", forwardAbort, { once: true });
   }
   try {
-    const headers = {
-      "Content-Type": "application/json",
-      Accept: "application/json"
-    };
-    if (config.apiKey) headers.Authorization = `Bearer ${config.apiKey}`;
-    const response = await fetchImpl(endpoint, {
+    const response = await fetchImpl(url, {
       method: "POST",
-      headers,
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        ...headers
+      },
       body: JSON.stringify(body),
       signal: controller.signal
     });
@@ -826,6 +981,84 @@ async function postChatCompletion({
     clearTimeout(timer);
     if (signal) signal.removeEventListener("abort", forwardAbort);
   }
+}
+
+async function postChatCompletion({
+  endpoint,
+  body,
+  config,
+  fetchImpl,
+  signal
+}) {
+  return postJson({
+    url: endpoint,
+    body,
+    headers: config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {},
+    config,
+    fetchImpl,
+    signal
+  });
+}
+
+/**
+ * DeepL has its own protocol: no model, no prompt, no batch retry shape.
+ * @param {{ texts: string[], context?: Array<{ source?: string }>, config: any,
+ *   fetchImpl: any, signal: AbortSignal | null }} options
+ */
+async function translateWithDeepL({ texts, context = [], config, fetchImpl, signal }) {
+  if (!config.apiKey) {
+    throw new TranslationApiError(msg("translation_key_missing", providerName(config)), {
+      code: "config"
+    });
+  }
+  const endpoint = deeplTranslateUrl(config.baseUrl);
+  const startedAt = Date.now();
+  // ZH-HANS is the explicit Simplified variant; older accounts only know the
+  // generic ZH code, so a 400 that names the language falls back once.
+  let targetLang = DEEPL_TARGET_LANG;
+  const send = (lang) =>
+    postJson({
+      url: endpoint,
+      body: buildDeepLRequestBody({ texts, context, targetLang: lang }),
+      headers: { Authorization: `DeepL-Auth-Key ${config.apiKey}` },
+      config,
+      fetchImpl,
+      signal
+    });
+  let attempt = await send(targetLang);
+  if (
+    !attempt.response.ok &&
+    attempt.response.status === 400 &&
+    /target_lang|language/i.test(attempt.bodyText)
+  ) {
+    targetLang = "ZH";
+    attempt = await send(targetLang);
+  }
+  if (!attempt.response.ok) {
+    throw mapHttpError(
+      attempt.response.status,
+      attempt.bodyText,
+      providerName(config),
+      attempt.response.headers?.get?.("retry-after") ?? null
+    );
+  }
+  let data;
+  try {
+    data = JSON.parse(attempt.bodyText);
+  } catch {
+    throw new TranslationApiError(msg("translation_bad_json"), {
+      code: "parse_error"
+    });
+  }
+  const translations = parseDeepLResponse(data, texts.length);
+  const billedCharacters = (Array.isArray(data?.translations) ? data.translations : [])
+    .reduce((sum, item) => sum + (Number(item?.billed_characters) || 0), 0);
+  return {
+    translations,
+    usage: normalizeUsage({ billedCharacters }),
+    model: "deepl",
+    latencyMs: Date.now() - startedAt
+  };
 }
 
 /**
@@ -894,7 +1127,7 @@ export async function translateTexts({
   const resolved = config?.enabled === undefined
     ? { ...config, enabled: true }
     : config;
-  if (!resolved?.model) {
+  if (resolved.requiresModel !== false && !resolved?.model) {
     throw new TranslationApiError(msg("translation_not_configured"), { code: "config" });
   }
   if (!resolved.enabled) {
@@ -912,6 +1145,9 @@ export async function translateTexts({
   }
   if (typeof fetchImpl !== "function") {
     throw new TranslationApiError(msg("translation_no_fetch"), { code: "config" });
+  }
+  if (resolved.protocol === "deepl") {
+    return translateWithDeepL({ texts, context, config: resolved, fetchImpl, signal });
   }
   const endpoint = chatCompletionsUrl(resolved.baseUrl);
   const startedAt = Date.now();

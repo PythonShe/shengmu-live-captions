@@ -3,14 +3,19 @@ import http from "node:http";
 import test from "node:test";
 
 import {
+  buildDeepLRequestBody,
   buildTranslationRequestBody,
   chatCompletionsUrl,
+  DEEPL_TARGET_LANG,
+  deeplBaseUrl,
+  deeplTranslateUrl,
   isSplittableTranslationError,
   mapHttpError,
   TranslationApiError,
   normalizeTranslationBaseUrl,
   MAX_RETRY_AFTER_MS,
   normalizeTranslationSettings,
+  parseDeepLResponse,
   parseRetryAfter,
   parseTranslationOutput,
   recentTranslationContext,
@@ -156,7 +161,7 @@ test("translation settings default to the built-in translator and keep per-provi
   assert.equal(builtin.enabled, true, "no key needed");
   assert.equal(builtin.builtin, true);
   const deepseek = normalizeTranslationSettings({ translationProvider: "deepseek" });
-  assert.equal(deepseek.model, "deepseek-chat");
+  assert.equal(deepseek.model, "deepseek-flash");
   assert.equal(deepseek.baseUrl, "https://api.deepseek.com/v1");
 
   const withKeys = normalizeTranslationSettings({
@@ -166,7 +171,7 @@ test("translation settings default to the built-in translator and keep per-provi
       unknown: "ignored"
     }
   });
-  assert.deepEqual(withKeys.apiKeys, { chrome: "", deepseek: "dk", openai: "ok", bailian: "", custom: "" });
+  assert.deepEqual(withKeys.apiKeys, { chrome: "", deepseek: "dk", openai: "ok", bailian: "", custom: "", deepl: "" });
 });
 
 test("translationConfigIssue requires a key only for providers that need one", () => {
@@ -373,7 +378,7 @@ test("buildTranslationRequestBody includes DeepSeek thinking-off and segments", 
     config
   });
   assert.deepEqual(body.thinking, { type: "disabled" });
-  assert.equal(body.model, "deepseek-chat");
+  assert.equal(body.model, "deepseek-flash");
   assert.equal(body.stream, false);
   assert.equal(
     JSON.parse(body.messages.at(-1).content).segments.length,
@@ -518,7 +523,7 @@ test("translateTexts sends an OpenAI-compatible request and returns usage", asyn
       request.request.headers.authorization,
       "Bearer test-key"
     );
-    assert.equal(request.body.model, "deepseek-chat");
+    assert.equal(request.body.model, "deepseek-flash");
     assert.deepEqual(request.body.thinking, { type: "disabled" });
     assert.equal(request.body.messages[0].role, "system");
   } finally {
@@ -823,7 +828,8 @@ test("translateTexts learns the request shape and skips failed round trips next 
 test("the learned request shape is per endpoint and model", async () => {
   resetTranslationRequestShapeCache();
   const server = await startServer(({ response, body }) => {
-    if ("thinking" in body) {
+    // OpenAI's dialect spells the reasoning switch differently from DeepSeek.
+    if ("thinking" in body || "reasoning_effort" in body) {
       response.writeHead(400, { "Content-Type": "application/json" });
       response.end(JSON.stringify({ error: { message: "unknown parameter: thinking" } }));
       return;
@@ -831,14 +837,21 @@ test("the learned request shape is per endpoint and model", async () => {
     response.writeHead(200, { "Content-Type": "application/json" });
     response.end(successBody(["你好。"]));
   });
+  // DeepSeek now locks its model, so an OpenAI preset (free-form model, thinking
+  // off) is what keeps two shapes distinguishable on one endpoint.
+  const openaiConfig = (model) =>
+    resolveTranslationConfig({
+      translationMode: "api",
+      translationProvider: "openai",
+      translationBaseUrl: server.url,
+      translationModel: model,
+      translationApiKeys: { openai: "test-key" }
+    });
   try {
-    await translateTexts({ texts: ["Hi."], config: deepseekConfig(server.url) });
+    await translateTexts({ texts: ["Hi."], config: openaiConfig("gpt-6-luna") });
     assert.equal(server.requests.length, 2);
     // A different model on the same endpoint starts from the defaults again.
-    await translateTexts({
-      texts: ["Hi."],
-      config: deepseekConfig(server.url, { translationModel: "other-model" })
-    });
+    await translateTexts({ texts: ["Hi."], config: openaiConfig("gpt-6-terra") });
     assert.equal(server.requests.length, 4);
   } finally {
     resetTranslationRequestShapeCache();
@@ -974,4 +987,169 @@ test("the bailian translation endpoint follows the speech region and keeps the s
   });
   assert.equal(intl.baseUrl, "https://dashscope-intl.aliyuncs.com/compatible-mode/v1");
   assert.equal(intl.model, "qwen-plus");
+});
+
+function deeplConfig(baseUrl, overrides = {}) {
+  return resolveTranslationConfig({
+    translationMode: "api",
+    translationProvider: "deepl",
+    ...(baseUrl ? { translationBaseUrl: baseUrl } : {}),
+    translationApiKeys: { deepl: "test-key" },
+    ...overrides
+  });
+}
+
+test("DeepL needs no model and moves :fx keys to the free host", () => {
+  const pro = deeplConfig("");
+  assert.equal(pro.baseUrl, "https://api.deepl.com/v2");
+  assert.equal(pro.model, "");
+  assert.equal(pro.requiresModel, false);
+  assert.equal(pro.protocol, "deepl");
+  assert.equal(pro.issue, "");
+  assert.equal(pro.enabled, true);
+
+  const free = deeplConfig("", { translationApiKeys: { deepl: "abc:fx" } });
+  assert.equal(free.baseUrl, "https://api-free.deepl.com/v2");
+  // A :fx key on a hand-pinned URL keeps the pinned URL.
+  assert.equal(
+    deeplBaseUrl("https://api.deepl.com/v2/translate", "abc:fx"),
+    "https://api.deepl.com/v2/translate"
+  );
+  assert.equal(deeplBaseUrl("", "abc"), "https://api.deepl.com/v2");
+
+  // A leftover OpenAI model must not block validation or ride along.
+  const stale = normalizeTranslationSettings({
+    translationProvider: "deepl",
+    translationModel: "deepseek-flash"
+  });
+  assert.equal(stale.model, "");
+});
+
+test("DeepL request bodies carry segments, target language and free context", () => {
+  assert.equal(deeplTranslateUrl("https://api.deepl.com/v2"), "https://api.deepl.com/v2/translate");
+  assert.equal(
+    deeplTranslateUrl("https://api.deepl.com/v2/translate/"),
+    "https://api.deepl.com/v2/translate"
+  );
+  const body = buildDeepLRequestBody({
+    texts: ["Hello.", "Good morning."],
+    context: [
+      { source: "Hi there", translation: "嗨" },
+      { source: "", translation: "空原文" }
+    ]
+  });
+  assert.deepEqual(body.text, ["Hello.", "Good morning."]);
+  assert.equal(body.target_lang, "ZH-HANS");
+  assert.equal(body.context, "Hi there");
+  assert.equal(body.show_billed_characters, true);
+  assert.equal(body.model, undefined);
+
+  assert.throws(() => buildDeepLRequestBody({ texts: ["Hello.", "   "] }), zhError(/空的翻译片段/));
+  assert.throws(() => buildDeepLRequestBody({ texts: [] }), zhError(/没有需要翻译的文本/));
+});
+
+test("translateTexts speaks the DeepL protocol and reports billed characters", async () => {
+  const server = await startServer(({ response, body }) => {
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(
+      JSON.stringify({
+        translations: body.text.map((text, index) => ({
+          detected_source_language: "EN",
+          text: `译文${index}`,
+          billed_characters: text.length
+        }))
+      })
+    );
+  });
+  try {
+    const config = deeplConfig(server.url);
+    const result = await translateTexts({
+      texts: ["Hello.", "Good morning."],
+      context: [{ source: "Hi there", translation: "嗨" }],
+      config
+    });
+    assert.deepEqual(result.translations, ["译文0", "译文1"]);
+    assert.equal(result.model, "deepl");
+    assert.equal(result.usage.billedCharacters, "Hello.".length + "Good morning.".length);
+    assert.equal(result.usage.promptTokens, 0);
+
+    const request = server.requests[0];
+    assert.equal(request.request.url, "/v1/translate");
+    assert.equal(request.request.headers.authorization, "DeepL-Auth-Key test-key");
+    assert.equal(request.body.target_lang, "ZH-HANS");
+    assert.deepEqual(request.body.text, ["Hello.", "Good morning."]);
+    assert.equal(request.body.context, "Hi there");
+  } finally {
+    await server.close();
+  }
+});
+
+test("DeepL responses and quota errors are validated", async () => {
+  assert.deepEqual(parseDeepLResponse({ translations: [{ text: " 你好 " }] }, 1), ["你好"]);
+  assert.throws(() => parseDeepLResponse({ translations: [{ text: "一" }] }, 2), zhError(/条数不匹配/));
+  assert.throws(() => parseDeepLResponse({ translations: [{ text: "" }] }, 1), zhError(/没有返回可用译文/));
+  assert.throws(() => parseDeepLResponse({}, 1), zhError(/返回了空内容/));
+
+  const quota = mapHttpError(456, '{"message":"Quota exceeded"}', "DeepL");
+  assert.equal(quota.code, "quota");
+  assert.match(renderZh(quota), /额度已用尽/);
+
+  const server = await startServer(({ response }) => {
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(JSON.stringify({ translations: [{ text: "只有一条" }] }));
+  });
+  try {
+    await assert.rejects(
+      () => translateTexts({ texts: ["Hello.", "Good morning."], config: deeplConfig(server.url) }),
+      zhError(/条数不匹配/)
+    );
+  } finally {
+    await server.close();
+  }
+});
+
+test("DeepL falls back from ZH-HANS to ZH when the account rejects the variant", async () => {
+  const server = await startServer(({ response, body }) => {
+    if (body.target_lang === DEEPL_TARGET_LANG) {
+      response.writeHead(400, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({ message: "target_lang not supported, use ZH" }));
+      return;
+    }
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(JSON.stringify({ translations: [{ text: "你好。", billed_characters: 6 }] }));
+  });
+  try {
+    const result = await translateTexts({ texts: ["Hello."], config: deeplConfig(server.url) });
+    assert.deepEqual(result.translations, ["你好。"]);
+    assert.equal(server.requests.length, 2);
+    assert.equal(server.requests[0].body.target_lang, DEEPL_TARGET_LANG);
+    assert.equal(server.requests[1].body.target_lang, "ZH");
+  } finally {
+    await server.close();
+  }
+});
+
+test("DeepSeek always uses its fixed flash model, whatever was stored", () => {
+  // An old stored id must not travel with the config: DeepSeek ships one flash
+  // id now, so the preset wins over both storage and the form.
+  const fromStorage = normalizeTranslationSettings({
+    translationProvider: "deepseek",
+    translationModel: "deepseek-chat"
+  });
+  assert.equal(fromStorage.model, "deepseek-flash");
+
+  const config = deepseekConfig("https://api.deepseek.com/v1", {
+    translationModel: "deepseek-chat"
+  });
+  assert.equal(config.model, "deepseek-flash");
+  const body = buildTranslationRequestBody({ texts: ["Hi"], config });
+  assert.equal(body.model, "deepseek-flash");
+
+  // Free-form providers keep the typed model.
+  const custom = resolveTranslationConfig({
+    translationProvider: "custom",
+    translationBaseUrl: "http://127.0.0.1:8013/v1",
+    translationModel: "Index-Translate-9B"
+  });
+  assert.equal(custom.model, "Index-Translate-9B");
 });
