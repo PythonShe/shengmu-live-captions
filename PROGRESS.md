@@ -1,5 +1,25 @@
 # 项目进度记录 (PROGRESS.md)
 
+## 2026-11-04 · 全量跨模型审阅（`origin/master..port/0.5.10`）
+
+审阅人同上（`Code Review` profile / `qwen3.7-plus`），快照 `a1e6268`，只读。范围 `c8fdab4..a1e6268`（41 文件 +2506/−812）。
+
+### 结论
+- **0 P0 / 0 P1**，可合入发布；1 条 P2（`composeLiveSource` 在 `content-overlay.js` 与 `lib/caption-utils.js` 各一份，改一份必改另一份——现有注释已写 “Change both or neither”，维持现状）。
+- plan 第 3 节四个阶段的清单逐条核对全为“已完成”，无漏项；三个 `_locales` 键集 419 条一致；已删名字（buffer 送翻、`scrollbackSnapshot`、`translationTranslatePartial` 行为）无悬空引用，残留仅注释中的旧脚本名。
+
+### 合入前需告知用户的行为变化
+1. 历史与 SRT 不再收阶段译文：只有 `translationPending === false` 的行落盘，停采时 `commitRuntimeLinesToHistory` 定格补写。
+2. API 模式不再发 buffer 请求，半句中文由成长行的阶段译文提供（8 字符 / 400 ms 限流）。
+3. DeepSeek 模型锁 `deepseek-flash`，旧存储的 `deepseek-chat` 自动归一，面板模型框置灰。
+4. 回看面板改 tail-follow，不再冻结打开瞬间的行。
+5. 浮层高度 160 ms 缓动、英文槽单行左侧渐隐、量宽多 12 px 余量。
+
+### 验收状态
+- `pnpm run verify` 285 项（284 pass / 1 skip）、`pnpm run smoke` 11 项全过。
+- 实测：阶段 3 回看 tail-follow（节点重建 0、译文 A→B→A 0）、阶段 4 bilingual/dual 两种模式（wrap rebound 0、英文槽恒 28 px、`top changes = line changes`）均达标。
+- 未做：`.research/layout-synthetic.py`、server 模式浮层复测、真实 DeepL Key 的端到端（单测只用 mock server）。
+
 ## 2026-11-04 · 移植阶段 4：浮层高度缓动 + 英文单行 + 版本收口（0.5.10）
 
 任务书：`plan.md` 阶段 4。分支 `port/0.5.10`。
