@@ -7,7 +7,7 @@ Chrome MV3 extension: `tabCapture` audio -> `offscreen` -> WhisperLiveKit ASR (`
 - `origin` = `PythonShe/shengmu-live-captions` (fork), `upstream` = `exilemoulei/shengmu-live-captions` (we are collaborators, invited by the maintainer). Upstream changes go through PRs only.
 - `dev` on `origin` carries fork-only files (this file, the `AGENTS.md` symlink) that never go upstream, not even inside a PR. Never push `dev` to `upstream`.
 - Upstream PRs: branch from `upstream/master`, cherry-pick, PR against `exilemoulei:master`. Code commits never touch `CLAUDE.md` / `AGENTS.md` so they cherry-pick cleanly; edits here get their own `docs(claude):` commit.
-- Sync with `git merge upstream/master`. Upstream tracks its own Chinese `AGENTS.md`: on conflict keep our symlink and port new rules here in English.
+- Sync with `git merge upstream/master`. Upstream tracks its own Chinese `AGENTS.md`; always keep our `AGENTS.md` symlink and our `CLAUDE.md`, and never take upstream's text. After a cherry-picked PR is merged, first run `git merge -s ours <its merge commit>` (once `dev` matches that tree outside the fork-only files), or the same changes conflict under different SHAs.
 - Commit style follows upstream: Conventional Commits, `pit:` type for `.pit/` records.
 
 ## Gates and tooling
@@ -60,4 +60,4 @@ No test catches these; each one came from a real bug.
 
 ## Acceptance
 
-Quality runs use the fixed local audio `.research/quality-samples/*poe*.wav`, never a live video with random ads, and must reach `0` missing translations, `deliveredRatio >= 0.999` and `1-3 s` local latency (`paseo/03-verification.md`).
+Quality runs use the fixed audio `test-assets/quality-samples/*poe*.wav`, never a live video with random ads, and must reach `0` missing translations, `deliveredRatio >= 0.999` and `1-3 s` local latency (`paseo/03-verification.md`).
