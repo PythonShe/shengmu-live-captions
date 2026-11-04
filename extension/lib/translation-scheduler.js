@@ -48,6 +48,7 @@ const NON_RETRYABLE_CODES = new Set([
   "balance",
   "config",
   "bad_request",
+  "quota",
   "thinking_only",
   "empty_translation",
   "truncated"
@@ -75,7 +76,7 @@ function sameSpeech(left, right) {
 }
 
 function emptyUsage() {
-  return { requests: 0, promptTokens: 0, completionTokens: 0 };
+  return { requests: 0, promptTokens: 0, completionTokens: 0, billedCharacters: 0 };
 }
 
 /**
@@ -83,6 +84,7 @@ function emptyUsage() {
  * @property {number} requests
  * @property {number} promptTokens
  * @property {number} completionTokens
+ * @property {number} billedCharacters DeepL bills characters, not tokens.
  */
 
 /**
@@ -208,6 +210,7 @@ export function createTranslationScheduler(deps) {
     usage.requests += 1;
     usage.promptTokens += Number(value?.promptTokens) || 0;
     usage.completionTokens += Number(value?.completionTokens) || 0;
+    usage.billedCharacters += Number(value?.billedCharacters) || 0;
   }
 
   const buffer = createBufferTranslation({
@@ -705,7 +708,8 @@ export function createTranslationScheduler(deps) {
         usage = {
           requests: Number(storedUsage.requests) || 0,
           promptTokens: Number(storedUsage.promptTokens) || 0,
-          completionTokens: Number(storedUsage.completionTokens) || 0
+          completionTokens: Number(storedUsage.completionTokens) || 0,
+          billedCharacters: Number(storedUsage.billedCharacters) || 0
         };
       }
       lastError = error || "";

@@ -36,7 +36,8 @@ test("a fresh install needs no setup: Chrome speech and the built-in translator"
     deepseek: "",
     openai: "",
     bailian: "",
-    custom: ""
+    custom: "",
+    deepl: ""
   });
 });
 
@@ -48,7 +49,8 @@ test("an existing install keeps WhisperLiveKit and DeepSeek after the upgrade", 
   });
   assert.equal(migrated.asrBackend, "wlk");
   assert.equal(migrated.translationProvider, "deepseek");
-  assert.equal(migrated.translationModel, "deepseek-chat");
+  // The stored model is normalised to the preset's fixed flash id.
+  assert.equal(migrated.translationModel, "deepseek-flash");
   assert.equal(migrated.translationBaseUrl, "https://api.deepseek.com/v1");
   assert.equal(migrated.translationApiKeys.deepseek, "dk");
   assert.equal(migrateLegacySettings({}).asrBackend, "chrome");
@@ -251,7 +253,8 @@ test("settingsForBroadcast never exposes API keys", () => {
     deepseek: true,
     openai: true,
     bailian: false,
-    custom: false
+    custom: false,
+    deepl: false
   });
   assert.equal(JSON.stringify(publicSettings).includes("secret-key"), false);
 });

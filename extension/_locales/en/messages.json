@@ -428,11 +428,20 @@
   "popup_key_optional": {
     "message": "A custom service may not need a key"
   },
+  "popup_provider_unknown": {
+    "message": "$1 is not a known translation provider; pick one again"
+  },
+  "popup_deepl_key_hint": {
+    "message": "Free-plan keys end in :fx, which switches the host to api-free.deepl.com"
+  },
   "popup_usage_server": {
     "message": "Local server mode: WhisperLiveKit produces the translations."
   },
   "popup_usage_requests": {
     "message": "$1 requests / $2 tokens this session"
+  },
+  "popup_usage_characters": {
+    "message": "$1 requests / $2 characters this session"
   },
   "popup_no_model": {
     "message": "no model set"
@@ -646,6 +655,9 @@
   },
   "provider_deepseek": {
     "message": "DeepSeek"
+  },
+  "provider_deepl": {
+    "message": "DeepL"
   },
   "provider_openai": {
     "message": "OpenAI"
@@ -940,6 +952,9 @@
   },
   "translation_error_balance": {
     "message": "$1 account balance is too low$2"
+  },
+  "translation_error_quota": {
+    "message": "$1 translation character quota is used up; top up or pick another provider$2"
   },
   "translation_error_rate_limit": {
     "message": "$1 is rate limiting requests$2"

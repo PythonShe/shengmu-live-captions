@@ -399,10 +399,31 @@ async function ensureBuiltinTranslator() {
   builtinSupport.translator = "available";
 }
 
+/**
+ * The model to persist for a provider: none for a protocol that has no model
+ * (DeepL), the preset's own id when it is fixed (DeepSeek), otherwise the form.
+ * @param {any} preset
+ * @param {string} typed
+ */
+function modelForPreset(preset, typed) {
+  if (preset?.requiresModel === false) return "";
+  if (preset?.fixedModel) return preset.model;
+  return String(typed || "").trim();
+}
+
 function renderTranslationSettings() {
-  const provider =
-    TRANSLATION_PROVIDERS[settings.translationProvider] ||
-    TRANSLATION_PROVIDERS.deepseek;
+  const providerId = settings.translationProvider;
+  const provider = TRANSLATION_PROVIDERS[providerId];
+  if (!provider) {
+    // A provider id that no longer exists must fail loudly instead of quietly
+    // rewriting the settings to DeepSeek behind the user's back.
+    elements.translationProvider.value = "";
+    elements.translationProvider.disabled = true;
+    elements.translationModel.disabled = true;
+    elements.translationUsage.textContent = t("popup_provider_unknown", providerId);
+    return;
+  }
+  elements.translationProvider.disabled = false;
   const configured = Boolean(
     settings.translationApiKeyConfigured?.[provider.id]
   );
@@ -419,14 +440,20 @@ function renderTranslationSettings() {
   elements.translationProvider.value = provider.id;
   setFieldValue(elements.translationBaseUrl, settings.translationBaseUrl);
   setFieldValue(elements.translationModel, settings.translationModel);
+  // DeepL picks its own engine and DeepSeek ships a single flash id: typing a
+  // model there could only put a value back that the resolver ignores.
+  elements.translationModel.disabled =
+    provider.requiresModel === false || Boolean(provider.fixedModel);
   elements.translationTranslatePartial.checked =
     settings.translationTranslatePartial;
   elements.apiTranslationFields.hidden = settings.translationMode !== "api";
   elements.translationKeyHint.textContent = configured
     ? t("popup_key_saved", providerLabel)
-    : provider.requiresApiKey
-      ? t("popup_key_required", providerLabel)
-      : t("popup_key_optional");
+    : provider.id === "deepl"
+      ? `${t("popup_key_required", providerLabel)} ${t("popup_deepl_key_hint")}`
+      : provider.requiresApiKey
+        ? t("popup_key_required", providerLabel)
+        : t("popup_key_optional");
   elements.clearTranslationKey.hidden = !configured;
 
   const translationState = runtimeState?.translation;
@@ -437,12 +464,19 @@ function renderTranslationSettings() {
   } else if (builtin) {
     usageText = providerLabel;
   } else if (usage?.requests > 0) {
-    const tokens =
-      (Number(usage.promptTokens) || 0) +
-      (Number(usage.completionTokens) || 0);
-    usageText =
-      `${providerLabel} · ${settings.translationModel} · ` +
-      t("popup_usage_requests", usage.requests, tokens);
+    const billed = Number(usage.billedCharacters) || 0;
+    if (billed > 0) {
+      // DeepL bills characters and has no model name, so the token line and
+      // the model label would both read as zero here.
+      usageText = `${providerLabel} · ${t("popup_usage_characters", usage.requests, billed)}`;
+    } else {
+      const tokens =
+        (Number(usage.promptTokens) || 0) +
+        (Number(usage.completionTokens) || 0);
+      usageText =
+        `${providerLabel} · ${settings.translationModel} · ` +
+        t("popup_usage_requests", usage.requests, tokens);
+    }
   } else {
     usageText = `${providerLabel} · ${settings.translationModel || t("popup_no_model")}`;
   }
@@ -991,7 +1025,9 @@ async function startCapture() {
   };
   if (settings.asrBackend !== "wlk") delete patch.translationMode;
   const provider = elements.translationProvider.value;
-  const remote = !TRANSLATION_PROVIDERS[provider]?.builtin;
+  const preset = TRANSLATION_PROVIDERS[provider];
+  if (!preset) throw new Error(t("popup_provider_unknown", provider));
+  const remote = !preset.builtin;
   if ((patch.translationMode ?? settings.translationMode) === "api" && remote) {
     patch.translationProvider = provider;
     if (provider !== "bailian") {
@@ -999,8 +1035,10 @@ async function startCapture() {
       if (!baseUrl) throw new Error(t("popup_base_url_required"));
       patch.translationBaseUrl = baseUrl;
     }
-    patch.translationModel = elements.translationModel.value.trim();
-    if (!patch.translationModel) throw new Error(t("popup_model_required"));
+    patch.translationModel = modelForPreset(preset, elements.translationModel.value);
+    if (preset.requiresModel !== false && !patch.translationModel) {
+      throw new Error(t("popup_model_required"));
+    }
     const apiKey = elements.translationApiKey.value.trim();
     if (apiKey) patch.translationApiKeys = { [provider]: apiKey };
   }
@@ -1173,9 +1211,11 @@ elements.switchToDeepseek.addEventListener("click", () => {
 });
 
 elements.translationProvider.addEventListener("change", () => {
-  const preset =
-    TRANSLATION_PROVIDERS[elements.translationProvider.value] ||
-    TRANSLATION_PROVIDERS.deepseek;
+  const preset = TRANSLATION_PROVIDERS[elements.translationProvider.value];
+  if (!preset) {
+    setError(t("popup_provider_unknown", elements.translationProvider.value));
+    return;
+  }
   elements.translationApiKey.value = "";
   elements.translationTestResult.hidden = true;
   void savePatch({
@@ -1242,12 +1282,13 @@ elements.testTranslationButton.addEventListener("click", async () => {
   try {
     const provider = elements.translationProvider.value;
     const preset = TRANSLATION_PROVIDERS[provider];
+    if (!preset) throw new Error(t("popup_provider_unknown", provider));
     const patch = {
       translationMode: elements.translationMode.value,
       translationProvider: provider,
       ...collectGlossaryPatchFromInputs()
     };
-    if (preset?.builtin) {
+    if (preset.builtin) {
       await ensureBuiltinTranslator();
     } else {
       if (provider !== "bailian") {
@@ -1255,8 +1296,10 @@ elements.testTranslationButton.addEventListener("click", async () => {
         if (!baseUrl) throw new Error(t("popup_base_url_required"));
         patch.translationBaseUrl = baseUrl;
       }
-      patch.translationModel = elements.translationModel.value.trim();
-      if (!patch.translationModel) throw new Error(t("popup_model_required"));
+      patch.translationModel = modelForPreset(preset, elements.translationModel.value);
+      if (preset.requiresModel !== false && !patch.translationModel) {
+        throw new Error(t("popup_model_required"));
+      }
     }
     const pendingKey = elements.translationApiKey.value.trim();
     if (pendingKey) {

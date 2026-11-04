@@ -106,7 +106,12 @@ test("completed rows debounce, batch together and leave their own ids out of the
   assert.deepEqual(history.map((line) => line.id), ["a", "b"]);
   assert.equal(history[0].signature, `Um, ${LONG}\u0000译甲`);
   assert.deepEqual(published.at(-1), { reason: "lines", lineIds: ["a", "b"] });
-  assert.deepEqual(scheduler.usage, { requests: 1, promptTokens: 4, completionTokens: 2 });
+  assert.deepEqual(scheduler.usage, {
+    requests: 1,
+    promptTokens: 4,
+    completionTokens: 2,
+    billedCharacters: 0
+  });
   assert.equal(state.translation.usage.requests, 1);
   assert.equal(scheduler.inspect().pending.size, 0);
 });
@@ -362,7 +367,12 @@ test("settle without an enabled API applies the server fallbacks", async () => {
 test("restore and config changes reset the error and requeue failed rows", async () => {
   const { clock, translator, state, scheduler } = setup({ lines: [row("a", LONG)] });
   scheduler.restore({ usage: { requests: 3, promptTokens: "9", completionTokens: 1 }, error: "old" });
-  assert.deepEqual(scheduler.usage, { requests: 3, promptTokens: 9, completionTokens: 1 });
+  assert.deepEqual(scheduler.usage, {
+    requests: 3,
+    promptTokens: 9,
+    completionTokens: 1,
+    billedCharacters: 0
+  });
   assert.equal(scheduler.lastError, "old");
 
   scheduler.scheduleLines(0);

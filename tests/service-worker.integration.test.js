@@ -24,7 +24,8 @@ test("background defaults to the built-in translator and never broadcasts API ke
     deepseek: false,
     openai: false,
     bailian: false,
-    custom: false
+    custom: false,
+    deepl: false
   });
 });
 
@@ -80,7 +81,7 @@ test("content scripts cannot change translation endpoints or keys", async () => 
       settings: { translationProvider: "deepseek" }
     });
     assert.equal(switched.settings.translationBaseUrl, "https://api.deepseek.com/v1");
-    assert.equal(switched.settings.translationModel, "deepseek-chat");
+    assert.equal(switched.settings.translationModel, "deepseek-flash");
     assert.equal(switched.settings.translationApiKeyConfigured.custom, true);
 
     // Restore the custom endpoint for the next test.
