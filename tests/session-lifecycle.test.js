@@ -72,9 +72,7 @@ function harness() {
     invalidate: () => calls.push("invalidate"),
     reset: () => calls.push("reset"),
     refreshSummary() {},
-    abortStaleBuffer() {},
-    scheduleLines: () => calls.push("schedule-lines"),
-    scheduleBuffer: () => calls.push("schedule-buffer")
+    scheduleLines: () => calls.push("schedule-lines")
   };
   const lifecycle = createSessionLifecycle({
     store,
@@ -104,11 +102,13 @@ async function until(probe) {
   assert.ok(probe(), "condition never became true");
 }
 
-test("outside a stop, a transcript is recorded and schedules line and buffer translation", async () => {
-  const { calls, recorded, lifecycle } = harness();
+test("outside a stop, an untranslated transcript only schedules line translation", async () => {
+  const { calls, recorded, store, lifecycle } = harness();
   await lifecycle.handleTranscriptUpdate(transcript("The first sentence is complete."));
-  assert.deepEqual(recorded, ["The first sentence is complete."]);
-  assert.deepEqual(calls, ["schedule-lines", "schedule-buffer"]);
+  // A row is screen-only until a translation lands on it, so history waits.
+  assert.deepEqual(recorded, []);
+  assert.deepEqual(calls, ["schedule-lines"]);
+  assert.equal(store.state.current.lines[0].translationPending, true);
 });
 
 test("finalize counts a transcript that lands while it settles and drops one after the seal", async (t) => {
@@ -117,14 +117,17 @@ test("finalize counts a transcript that lands while it settles and drops one aft
   const finalizing = lifecycle.finalize("stopped", "标签页音频采集已停止");
   await until(() => calls.includes("settle"));
 
-  // Still settling: the row is recorded, so the final flush and the summary
-  // see it. No timer is armed; settle drives the remaining translations.
+  // Still settling: the row is not written yet (it has no translation) and no
+  // timer is armed; settle drives the remaining translations.
   await lifecycle.handleTranscriptUpdate(transcript("The first sentence is complete."));
-  assert.deepEqual(recorded, ["The first sentence is complete."]);
+  assert.deepEqual(recorded, []);
   assert.deepEqual(calls, ["settle"]);
 
   gates.settle.resolve();
   await until(() => calls.includes("final-flush"));
+  // Whatever is on screen when the session ends is committed as the final
+  // version of that row, so the summary and the SRT export see it.
+  assert.deepEqual(recorded, ["The first sentence is complete."]);
   assert.deepEqual(calls, ["settle", "invalidate", "final-flush"]);
 
   // Sealed: the summary is being computed, so this update is dropped.
@@ -142,10 +145,11 @@ test("finalize counts a transcript that lands while it settles and drops one aft
   assert.equal(store.state.active, false);
   assert.equal(store.state.lineCount, 1);
 
-  // A new session is not sealed by the previous finalize.
+  // A new session is not sealed by the previous finalize: its rows are new and
+  // untranslated, so they are screen-only until the scheduler lands Chinese.
   Object.assign(store.state, { active: true, status: "capturing" });
   await lifecycle.handleTranscriptUpdate(transcript("The first sentence is complete.", "A new session speaks."));
-  assert.deepEqual(recorded, ["The first sentence is complete.", "A new session speaks."]);
+  assert.deepEqual(recorded, ["The first sentence is complete."]);
   assert.equal(warn.mock.callCount(), 1);
 });
 

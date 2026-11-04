@@ -1,15 +1,19 @@
 /**
  * API-mode translation scheduling: which committed rows go to the model, when,
- * in which batch, and how failures retry or fall back. The throttled request
- * for the unfinished ASR buffer lives in buffer-translation.js; this module
- * owns the state both streams share (generation, usage, last error).
+ * in which batch, and how failures retry or fall back. Half-sentence Chinese
+ * comes from the growing row's stage translation (see caption-utils.js), so
+ * there is no separate request for the unfinished ASR buffer.
  *
  * Pure: no chrome.*, no DOM. Everything outside (runtime state, settings,
  * the HTTP translator, broadcasting, timers) is injected, so tests can drive
  * the whole schedule with a fake clock.
  */
-import { createBufferTranslation } from "./buffer-translation.js";
-import { cleanText, selectDisplayCaption } from "./caption-utils.js";
+import {
+  TRANSLATION_RETRANSLATE_MIN_INTERVAL_MS,
+  cleanText,
+  selectDisplayCaption,
+  shouldRetranslateLine
+} from "./caption-utils.js";
 import { LocalizedError, errorMessage, isLocalMessage, msg, renderWith } from "./i18n-message.js";
 import { polishTranslation, stripSpeechFillers } from "./speech-cleanup.js";
 import { lineSignature } from "./transcript-reducer.js";
@@ -20,11 +24,6 @@ import {
   recentTranslationContext
 } from "./translation-api.js";
 import { planTranslationBatch } from "./utterance.js";
-
-export {
-  TRANSLATION_BUFFER_DEBOUNCE_MS,
-  TRANSLATION_BUFFER_MIN_INTERVAL_MS
-} from "./buffer-translation.js";
 
 export const TRANSLATION_LINE_DEBOUNCE_MS = 160;
 export const TRANSLATION_LINE_BATCH_SIZE = 6;
@@ -37,8 +36,6 @@ export const TRANSLATION_LINE_CONCURRENCY = 2;
 export const TRANSLATION_LINE_MAX_ATTEMPTS = 3;
 export const TRANSLATION_LINE_RETRY_DELAYS_MS = Object.freeze([1200, 3000]);
 export const TRANSLATION_STOP_TIMEOUT_MS = 15000;
-/** The buffer request yields to the line queue only above this backlog. */
-export const TRANSLATION_BUFFER_MAX_BACKLOG = 2;
 const LINE_FOLLOW_UP_DELAY_MS = 250;
 
 const MAX_FLUSH_ROUNDS = 12;
@@ -62,17 +59,6 @@ export function shouldRetryTranslationError(error) {
 function codedError(message, code) {
   const error = isLocalMessage(message) ? new LocalizedError(message) : new Error(message);
   return Object.assign(error, { code });
-}
-
-/** Same words, ignoring case and punctuation (interim and final text differ there). */
-function sameSpeech(left, right) {
-  const words = (value) =>
-    String(value || "")
-      .toLowerCase()
-      .replace(/[^\p{L}\p{N}']+/gu, " ")
-      .trim();
-  const a = words(left);
-  return Boolean(a) && a === words(right);
 }
 
 function emptyUsage() {
@@ -102,7 +88,6 @@ function emptyUsage() {
  *   Persists and broadcasts the patched state. `change` says what moved, for
  *   callers that want to send less than the whole caption state.
  * @property {() => boolean} [isApiEnabled] Defaults to `getConfig().enabled`.
- * @property {() => boolean} [partialEnabled] Whether the unfinished buffer is translated.
  * @property {(callback: () => void, ms: number) => any} [setTimeout]
  * @property {(handle: any) => void} [clearTimeout]
  * @property {() => number} [now]
@@ -121,7 +106,6 @@ export function createTranslationScheduler(deps) {
     enqueueHistory,
     publish,
     isApiEnabled = () => Boolean(getConfig().enabled),
-    partialEnabled = () => true,
     setTimeout: setTimer = globalThis.setTimeout.bind(globalThis),
     clearTimeout: clearTimer = globalThis.clearTimeout.bind(globalThis),
     now = Date.now,
@@ -135,11 +119,16 @@ export function createTranslationScheduler(deps) {
   /** @type {Set<Promise<void>>} running flush workers */
   const workers = new Set();
   let retryTimer = null;
+  /** Waits out the retranslate throttle of a growing row (see shouldRetranslateLine). */
+  let wakeTimer = null;
   /** @type {Set<AbortController>} */
   const lineAborts = new Set();
-  let prefetchHits = 0;
-  /** The newest buffer translation, until a committed row takes it. */
-  let prefetch = /** @type {{ text: string, translation: string } | null} */ (null);
+  /**
+   * What the last request asked for, per row, and when. A row that grew by two
+   * words is not retranslated just because another ASR update landed.
+   * @type {Map<string, { source: string, at: number }>}
+   */
+  let retranslateGuards = new Map();
   /** @type {TranslationUsage} */
   let usage = emptyUsage();
   let lastError = "";
@@ -201,9 +190,47 @@ export function createTranslationScheduler(deps) {
     lineAborts.clear();
   }
 
-  /** Rows waiting for a request, as [lineId, entry]; in-flight rows excluded. */
+  /**
+   * Rows waiting for a request, as [lineId, entry]; in-flight rows excluded.
+   * A growing row that already shows a stage translation is held until either
+   * enough new text or enough time has passed (see shouldRetranslateLine), and
+   * the wake timer makes sure the newer source is not dropped silently.
+   */
   function waitingEntries() {
-    return [...pending.entries()].filter(([, entry]) => !entry.inFlight);
+    const at = now();
+    const waiting = [];
+    for (const [lineId, entry] of pending) {
+      if (entry.inFlight) continue;
+      if (shouldHoldRetranslation(lineId, entry, at)) continue;
+      waiting.push([lineId, entry]);
+    }
+    return waiting;
+  }
+
+  /**
+   * Whether this row's newer source has to wait for the throttle window.
+   * The wake timer re-runs the queue once the window is over, so a held row is
+   * delayed, never lost.
+   */
+  function shouldHoldRetranslation(lineId, entry, at) {
+    const line =
+      runtimeLines().find((item) => item?.id === lineId) || knownLines.get(lineId);
+    if (!line?.translation) return false;
+    const guard = retranslateGuards.get(lineId);
+    const allowed = shouldRetranslateLine(line, guard, { now: at });
+    if (allowed) return false;
+    scheduleTranslationWake(
+      TRANSLATION_RETRANSLATE_MIN_INTERVAL_MS - (at - Number(guard?.at || 0))
+    );
+    return true;
+  }
+
+  function scheduleTranslationWake(delay) {
+    if (wakeTimer || !sessionActive()) return;
+    wakeTimer = setTimer(() => {
+      wakeTimer = null;
+      scheduleLines(0);
+    }, Math.max(50, Math.min(Number(delay) || 0, TRANSLATION_RETRANSLATE_MIN_INTERVAL_MS)));
   }
 
   function addUsage(value) {
@@ -212,34 +239,6 @@ export function createTranslationScheduler(deps) {
     usage.completionTokens += Number(value?.completionTokens) || 0;
     usage.billedCharacters += Number(value?.billedCharacters) || 0;
   }
-
-  const buffer = createBufferTranslation({
-    getState,
-    getConfig,
-    isApiEnabled,
-    partialEnabled,
-    translateTexts: guardedTranslate,
-    isLineBacklogged: () =>
-      waitingEntries().length > TRANSLATION_BUFFER_MAX_BACKLOG ||
-      workers.size >= TRANSLATION_LINE_CONCURRENCY,
-    generation: () => generation,
-    recordSuccess: (value) => {
-      addUsage(value);
-      lastError = "";
-    },
-    recordFailure: (error) => {
-      lastError = cleanText(describeError(error));
-      return shouldRetryTranslationError(error);
-    },
-    publish: (change) => publishCaptions(change),
-    setTimeout: setTimer,
-    clearTimeout: clearTimer,
-    now,
-    onTranslated: (text, translation) => {
-      prefetch = { text, translation };
-      reusePrefetched();
-    }
-  });
 
   function patchRuntimeLine(lineId, patch) {
     const line = runtimeLines().find((item) => item?.id === lineId);
@@ -282,16 +281,8 @@ export function createTranslationScheduler(deps) {
       // runtime window. Keep translating it into history from the last known
       // copy instead of silently losing a final subtitle.
       const line = runtimeLine || knownLines.get(lineId);
-      if (!line || line.source !== entry.source) {
-        const queued = pending.get(lineId);
-        if (queued && line?.source) {
-          queued.source = line.source;
-          queued.attempts = 0;
-          queued.fallback = cleanText(line.fallbackTranslation);
-          sourceChanged = true;
-        } else {
-          pending.delete(lineId);
-        }
+      if (!line) {
+        pending.delete(lineId);
         continue;
       }
       const text = polishTranslation(cleanText(translations[index]));
@@ -301,20 +292,29 @@ export function createTranslationScheduler(deps) {
         emptyEntries.push([lineId, entry]);
         continue;
       }
+      // The recogniser kept appending to this row while the request was in
+      // flight. Dropping the response was what postponed every subtitle to the
+      // end of the sentence: apply it as a stage translation, keep it on
+      // screen, and let the next round translate the newer source.
+      const stale = line.source !== entry.source;
+      if (stale) sourceChanged = true;
       const patch = {
         translation: text,
-        translationPending: false,
+        translatedSource: entry.source,
+        translationPending: stale,
         translationFailed: false,
         translationFallback: fallback
       };
       if (runtimeLine) patchRuntimeLine(lineId, patch);
-      const updated = {
-        ...line,
-        ...patch,
-        signature: lineSignature(line.source, text)
-      };
+      const updated = { ...line, ...patch };
+      updated.signature = lineSignature(updated.source, updated.translation, stale);
       knownLines.set(lineId, updated);
-      enqueueHistory([updated]);
+      // Only a translation that matches the row's current source belongs in the
+      // history and the SRT export; stage translations are screen-only.
+      if (!stale) {
+        enqueueHistory([updated]);
+        retranslateGuards.delete(lineId);
+      }
       pending.delete(lineId);
       applied.push(updated);
     }
@@ -347,8 +347,12 @@ export function createTranslationScheduler(deps) {
   function collectPending() {
     if (!isApiEnabled()) return;
     for (const line of runtimeLines()) {
-      if (!line?.id || !line.source || line.translation) continue;
-      if (failed.get(line.id) === line.source) continue;
+      if (!line?.id || !line.source) continue;
+      // A row whose translation still matches its source is done. A row holding
+      // a stage translation is not: the source grew under it and the newest
+      // words have no translation yet.
+      if (line.translation && !line.translationPending) continue;
+      if (!line.translation && failed.get(line.id) === line.source) continue;
       const existing = pending.get(line.id);
       if (existing) {
         if (existing.source !== line.source) {
@@ -373,31 +377,9 @@ export function createTranslationScheduler(deps) {
     }
   }
 
-  /**
-   * A committed row whose text the buffer request already translated (the
-   * speaker paused, so the last half-sentence became the final row) takes
-   * that translation at once instead of waiting about a second for its own.
-   * A row still waiting needs no request at all; a row already in flight
-   * shows it now and takes the full translation when that lands.
-   */
-  function reusePrefetched() {
-    if (!prefetch) return;
-    for (const [lineId, entry] of pending) {
-      if (entry.attempts > 0 || !sameSpeech(entry.promptText, prefetch.text)) continue;
-      const { translation } = prefetch;
-      prefetch = null;
-      prefetchHits += 1;
-      // applyLineTranslations drops the row from `pending` before its first
-      // await, so no new request can pick it up meanwhile.
-      void applyLineTranslations([[lineId, entry]], [translation]);
-      return;
-    }
-  }
-
   function scheduleLines(wait = TRANSLATION_LINE_DEBOUNCE_MS) {
     if (!isApiEnabled() || !sessionActive()) return;
     collectPending();
-    reusePrefetched();
     if (waitingEntries().length === 0) return;
     if (retryTimer) return;
     if (flushTimer || workers.size >= TRANSLATION_LINE_CONCURRENCY) return;
@@ -415,7 +397,7 @@ export function createTranslationScheduler(deps) {
     let nextRetryAttempts = Infinity;
     for (const [lineId, entry] of entries) {
       if (startGeneration !== generation) return;
-      // A prefetched buffer translation already finished this row.
+      // Another worker already finished this row.
       if (pending.get(lineId) !== entry) continue;
       entry.attempts += 1;
       if (!retryable || entry.attempts >= TRANSLATION_LINE_MAX_ATTEMPTS) {
@@ -469,6 +451,12 @@ export function createTranslationScheduler(deps) {
   async function requestBatch(entries, excludeIds, config, startGeneration) {
     const controller = new AbortController();
     lineAborts.add(controller);
+    // Remember what was asked and when, so a row that grew by two words is not
+    // retranslated immediately (see shouldHoldRetranslation).
+    const requestedAt = now();
+    for (const [lineId, entry] of entries) {
+      retranslateGuards.set(lineId, { source: entry.source, at: requestedAt });
+    }
     let result;
     try {
       result = await guardedTranslate({
@@ -523,7 +511,6 @@ export function createTranslationScheduler(deps) {
    */
   function flushLines() {
     collectPending();
-    reusePrefetched();
     while (
       workers.size < TRANSLATION_LINE_CONCURRENCY &&
       waitingEntries().length > 0 &&
@@ -625,7 +612,6 @@ export function createTranslationScheduler(deps) {
       await applyPendingFallbacks();
       return;
     }
-    buffer.cancel();
     const startGeneration = generation;
     const deadline = now() + timeoutMs;
     collectPending();
@@ -653,20 +639,18 @@ export function createTranslationScheduler(deps) {
     generation += 1;
     clearTimer(flushTimer);
     clearTimer(retryTimer);
+    clearTimer(wakeTimer);
     flushTimer = null;
     retryTimer = null;
+    wakeTimer = null;
     workers.clear();
     abortLine();
     pending.clear();
     failed.clear();
+    retranslateGuards = new Map();
     lastError = "";
     cooldown.reset();
-    buffer.reset();
-    if (!keepUsage) {
-      usage = emptyUsage();
-      prefetchHits = 0;
-    }
-    prefetch = null;
+    if (!keepUsage) usage = emptyUsage();
     refreshSummary();
   }
 
@@ -676,20 +660,12 @@ export function createTranslationScheduler(deps) {
     lastError = "";
     clearTimer(retryTimer);
     retryTimer = null;
-    buffer.reset({ keepInterval: true });
-    if (sessionActive() && isApiEnabled()) {
-      scheduleLines(0);
-      buffer.schedule();
-    }
+    if (sessionActive() && isApiEnabled()) scheduleLines(0);
   }
 
   return {
     scheduleLines,
     flushLines,
-    scheduleBuffer: buffer.schedule,
-    flushBuffer: buffer.flush,
-    cancelBuffer: buffer.cancel,
-    abortStaleBuffer: buffer.abortStale,
     settle,
     reset,
     handleConfigChanged,
@@ -697,7 +673,6 @@ export function createTranslationScheduler(deps) {
     /** Rebuild the queue from the rows already in runtime state. */
     resume() {
       scheduleLines(0);
-      buffer.schedule();
     },
     /**
      * Restores the counters a recycled worker persisted in runtime state.
@@ -732,11 +707,10 @@ export function createTranslationScheduler(deps) {
         generation,
         lineInFlight: workers.size > 0,
         lineWorkers: workers.size,
-        prefetchHits,
         lineTimer: Boolean(flushTimer),
         retryTimer: Boolean(retryTimer),
+        wakeTimer: Boolean(wakeTimer),
         cooldownMs: cooldown.remainingMs(),
-        ...buffer.inspect(),
         lastError
       };
     }

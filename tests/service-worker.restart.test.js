@@ -138,8 +138,12 @@ test("recovery is idempotent: a second run re-records nothing", async () => {
   const { patch } = reduceTranscriptUpdate(
     { active: true, status: "capturing", sessionId: SESSION_ID, startedAt: STARTED_AT, current: {} },
     TRANSCRIPT,
-    { knownLines: new Map(), useApi: false, now: STARTED_AT }
+    { knownLines: new Map(), useApi: true, now: STARTED_AT }
   );
+  // Only the row whose translation landed before the restart is written; the
+  // other one is still screen-only and waits for its own translation.
+  patch.current.lines[0].translation = "译:第一句";
+  patch.current.lines[0].translationPending = false;
   const recorded = [];
   const knownLines = new Map();
   const history = {
@@ -167,6 +171,6 @@ test("recovery is idempotent: a second run re-records nothing", async () => {
 
   await lifecycle.recover();
   await lifecycle.recover();
-  assert.deepEqual(recorded, [patch.current.lines.map((line) => line.id)]);
+  assert.deepEqual(recorded, [[patch.current.lines[0].id]]);
   assert.equal(resumed, 2);
 });

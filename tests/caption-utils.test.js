@@ -13,8 +13,11 @@ import {
   migrateLegacySettings,
   normalizeCaptionLines,
   normalizeSettings,
+  composeLiveSource,
   planTranscriptDiff,
+  reconcileLineTranslations,
   sanitizeSettingsPatch,
+  shouldRetranslateLine,
   selectDisplayCaption,
   settingsForBroadcast,
   settingsForCaptions,
@@ -388,7 +391,7 @@ test("normalizeCaptionLines marks source-only lines as pending translation", () 
   assert.equal(lineNeedsTranslation(normalized.lines[0]), true);
 });
 
-test("selectDisplayCaption shows the new source at once and holds the previous translation as pending", () => {
+test("selectDisplayCaption appends the uncommitted tail instead of replacing the row", () => {
   const caption = selectDisplayCaption({
     lines: [
       {
@@ -401,12 +404,15 @@ test("selectDisplayCaption shows the new source at once and holds the previous t
     bufferTranslation: ""
   });
 
+  // The buffer only carries the words after the committed row, so the English
+  // slot is the row plus the tail: replacing the row made it jump 88 times a
+  // minute on real samples.
   assert.deepEqual(caption, {
-    lineId: null,
-    source: "A newer unfinished sentence",
+    lineId: "line-1",
+    source: "The stable sentence. A newer unfinished sentence",
     translation: "稳定的译文。",
     error: "",
-    pending: true,
+    pending: false,
     failed: false
   });
 });
@@ -637,7 +643,7 @@ test("mergeCaptionFragments respects the gap, size and line limits", async () =>
   assert.equal(merged[0].fragmentLines, 3);
 });
 
-test("mergeCaptionFragments clears a translation that the merge invalidated", async () => {
+test("mergeCaptionFragments keeps a grown unit's stage translation instead of dropping it", async () => {
   const { mergeCaptionFragments } = await import("../extension/lib/caption-utils.js");
   const lines = [
     { id: "a", source: "and riddled with excitement", translation: "而且充满兴奋", start: "0:00:01.00", end: "0:00:02.00" },
@@ -645,6 +651,172 @@ test("mergeCaptionFragments clears a translation that the merge invalidated", as
   ];
   const merged = mergeCaptionFragments(lines);
   assert.equal(merged.length, 1);
-  assert.equal(merged[0].translation, "");
+  // The stage translation stays on screen while the unit grows; the merge only
+  // marks it stale. reconcileLineTranslations does the same for the runtime
+  // copy of the row.
+  assert.equal(merged[0].translation, "而且充满兴奋");
   assert.equal(merged[0].translationPending, true);
+  assert.deepEqual(merged[0].fragmentIds, ["a", "b"]);
+});
+
+test("composeLiveSource appends the uncommitted tail without duplicating it", () => {
+  assert.equal(composeLiveSource("hello there", "how are you"), "hello there how are you");
+  // The buffer only repeats the row's tail: nothing to add.
+  assert.equal(composeLiveSource("hello there", "there"), "hello there");
+  assert.equal(composeLiveSource("hello there", "there how"), "hello there how");
+  assert.equal(composeLiveSource("", "just the buffer"), "just the buffer");
+  assert.equal(composeLiveSource("only the row", ""), "only the row");
+});
+
+test("selectDisplayCaption keeps a stage translation and flags it as waiting", () => {
+  const caption = selectDisplayCaption({
+    lines: [
+      { id: "line-1", source: "First sentence.", translation: "第一句。" },
+      {
+        id: "line-2",
+        source: "Your first job is to design mechanics for the league.",
+        translation: "你的首要任务是设计机制。",
+        translatedSource: "Your first job is to design mechanics",
+        translationPending: true
+      }
+    ]
+  });
+
+  // The stage translation must not be dropped in favour of the previous
+  // sentence, and the pending flag tells the overlay the Chinese is behind.
+  assert.equal(caption.lineId, "line-2");
+  assert.equal(caption.source, "Your first job is to design mechanics for the league.");
+  assert.equal(caption.translation, "你的首要任务是设计机制。");
+  assert.equal(caption.pending, true);
+});
+
+test("selectDisplayCaption does not treat a non-empty buffer as a wait", () => {
+  const caption = selectDisplayCaption({
+    lines: [{ id: "line-1", source: "Settled sentence.", translation: "已定稿。" }],
+    bufferSource: "and then"
+  });
+  // WhisperLiveKit keeps a buffer almost all the time; a dot that glows on
+  // every buffer would read as a permanent failure.
+  assert.equal(caption.pending, false);
+  assert.equal(caption.source, "Settled sentence. and then");
+});
+
+test("reconcileLineTranslations keeps a stage translation while the row grows", () => {
+  const previous = [
+    {
+      id: "line-1",
+      source: "Your first job",
+      translation: "你的首要任务",
+      translatedSource: "Your first job",
+      translationPending: false
+    }
+  ];
+  const next = [
+    { id: "line-1", source: "Your first job is to design mechanics", translation: "" }
+  ];
+
+  const [line] = reconcileLineTranslations(previous, next, { useApi: true });
+  assert.equal(line.translation, "你的首要任务");
+  assert.equal(line.translatedSource, "Your first job");
+  assert.equal(line.translationPending, true);
+});
+
+test("reconcileLineTranslations clears the pending flag once the source matches", () => {
+  const previous = [
+    {
+      id: "line-1",
+      source: "Your first job is to design mechanics",
+      translation: "你的首要任务是设计机制。",
+      translatedSource: "Your first job is to design mechanics",
+      translationPending: true
+    }
+  ];
+  const next = [{ id: "line-1", source: "Your first job is to design mechanics" }];
+
+  const [line] = reconcileLineTranslations(previous, next, { useApi: true });
+  assert.equal(line.translation, "你的首要任务是设计机制。");
+  assert.equal(line.translationPending, false);
+});
+
+test("reconcileLineTranslations gives a split-off row the unit's stage translation", () => {
+  // The unit was "on your item. and even handcrafted runes", and row b grew far
+  // enough for the unit to exceed the size limit and split again. Row b never
+  // existed on its own, so it has no previous copy of itself.
+  const previous = [
+    {
+      id: "a",
+      source: "on your item. and even handcrafted runes",
+      translation: "你的物品上。甚至还有手工制作的符文。",
+      translatedSource: "on your item. and even handcrafted runes",
+      translationPending: true,
+      fragmentIds: ["a", "b"]
+    }
+  ];
+  const next = [
+    { id: "a", source: "on your item." },
+    { id: "b", source: "and even handcrafted runes with no purpose" }
+  ];
+
+  const [, split] = reconcileLineTranslations(previous, next, { useApi: true });
+  assert.equal(split.id, "b");
+  assert.equal(split.translation, "你的物品上。甚至还有手工制作的符文。");
+  assert.equal(split.translationPending, true);
+});
+
+test("reconcileLineTranslations keeps WhisperLiveKit translations in server mode", () => {
+  const [line] = reconcileLineTranslations(
+    [],
+    [{ id: "line-1", source: "hello there", translation: "你好" }],
+    { useApi: false }
+  );
+  assert.equal(line.translation, "你好");
+  assert.equal(line.translationPending, false);
+});
+
+test("reconcileLineTranslations can read a row that left the runtime window", () => {
+  const knownLines = new Map([
+    [
+      "gone",
+      { id: "gone", source: "an older sentence", translation: "更早的一句。", translatedSource: "an older sentence" }
+    ]
+  ]);
+  const [line] = reconcileLineTranslations([], [{ id: "gone", source: "an older sentence" }], {
+    useApi: true,
+    knownLines
+  });
+  assert.equal(line.translation, "更早的一句。");
+});
+
+test("shouldRetranslateLine waits for new text or enough time", () => {
+  const line = { translation: "阶段译文", source: "hello there world" };
+  // Nothing requested yet: go.
+  assert.equal(shouldRetranslateLine(line, null), true);
+  // A row with no Chinese yet never waits.
+  assert.equal(
+    shouldRetranslateLine(
+      { translation: "", source: "hello there world" },
+      { source: "hello", at: 1_000 },
+      { now: 1_050 }
+    ),
+    true
+  );
+  // Two more words and 50 ms later: still too early.
+  assert.equal(
+    shouldRetranslateLine(line, { source: "hello there", at: 1_000 }, { now: 1_050 }),
+    false
+  );
+  // Eight new characters is enough even inside the interval.
+  assert.equal(
+    shouldRetranslateLine(
+      { translation: "阶段译文", source: "hello there world and more" },
+      { source: "hello there", at: 1_000 },
+      { now: 1_050 }
+    ),
+    true
+  );
+  // Enough time is enough even without new text.
+  assert.equal(
+    shouldRetranslateLine(line, { source: "hello there world", at: 1_000 }, { now: 1_500 }),
+    true
+  );
 });

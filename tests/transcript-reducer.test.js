@@ -36,7 +36,7 @@ function reduce(currentState, msg, options = {}) {
   });
 }
 
-test("API mode: fragments merge into one pending row and the buffer wins the source slot", () => {
+test("API mode: fragments merge into one pending row and the buffer extends the source slot", () => {
   const result = reduce(
     state(),
     message(
@@ -59,7 +59,8 @@ test("API mode: fragments merge into one pending row and the buffer wins the sou
         end: "0:00:03.00",
         source: "We went to the shop and bought some bread.",
         translation: "",
-        fallbackTranslation: "",
+        translatedSource: "",
+        fallbackTranslation: "我们去了商店",
         translationPending: true,
         translationFailed: false,
         speaker: 1,
@@ -67,6 +68,7 @@ test("API mode: fragments merge into one pending row and the buffer wins the sou
         order: STARTED_AT + 1000,
         updatedAt: NOW,
         // mergeCaptionFragments bookkeeping rides along on the row.
+        fragmentIds: ["s1:e1:0:00:01.00", "s1:e1:0:00:02.20"],
         fragmentLines: 2,
         open: true
       }
@@ -76,8 +78,10 @@ test("API mode: fragments merge into one pending row and the buffer wins the sou
     translationError: "rate limited",
     epochId: "e1",
     displayCaption: {
-      lineId: null,
-      source: "and then we",
+      lineId: "s1:e1:0:00:01.00",
+      // The buffer only carries the words after the row, so the English slot
+      // keeps the sentence and appends what has not been committed yet.
+      source: "We went to the shop and bought some bread. and then we",
       translation: "",
       error: "rate limited",
       pending: true,
@@ -87,9 +91,9 @@ test("API mode: fragments merge into one pending row and the buffer wins the sou
   assert.equal(result.patch.wsConnected, true);
   assert.equal(result.patch.updatedAt, NOW);
   assert.equal(result.bufferChanged, true);
-  assert.deepEqual(result.historyLines.map((line) => line.id), ["s1:e1:0:00:01.00"]);
-  // The merged unit grew, so the first fragment's server translation is stale.
-  assert.equal(result.historyLines[0], result.patch.current.lines[0]);
+  // A row whose translation is still pending is screen-only: the history waits
+  // for the scheduler to land one, so nothing is queued yet.
+  assert.deepEqual(result.historyLines, []);
 });
 
 test("API mode keeps a server translation only as the polished fallback", () => {
@@ -126,8 +130,10 @@ test("server mode keeps the WLK rows, polishes their translations and never merg
   );
   assert.equal(current.bufferTranslation, "然后");
   assert.equal(current.translationError, "llama busy");
-  assert.equal(current.displayCaption.source, "and then");
-  assert.equal(current.displayCaption.translation, "然后");
+  assert.equal(current.displayCaption.source, "bought some bread. and then");
+  // The translation slot follows the newest row's own translation; the buffer
+  // translation is only the fallback when that row has none.
+  assert.equal(current.displayCaption.translation, "买了面包。");
   assert.equal(result.patch.status, "capturing", "a transcript ends the reconnecting state");
   assert.equal(result.historyLines.length, 2);
 });
@@ -156,7 +162,9 @@ test("an epoch switch shifts timecodes by the reconnect offset and replaces the 
   // The new epoch's display falls back to the previous translated row only
   // while it is still in the runtime window; here it is not.
   assert.equal(second.patch.current.displayCaption.translation, "");
-  assert.deepEqual(second.historyLines.map((row) => row.id), ["s1:e2:0:00:01.00"]);
+  // The new epoch's row is untranslated, so it is screen-only until a
+  // translation lands.
+  assert.deepEqual(second.historyLines, []);
 });
 
 test("unchanged rows keep their translation and are not written to history again", () => {
@@ -204,17 +212,35 @@ test("a failed row stays failed until its source changes", () => {
   assert.equal(grown.patch.current.lines[0].translationFailed, false);
 });
 
-test("the buffer translation survives only while the buffer text is unchanged", () => {
+test("server mode takes the buffer translation straight from WhisperLiveKit", () => {
   const withBuffer = state({
     current: { lines: [], bufferSource: "and then we", bufferTranslation: "然后我们", translationError: "" }
   });
-  const same = reduce(withBuffer, message([], { buffer_transcription: "and then  we" }));
+  // Server mode is the only place a buffer translation exists now; API mode
+  // gets its half-sentences from the growing row's stage translation.
+  const same = reduce(
+    withBuffer,
+    message([], { buffer_transcription: "and then  we", buffer_translation: "然后我们" }),
+    { useApi: false }
+  );
   assert.equal(same.bufferChanged, false);
   assert.equal(same.patch.current.bufferTranslation, "然后我们");
 
-  const moved = reduce(withBuffer, message([], { buffer_transcription: "and then we went" }));
+  const moved = reduce(
+    withBuffer,
+    message([], { buffer_transcription: "and then we went", buffer_translation: "然后我们继续" }),
+    { useApi: false }
+  );
   assert.equal(moved.bufferChanged, true);
-  assert.equal(moved.patch.current.bufferTranslation, "");
+  assert.equal(moved.patch.current.bufferTranslation, "然后我们继续");
+});
+
+test("API mode never keeps a buffer translation", () => {
+  const withBuffer = state({
+    current: { lines: [], bufferSource: "and then we", bufferTranslation: "然后我们", translationError: "" }
+  });
+  const same = reduce(withBuffer, message([], { buffer_transcription: "and then we" }));
+  assert.equal(same.patch.current.bufferTranslation, "");
 });
 
 test("runtime rows are capped to the newest window", () => {
@@ -226,5 +252,6 @@ test("runtime rows are capped to the newest window", () => {
   const result = reduce(state(), message(rows), { useApi: false });
   assert.equal(result.patch.current.lines.length, RUNTIME_LINE_LIMIT);
   assert.equal(result.patch.current.lines[0].source, "Sentence number 5 is complete.");
-  assert.equal(result.historyLines.length, RUNTIME_LINE_LIMIT + 5, "history still gets every row");
+  // Untranslated rows are screen-only until a translation lands on them.
+  assert.deepEqual(result.historyLines, []);
 });

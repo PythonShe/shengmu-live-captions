@@ -24,7 +24,6 @@ const TRANSLATION_SETTING_KEYS = Object.freeze([
   "translationBaseUrl",
   "translationModel",
   "translationApiKeys",
-  "translationTranslatePartial",
   "translationTimeoutMs",
   "glossaryEnabled",
   "glossaryPresetIds",

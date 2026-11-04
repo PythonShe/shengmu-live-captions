@@ -60,9 +60,6 @@ const elements = {
   translationModel: document.querySelector("#translationModel"),
   translationApiKey: document.querySelector("#translationApiKey"),
   translationKeyHint: document.querySelector("#translationKeyHint"),
-  translationTranslatePartial: document.querySelector(
-    "#translationTranslatePartial"
-  ),
   testTranslationButton: document.querySelector("#testTranslationButton"),
   clearTranslationKey: document.querySelector("#clearTranslationKey"),
   translationTestResult: document.querySelector("#translationTestResult"),
@@ -444,8 +441,6 @@ function renderTranslationSettings() {
   // model there could only put a value back that the resolver ignores.
   elements.translationModel.disabled =
     provider.requiresModel === false || Boolean(provider.fixedModel);
-  elements.translationTranslatePartial.checked =
-    settings.translationTranslatePartial;
   elements.apiTranslationFields.hidden = settings.translationMode !== "api";
   elements.translationKeyHint.textContent = configured
     ? t("popup_key_saved", providerLabel)
@@ -1020,7 +1015,6 @@ async function startCapture() {
   const patch = {
     wsUrl: normalizeWsUrl(elements.wsUrl.value),
     translationMode: elements.translationMode.value,
-    translationTranslatePartial: elements.translationTranslatePartial.checked,
     ...collectGlossaryPatchFromInputs()
   };
   if (settings.asrBackend !== "wlk") delete patch.translationMode;
@@ -1266,12 +1260,6 @@ elements.clearTranslationKey.addEventListener("click", () => {
       elements.translationTestResult.hidden = true;
     })
     .catch((error) => setError(errorText(error)));
-});
-
-elements.translationTranslatePartial.addEventListener("change", () => {
-  void savePatch({
-    translationTranslatePartial: elements.translationTranslatePartial.checked
-  }).catch((error) => setError(errorText(error)));
 });
 
 elements.testTranslationButton.addEventListener("click", async () => {

@@ -152,12 +152,6 @@
   "popup_model": {
     "message": "模型"
   },
-  "popup_partial": {
-    "message": "半句预翻译"
-  },
-  "popup_partial_hint": {
-    "message": "中文更早出现，API 用量更高"
-  },
   "popup_test_api": {
     "message": "测试翻译 API"
   },

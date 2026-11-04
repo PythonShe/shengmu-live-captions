@@ -35,7 +35,6 @@ const scheduler = createTranslationScheduler({
   getState: () => store.state,
   getConfig: () => settings.translationConfig(),
   isApiEnabled: () => settings.apiTranslationActive(),
-  partialEnabled: () => Boolean(settings.current.translationTranslatePartial),
   translateTexts: (options) => translateTexts({ ...options, builtinTranslate }),
   knownLines: history.knownLines,
   enqueueHistory: (lines) => history.enqueue(lines),

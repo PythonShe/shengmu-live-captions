@@ -152,12 +152,6 @@
   "popup_model": {
     "message": "Model"
   },
-  "popup_partial": {
-    "message": "Translate partial sentences"
-  },
-  "popup_partial_hint": {
-    "message": "Chinese appears sooner; uses more API calls"
-  },
   "popup_test_api": {
     "message": "Test translation API"
   },
