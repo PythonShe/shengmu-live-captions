@@ -1,5 +1,12 @@
 # 项目进度记录 (PROGRESS.md)
 
+## 2026-11-04 · 固定测试音频入库（`test-assets/quality-samples`）
+
+- 把 `.research/quality-samples` 中的 7 个 120 s / 16 kHz 单声道 WAV（每个 3.84 MB）、3 套 VTT 与 3 个 silence 标注复制到 `test-assets/quality-samples/`（共 28 MB），并附 `README.md` 写清来源、切片、探针用法，让没有 `.research/` 的机器也能跑同一套端到端探针。
+- `.gitignore`：`/test-assets/` 改为 `/test-assets/*` + `!/test-assets/quality-samples/`，`tab_capture`/`tts_lcv` 等旧资产仍只留本地；199 MB 的完整 webm 不入库。
+- `AGENTS.md` 实测验收条样本路径改为 `test-assets/quality-samples/*poe*.wav`。
+- 验证：`git check-ignore` 确认 `quality-samples` 不被忽略、`test-assets/tab_capture/target.wav` 仍被忽略；入库文件总 28 MB。
+
 ## 2026-11-04 · 全量跨模型审阅（`origin/master..port/0.5.10`）
 
 审阅人同上（`Code Review` profile / `qwen3.7-plus`），快照 `a1e6268`，只读。范围 `c8fdab4..a1e6268`（41 文件 +2506/−812）。

@@ -5,6 +5,9 @@
 /.serena/
 /feiyu.test
 /scripts/local-service/server.pid
-/test-assets/
+# The probe inputs live here so a remote machine can run the same audio
+# samples; everything else under test-assets stays local.
+/test-assets/*
+!/test-assets/quality-samples/
 /paseo/evidence/
 /node_modules/
