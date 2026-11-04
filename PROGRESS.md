@@ -26,8 +26,12 @@
 - 双语模式下未译行不再把英文同时印在原文槽和译文槽。
 - `OVERLAY_VERSION` 本阶段不动（按 plan 阶段 4 由 `9` 升 `10` 收口）。
 
+### 实测（dev 9223 + 真实 tabCapture + 固定样本 `GHEBkhT1K7A-05m41-07m41.wav` + DeepL 后端）
+- 启动姿势：`node scripts/services.mjs dev-browser --port 9223` 重载扩展 → 打开 `extension/subtitle/subtitle.html` → 激活 player tab → `chrome.action.openPopup()` 后点 `#primaryButton`（UIA 找不到工具栏图标；旧 `.research` 探针硬编码 `subtitle.html` 旧路径，已记 pit `research-chrome-extension-c9e4ff`）。探针复制到仓库外改路径后跑 60 s。
+- 结果：面板 60 s 内行数恒 8、打开后新进 20 行、每行节点重建 0、译文 A→B→A 0、面板高恒 283 px；深滚后 30 行、重建 0；滚回最新后 `hidden=true`、行数 0。与 `paseo/17` 的判据一致。
+- 未跑 `rebound-probe.py`（浮层本体回弹，属阶段 4 验收）。
+
 ### 未执行 / 待后续
-- 未跑 `.research/scrollback-live-probe.py`（plan 第 4 节统一实测）。
 - 未在 server 模式（WLK 自带译文）下复测面板实时性。
 
 ### 跨模型审阅（`fef5b13..2cab460`，qwen3.7-plus，只读 worktree）
