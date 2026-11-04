@@ -1,5 +1,23 @@
 # 项目进度记录 (PROGRESS.md)
 
+## 2026-11-04 · 阶段 2 跨模型审阅：0 条 P0/P1 + 修掉测试里的裸 NUL
+
+审阅人：paseo `Code Review` profile（`pi/magpie/opencode-go/qwen3.7-plus`，thinking medium），独立 `--new-workspace` + `git worktree` 快照 `C:/Users/moule/Documents/ChatGPT/shengmu-review-058-stage2`（detach `d4a079c`），只读约束写在 prompt 里；审完 `git status` 干净，未动手。范围 `9df92c2..d4a079c`。
+
+### 审阅结论（3 条必须修 → 复核后 0 条）
+- 原报 P0（`content-overlay.js` 内联 `selectDisplayCaption` 与 `caption-utils.js` 不一致）→ 降 P2：`latestCaption()` 先取 `current.displayCaption`，内联副本只是旧 worker 降级 shim（AGENTS.md §1 要求保留），`caption-utils.js` 注释已写「change both」。
+- 原报 P1（`finalize` 里 offscreen 丢失分支跳过 `commitRuntimeLinesToHistory`）→ 不成立：`finalize` 内无 `hasDocument` 分支；offscreen 丢失由 `recover` 调 `finalize("error")`，走完整路径，settle → commit → seal 必执行。
+- 原报 P1（`recover` 把 `translationPending` 行写进历史）→ 不成立：`linesChangedSince` 首句即 `translationPending === true → false`，恢复路径同样过滤。
+- 原报 P2「缺 wakeTimer 集成测试」→ 不成立：`tests/translation-scheduler.test.js:162-190` 已覆盖 hold → 400 ms 唤醒 → 重译落终态。
+
+### 本轮实际修复
+- `tests/translation-scheduler.test.js:104` 的 signature 断言里写进了两个裸 NUL 字节（本意 `\u0000` 转义），git / `rg` 把整个文件当 binary，diff 不可读、审阅者直接跳过该文件。已改成转义写法（`node --check` + `node --test tests/translation-scheduler.test.js` 12 项通过）。
+
+### 遗留 P2（记录，不在阶段 2 处理）
+- `shouldRetranslateLine` 用字符数算增量（8 字符 ≈ 英文 1~2 词），当前只支持英文 ASR，可接受。
+- `resolveTranslationConfig` 仍输出 `translatePartial`，全仓无消费者（`DEFAULT_SETTINGS` 保留该键是为了兼容旧存储）。
+- `content-overlay.js` 旧 worker fallback 与新 `selectDisplayCaption` 行为有差异（`bufferSource` 非空时旧代码屏蔽行译文）；无实测样本覆盖旧 worker 场景，不动。
+
 ## 2026-11-04 · 移植阶段 2：阶段译文单调递进 + 英文单行源槽 + 停用 buffer 送翻（0.5.8）
 
 任务书：`plan.md` 阶段 2。分支 `port/0.5.10`。
