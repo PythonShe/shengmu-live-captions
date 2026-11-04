@@ -41,7 +41,7 @@ Get-ChildItem extension,scripts/local-service,tests -Include *.js,*.mjs -Recurse
 - 0.5.5 起 ASR 碎片在进入翻译/浮层/历史/SRT 之前先合并：`mergeCaptionFragments`（`caption-utils.js` + `utterance.js` 的 `startsContinuation`/`needsCompletion`）把「不完整行」与其后继合成一句，合并后行 id 沿用首行；**仅 API 模式合并**（server 模式的译文由 WLK 按自己的分段对齐，合并会丢弃译文）。判据红线：`startsContinuation` 只认 and/but/or/that/which/with/because/if/when/while 等从属连接词与 `PARTICIPLE_CONNECTORS` 白名单现在分词（禁 so/from/in/for）；封口只由「该行自身 needsCompletion」决定，否则整段会被粘成一行。
 - 透明度 `settings.opacity` 域 `0.05~1`（`normalizeOpacity`，`0` 不许回退默认值）；`--overlay-opacity` 同时驱动 `.caption-shell` 背景/边框/阴影/`backdrop-filter` 与 `.history` 背景（后者保底 `max(0.62, ...)` 保持可读）；UI 入口只在 popup `#opacity` 滑块，浮层工具栏不再加。
 - `.caption-shell` 锁死 `max-height: min(70vh, 680px)`；正文包裹 `.caption-text`（限行：译文 3 行、原文 2 行、双行模式上一句 2 行），超长经 `markCaptionOverflow` 顶部渐隐裁切；历史面板每条译文 2 行、原文 1 行。
-- 浮层历史 `HISTORY_LIMIT = 60`、上滚 `MAX_SCROLLBACK = 40`；滚轮回看期以 `scrollbackSnapshot` 锁定行 ID 列表（新行不插入挤压视口，同 ID 晚到译文原地刷新）。
+- 浮层历史 `HISTORY_LIMIT = 60`、上滚 `MAX_SCROLLBACK = 40`；回看面板 tail-follow：恒显示最新 `scrollBack` 行（新行从底部进、最老从顶部滑出），行节点带 `data-line-id` 按 `planHistoryRows` 增删改复用（禁 `replaceChildren` 整表重建），滚回 `scrollBack = 0` 时隐藏并清空节点。
 - `subtitle.js` 分页 `PAGE_SIZE = 250`、搜索上限 `MAX_SEARCH_RESULTS = 1000`，DOM 更新走 `planTranscriptDiff` (`append | slide | rebuild`)。
 - `isNoiseTranscript(text, duration)`：纯符号无条件丢弃；小数/时间码（如 `7.8.`、`00:12`）仅在 `duration <= 1.5s` 时丢弃；普通整数与无有效时长行保留。
 

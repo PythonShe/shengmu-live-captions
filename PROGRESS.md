@@ -1,5 +1,35 @@
 # 项目进度记录 (PROGRESS.md)
 
+## 2026-11-04 · 移植阶段 3：滚轮回看窗口实时跟随（0.5.9）
+
+任务书：`plan.md` 阶段 3。分支 `port/0.5.10`。
+
+### 已修改文件
+- `extension/content/overlay-history.js`：新增纯函数 `planHistoryRows(previousIds, nextIds)` → `{ order, added, removed }`，挂入 `ShengmuOverlayHistory` 导出。
+- `extension/content/content-overlay.js`：
+  - 删 `scrollbackSnapshot` / `renderedScrollbackKey` / `scrollbackView()`，改 `scrollbackRows`（与 `.history-line` 一一对应的行对象数组）；
+  - `HISTORY_API` 降级 shim 补 `planHistoryRows`（运行期委托，缺 `overlay-history.js` 时整表重建，仍可用）；
+  - `maxScrollBack` 直接读 `scrollbackEntries().length`；`openScrollback` 不再冻结列表；
+  - 新增 `historyRowText`（双语模式未译行不把英文重复印进译文槽）、`createHistoryRow`（挂 `data-line-id`）、`patchHistoryRow`（文本真变才写）、`syncScrollbackRows`（按 plan 复用节点）、`clearScrollbackRows`；
+  - `renderScrollback` 每帧从 `scrollbackEntries()` 取最新 `scrollBack` 行（排除正在生长的实时尾行），只在行集合或文本真变时重算 `scrollTop` 与 `.overflowing`；chip 文案继续走 `t()`；
+  - `buildOverlay` / `resetSessionHistory` / `teardown` 与滚轮归零处同步复位。
+- `tests/overlay-history.test.js`：+3 例（滑动窗口与上下滚、无变化与清空、中间行消失时只拆该节点），11 项通过。
+- `AGENTS.md` §2：回看期描述由 `scrollbackSnapshot` 冻结改为 tail-follow + `data-line-id` 节点复用。
+
+### 已执行验证
+- `pnpm run verify`：284 项（阶段 2 的 281 + 3），283 pass / 1 skip / 0 fail；`pnpm run smoke` 11 项全过（含 overlay 注入与 shadow root）。
+- 首次 verify 有 1 项 `tests/service-manager.test.js` 偶发失败（WhisperLiveKit 端口时序），单跑与复跑均通过，与本阶段改动无关，未记 pit（根因未证）。
+
+### 行为变化
+- 面板不再冻结：新句从底部滑入、最老一行从顶部滑出，行数恒等于 `scrollBack`（上限 40）。
+- 行节点按 `data-line-id` 复用，晚到译文原地刷新，不整表重建。
+- 双语模式下未译行不再把英文同时印在原文槽和译文槽。
+- `OVERLAY_VERSION` 本阶段不动（按 plan 阶段 4 由 `9` 升 `10` 收口）。
+
+### 未执行 / 待后续
+- 未跑 `.research/scrollback-live-probe.py`（plan 第 4 节统一实测）。
+- 未在 server 模式（WLK 自带译文）下复测面板实时性。
+
 ## 2026-11-04 · 阶段 2 跨模型审阅：0 条 P0/P1 + 修掉测试里的裸 NUL
 
 审阅人：paseo `Code Review` profile（`pi/magpie/opencode-go/qwen3.7-plus`，thinking medium），独立 `--new-workspace` + `git worktree` 快照 `C:/Users/moule/Documents/ChatGPT/shengmu-review-058-stage2`（detach `d4a079c`），只读约束写在 prompt 里；审完 `git status` 干净，未动手。范围 `9df92c2..d4a079c`。

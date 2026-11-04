@@ -86,9 +86,26 @@
     entries.splice(index, 0, entry);
   }
 
+  // Diff of the rows a tail-follow panel has on screen against the ones it
+  // should show. The DOM side only creates `added`, drops `removed` and then
+  // walks `order`, so a sliding window moves one node in at the bottom and one
+  // out at the top instead of rebuilding the list.
+  function planHistoryRows(previousIds, nextIds) {
+    const previous = Array.isArray(previousIds) ? previousIds : [];
+    const next = Array.isArray(nextIds) ? nextIds : [];
+    const previousSet = new Set(previous);
+    const nextSet = new Set(next);
+    return {
+      order: next.slice(),
+      added: next.filter((id) => !previousSet.has(id)),
+      removed: previous.filter((id) => !nextSet.has(id))
+    };
+  }
+
   root.ShengmuOverlayHistory = {
     createHistoryLog,
     resetHistoryLog,
-    syncHistoryLog
+    syncHistoryLog,
+    planHistoryRows
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);

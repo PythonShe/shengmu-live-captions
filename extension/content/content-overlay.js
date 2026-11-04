@@ -52,9 +52,9 @@
   let lastPanelRect = null;
 
   // Wheel-up scrollback: historyLog is a rolling log of finished lines.
-  // scrollbackSnapshot freezes the list of ids (not the text) when the reader
-  // starts scrolling, so live captions cannot push the lines around while late
-  // translations still land in the rows already on screen.
+  // The panel is tail-follow: it always shows the newest `scrollBack` lines, so
+  // a new sentence slides in at the bottom and the oldest visible row slides out
+  // at the top. The wheel only changes how many rows are kept.
   const HISTORY_LIMIT = 60;
   const MAX_SCROLLBACK = 40;
   const WHEEL_STEP_PX = 48;
@@ -89,6 +89,13 @@
     syncHistoryLog(log, lines) {
       const api = globalThis.ShengmuOverlayHistory;
       return api ? api.syncHistoryLog(log, lines) : false;
+    },
+    // Without overlay-history.js there is nothing to reuse, so the degraded
+    // panel re-creates its rows (correct, just not incremental).
+    planHistoryRows(previousIds, nextIds) {
+      const api = globalThis.ShengmuOverlayHistory;
+      if (api) return api.planHistoryRows(previousIds, nextIds);
+      return { order: [...(nextIds || [])], added: [...(nextIds || [])], removed: [] };
     }
   };
   if (!globalThis.ShengmuOverlayHistory) {
@@ -97,11 +104,12 @@
     );
   }
   const historyLog = HISTORY_API.createHistoryLog(HISTORY_LIMIT);
-  let scrollbackSnapshot = null;
+  // Live rows currently in the panel, oldest first; parallel to the rendered
+  // `.history-line` nodes so a merge can reuse them.
+  const scrollbackRows = [];
   let scrollBack = 0;
   let wheelAccum = 0;
   let wheelCooldownUntil = 0;
-  let renderedScrollbackKey = "";
   let syncedLinesRef = null;
   let windowListenersBound = false;
   let wheelListenerBound = false;
@@ -576,7 +584,7 @@
     bindEvents();
     bindWindowListeners();
     watchSize();
-    renderedScrollbackKey = "";
+    clearScrollbackRows();
     stageRectCache = null;
     historyRectCache = null;
   }
@@ -1037,91 +1045,151 @@
     return "";
   }
 
-  // The snapshot freezes the rows themselves (not ids): later log trimming can
-  // no longer make an on-screen row disappear, while a late translation still
-  // lands because the log patches the same entry object in place.
-  function scrollbackView() {
-    if (!scrollbackSnapshot || scrollBack <= 0) return [];
-    return scrollbackSnapshot
-      .slice(-scrollBack)
-      .filter((entry) => entry.translation || entry.source);
-  }
-
+  // Tail-follow: the panel shows the newest `scrollBack` usable rows and nothing
+  // is frozen, so a new sentence slides in at the bottom while the oldest visible
+  // row slides out at the top. The wheel only changes how many rows are kept.
   function maxScrollBack() {
-    return Math.min((scrollbackSnapshot || []).length, MAX_SCROLLBACK);
+    return Math.min(scrollbackEntries().length, MAX_SCROLLBACK);
   }
 
   function openScrollback() {
-    // An empty result must not be frozen: the reader may retry once lines land.
-    if (!scrollbackSnapshot || scrollbackSnapshot.length === 0) {
-      const entries = scrollbackEntries();
-      scrollbackSnapshot = entries.length > 0 ? entries : null;
-      wheelAccum = 0;
-    }
-    return Boolean(scrollbackSnapshot && scrollbackSnapshot.length > 0);
+    // Nothing to show yet: the reader may retry once lines land.
+    if (scrollBack > 0) return true;
+    if (scrollbackEntries().length === 0) return false;
+    wheelAccum = 0;
+    return true;
   }
 
   function closeScrollback() {
-    if (scrollBack === 0 && !scrollbackSnapshot) return;
+    if (scrollBack === 0 && scrollbackRows.length === 0) return;
     scrollBack = 0;
-    scrollbackSnapshot = null;
     wheelAccum = 0;
     renderScrollback();
   }
 
+  function historyRowText(entry) {
+    const mode = settings.displayMode;
+    const source = mode === "bilingual" ? entry.source : "";
+    let primary = entry.translation;
+    // Never print the same English twice: an untranslated row leans on the
+    // primary slot only when there is no source slot to hold the English.
+    if (!primary && mode !== "bilingual") primary = entry.source;
+    if (mode === "english") primary = entry.source;
+    return { source, primary };
+  }
+
+  function createHistoryRow(id) {
+    const element = document.createElement("div");
+    element.className = "history-line";
+    // Exposed for the CDP probes: the row is patched in place, so the id is the
+    // only stable way to tell "same row, late translation" from "new row".
+    element.dataset.lineId = id;
+    const sourceElement = document.createElement("span");
+    sourceElement.className = "history-source";
+    const primaryElement = document.createElement("span");
+    primaryElement.className = "history-translation";
+    element.append(sourceElement, primaryElement);
+    return { id, element, sourceElement, primaryElement, sourceText: "", primaryText: "" };
+  }
+
+  // Returns true only when a text node really changed, so an idle broadcast costs
+  // no layout and no paint.
+  function patchHistoryRow(row, entry) {
+    const { source, primary } = historyRowText(entry);
+    let changed = false;
+    if (row.sourceText !== source) {
+      row.sourceText = source;
+      row.sourceElement.textContent = source;
+      changed = true;
+    }
+    if (row.primaryText !== primary) {
+      row.primaryText = primary;
+      row.primaryElement.textContent = primary;
+      changed = true;
+    }
+    return changed;
+  }
+
+  // The view is a sliding window over the log, so a merge usually only moves one
+  // node in at the bottom and drops one at the top. Walking the target order and
+  // reusing every node whose line is still visible avoids the full
+  // replaceChildren that made the panel flash on every caption broadcast.
+  function syncScrollbackRows(entries) {
+    const previousIds = scrollbackRows.map((row) => row.id);
+    const nextIds = entries.map((entry) => entry.id);
+    const plan = HISTORY_API.planHistoryRows(previousIds, nextIds);
+    let changed = plan.added.length > 0 || plan.removed.length > 0;
+    const rowsById = new Map(scrollbackRows.map((row) => [row.id, row]));
+    for (const id of plan.removed) {
+      rowsById.get(id)?.element.remove();
+      rowsById.delete(id);
+    }
+    // Walk the target order and only touch the DOM where a row is not already
+    // in its slot: a sliding window moves one node in at the bottom and drops
+    // one at the top, not a full replaceChildren on every caption broadcast.
+    for (let index = 0; index < plan.order.length; index += 1) {
+      const id = plan.order[index];
+      let row = rowsById.get(id);
+      if (!row) {
+        row = createHistoryRow(id);
+        rowsById.set(id, row);
+      }
+      const current = historyListElement.children[index];
+      if (current !== row.element) historyListElement.insertBefore(row.element, current || null);
+    }
+    scrollbackRows.length = 0;
+    for (let index = 0; index < plan.order.length; index += 1) {
+      const row = rowsById.get(plan.order[index]);
+      if (patchHistoryRow(row, entries[index])) changed = true;
+      scrollbackRows.push(row);
+    }
+    return changed;
+  }
+
+  function clearScrollbackRows() {
+    for (const row of scrollbackRows) row.element.remove();
+    scrollbackRows.length = 0;
+  }
+
   function renderScrollback() {
     if (!historyElement || !historyListElement || !chipElement) return;
-    const entries = scrollbackView();
+    const live = scrollBack > 0 ? scrollbackEntries() : null;
+    const entries = live ? live.slice(-scrollBack) : [];
     if (entries.length === 0) {
       if (!historyElement.hidden) historyElement.hidden = true;
+      if (scrollbackRows.length > 0) clearScrollbackRows();
       if (historyListElement.childElementCount) {
         historyListElement.replaceChildren();
       }
       chipElement.textContent = "";
-      renderedScrollbackKey = "";
       historyRectCache = null;
       return;
     }
 
-    const key = `${settings.displayMode}|${entries
-      .map((entry) => `${entry.id}\u0001${entry.translation}\u0001${entry.source}`)
-      .join("\u0002")}`;
-    if (key !== renderedScrollbackKey) {
-      renderedScrollbackKey = key;
-      const fragment = document.createDocumentFragment();
-      for (const entry of entries) {
-        const row = document.createElement("div");
-        row.className = "history-line";
-        const secondary = document.createElement("span");
-        secondary.className = "history-source";
-        secondary.textContent =
-          settings.displayMode === "bilingual" ? entry.source : "";
-        const primary = document.createElement("span");
-        primary.className = "history-translation";
-        primary.textContent =
-          settings.displayMode === "english"
-            ? entry.source
-            : entry.translation || entry.source;
-        row.append(secondary, primary);
-        fragment.append(row);
-      }
-      historyListElement.replaceChildren(fragment);
-    }
+    let changed = syncScrollbackRows(entries);
 
     // Unhide before measuring: a hidden panel has no layout, so scrollTop
     // cannot be anchored to the newest line until it is visible.
     const wasHidden = historyElement.hidden;
     historyElement.hidden = false;
-    if (wasHidden) historyRectCache = null;
+    if (wasHidden) {
+      historyRectCache = null;
+      changed = true;
+    }
     lastPanelRect = historyRect();
-    historyListElement.scrollTop = historyListElement.scrollHeight;
-    historyListElement.classList.toggle(
-      "overflowing",
-      historyListElement.scrollHeight > historyListElement.clientHeight + 1
-    );
+    if (changed) {
+      // The reader is watching the newest rows, so every change re-anchors the
+      // list to its bottom; skipping the write when nothing changed avoids a
+      // per-frame layout read on top of an already correct scroll position.
+      historyListElement.scrollTop = historyListElement.scrollHeight;
+      historyListElement.classList.toggle(
+        "overflowing",
+        historyListElement.scrollHeight > historyListElement.clientHeight + 1
+      );
+    }
     if (stage) stage.style.opacity = "1";
     chipElement.textContent =
-      scrollBack < maxScrollBack()
+      scrollBack < Math.min(live.length, MAX_SCROLLBACK)
         ? t("overlay_history_more", entries.length)
         : t("overlay_history_back", entries.length);
   }
@@ -1204,7 +1272,6 @@
     if (!changed) return;
     // Reaching the newest line closes the history panel again.
     if (scrollBack === 0) {
-      scrollbackSnapshot = null;
       wheelCooldownUntil = performance.now() + WHEEL_COOLDOWN_MS;
     }
     // render() also refreshes the dual-line context, which steps aside while
@@ -1360,7 +1427,6 @@
   function resetSessionHistory() {
     HISTORY_API.resetHistoryLog(historyLog);
     syncedLinesRef = null;
-    scrollbackSnapshot = null;
     scrollBack = 0;
     wheelAccum = 0;
   }
@@ -1525,10 +1591,9 @@
     positionPending = false;
     stageRectCache = null;
     historyRectCache = null;
-    scrollbackSnapshot = null;
+    scrollbackRows.length = 0;
     scrollBack = 0;
     wheelAccum = 0;
-    renderedScrollbackKey = "";
     syncedLinesRef = null;
     HISTORY_API.resetHistoryLog(historyLog);
     if (globalThis.__shengmuCaptionOverlay?.teardown === teardown) {
