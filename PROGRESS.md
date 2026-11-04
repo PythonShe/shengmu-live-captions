@@ -1,5 +1,30 @@
 # 项目进度记录 (PROGRESS.md)
 
+## 2026-11-04 · 移植阶段 4：浮层高度缓动 + 英文单行 + 版本收口（0.5.10）
+
+任务书：`plan.md` 阶段 4。分支 `port/0.5.10`。
+
+### 已修改文件
+- `extension/content/content-overlay.js`：
+  - CSS：删 `.translation` / `.prev-translation` 的 `text-wrap: balance`；`.caption-stack` 去掉常驻 `transition: width`，只留 `.caption-stack.shrinking` 的 170 ms；`.caption-shell` 加 `transition: height 160ms cubic-bezier(0.22, 1, 0.36, 1)`；新增 `.caption-shell.resizing .prev-translation, .translation { flex: 0 0 auto }`；`.source` 改单行（`max-height: 1.38em`、`nowrap`、`align-items: flex-end`）+ `.source.overflowing` 水平 `to right` 渐隐。
+  - JS：新增 `SHELL_WIDTH_SLACK_PX = 12`、`SHELL_WIDTH_TRANSITION_MS = 170`、`SHELL_HEIGHT_RESIZE_LOCK_MS = 200`、`SHELL_HEIGHT_EPSILON_PX = 2`；`applyShellWidth(width, animate)` 只在缩窄时挂 `.shrinking`；`scheduleShellShrink` 在宽度落地后补一次 `syncShellHeight` + `refreshCaptionOverflow`；新增 `measureShellNaturalHeight` / `syncShellHeight`；`markCaptionOverflow` 同时判垂直与水平溢出；`handleWindowResize` 与 `render` 都调 `syncShellHeight`；`buildOverlay` / `teardown` 清理四个定时器并复位 `shellWidthPx` / `shellHeightPx`；`OVERLAY_VERSION` 9 → 10；旧 worker 分支内联 `composeLiveSource` 并改成与新 `selectDisplayCaption` 一致的 pending 语义。
+- `package.json` / `extension/manifest.json`：`0.5.6` → `0.5.10`。
+- `AGENTS.md`：按 0.5.10 现状重写 Commands（pnpm、测试数、探针/启动采集注意）、分层表（`background/` `lib/` `storage/` `content/` `scripts/`）、模型档位与 WLK 参数落点、浮层宽高/英文槽/阶段译文/tail-follow 红线、DeepL 说明。
+- `README.md`：版本 0.5.10、翻译引擎表加 DeepL、字幕行为补 4 条。
+- `paseo/01-translation-api-design.md`：新增「0.5.7~0.5.10 现状」节（分层落点、DeepL、阶段译文、回看/浮层）。
+- `paseo/18-overlay-bounce-0.5.10.md`：把 `160ms ease-out` 改成与代码一致的 `cubic-bezier(0.22, 1, 0.36, 1)`。
+- `.pit/pits/research-chrome-extension-c9e4ff.md`：更正绕法——`chrome.action.openPopup()` 不授予 activeTab，实测要用 `Ctrl+Shift+Y`（`_execute_action`）打开面板再点开始。
+
+### 已执行验证
+- `pnpm run verify` 284 项（283 pass / 1 skip）、`pnpm run smoke` 11 项。
+- 防缓存重载（pit `dev-395f5a`）：关 9223 浏览器 → 删 `chrome-profile/Default/{Service Worker,Code Cache}` → `pnpm dev-browser` 重启。
+- 实测（固定样本 `GHEBkhT1K7A-05m41-07m41.wav`、DeepL 后端、60 s bilingual）：英文槽高度恒 28 px、source `A→B→A` 0、译文 `A→B→A` 0、空译文 0、same-text wrap rebounds 0、height bounces 8（1↔2 行，属预期）、`top changes = line changes`（14/14）、无预留空白行、译文最多 3 行；dual 模式 100 s 复测 rebounds 0 / wrap rebounds 0。
+
+### 未执行 / 待后续
+- 未跑 `.research/layout-synthetic.py`（长句↔短句、四模式切换、缩窄 420 ms 时序）。
+- 未在 server 模式（WLK 自带译文）下复测浮层。
+- 全量跨模型审阅（`origin/master..port/0.5.10`）待阶段 4 审阅完成后统一做。
+
 ## 2026-11-04 · 移植阶段 3：滚轮回看窗口实时跟随（0.5.9）
 
 任务书：`plan.md` 阶段 3。分支 `port/0.5.10`。

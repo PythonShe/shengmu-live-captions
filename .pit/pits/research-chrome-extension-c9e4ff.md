@@ -33,4 +33,9 @@ signatures:
 origin/master 0.5.6 把平铺目录改成 extension/subtitle/subtitle.html、extension/popup/popup.html；.research 下的探针脚本仍指向旧路径 chrome-extension://<id>/subtitle.html（HTTP 404 → Chrome 显示 chrome-error://chromewebdata）。扩展页面加载失败后 chrome.runtime 不存在，所有 sendMessage 静默返回 undefined，探针把 {} 当作正常设置继续跑。
 
 ## 绕法
-1) 不要改 .research（项目规范冻结）：复制探针到仓库外，把 `chrome-extension://{EXT}/subtitle.html` 换成 `chrome-extension://{EXT}/subtitle/subtitle.html` 再跑；2) 重载扩展用 `node scripts/services.mjs dev-browser --port 9223`（会重新 loadUnpacked），不要依赖 .research/reload-extension.py；3) 判定探针是否有效：先看 `settings:` 是否含 provider/displayMode，出现 `{}` 一律当探针打空，再查 location.href 是否 chrome-error://。启动采集的可行路径（UIA 找不到工具栏图标时）：`chrome.action.openPopup()` 打开 popup → 点 `#primaryButton`，getMediaStreamId 就会带 activeTab 授权。
+1) 不要改 .research（项目规范冻结）：复制探针到仓库外，把 `chrome-extension://{EXT}/subtitle.html` 换成 `chrome-extension://{EXT}/subtitle/subtitle.html` 再跑；2) 重载扩展用 `node scripts/services.mjs dev-browser --port 9223`（会重新 loadUnpacked），不要依赖 .research/reload-extension.py；3) 判定探针是否有效：先看 `settings:` 是否含 provider/displayMode，出现 `{}` 一律当探针打空，再查 location.href 是否 chrome-error://。
+
+启动采集（getMediaStreamId 需要真实用户手势授予 activeTab，实测 2026-11-04）：
+- ❌ `chrome.action.openPopup()` 不算“调用扩展”，随后 getMediaStreamId 仍报 `Extension has not been invoked for the current page`。
+- ❌ UIA 找工具栏按钮会失败（图标可能被挤进扩展菜单）。
+- ✅ 先用 OS 级按键把扩展调用起来：Chrome 前台 + `Ctrl+Shift+Y`（manifest `_execute_action`，SendInput/keybd_event 发送，CDP Input 事件不走浏览器快捷键）→ popup 打开后 evaluate `document.querySelector('#primaryButton').click()` → 等 `get-state` 返回 active。

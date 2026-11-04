@@ -34,7 +34,7 @@
   变宽分支直接写目标宽度，同一帧生效，杜绝「先折 2 行、170 ms 后弹回 1 行」。
 
 修 R1/R2（高度不再瞬跳）：
-- `.caption-shell` 高度始终显式（px），CSS `transition: height 160ms ease-out`。自然高度由
+- `.caption-shell` 高度始终显式（px），CSS `transition: height 160ms cubic-bezier(0.22, 1, 0.36, 1)`。自然高度由
   `measureShellNaturalHeight` 从**槽位内文本盒**求和（padding + 边框 + 各可见槽位文本高度按槽位
   `max-height` 截断 + 外边距 + 错误行），**不去写 `height: auto` 再读**——那会打断在途 transition，
   等于把缓动砍掉一半。
