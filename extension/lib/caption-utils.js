@@ -728,18 +728,17 @@ export function reconcileLineTranslations(previousLines, nextLines, options = {}
           ? compactTextOf(carrier?.fallbackTranslation)
           : "")
       : "";
-    // Same source text but no translation means the last attempt failed for this
-    // exact row; a grown row is a new attempt, never a permanent failure.
-    const failed = Boolean(
-      !translation && carrier?.translationFailed && carrier.source === rawLine.source
-    );
+    // The last attempt failed for this exact row, whether or not a stage
+    // translation is still on screen. A grown row is a new attempt, never a
+    // permanent failure.
+    const failed = Boolean(carrier?.translationFailed && carrier.source === rawLine.source);
     return {
       ...rawLine,
       translation,
       translatedSource,
       fallbackTranslation,
       translationPending: useApi
-        ? Boolean(rawLine.source && translatedSource !== rawLine.source)
+        ? Boolean(rawLine.source && translatedSource !== rawLine.source && !failed)
         : Boolean(rawLine.source && !translation),
       translationFailed: failed
     };

@@ -352,8 +352,11 @@ export function createTranslationScheduler(deps) {
       // A row whose translation still matches its source is done. A row holding
       // a stage translation is not: the source grew under it and the newest
       // words have no translation yet.
-      if (line.translation && !line.translationPending) continue;
-      if (!line.translation && failed.get(line.id) === line.source) continue;
+      if (line.translation && !line.translationPending && !line.translationFailed) continue;
+      // This exact source already used up its attempts. It stays out until the
+      // row grows or handleConfigChanged forgets the failure, or every ASR update
+      // would send another request a bad key cannot answer.
+      if (failed.get(line.id) === line.source) continue;
       const fallback = cleanText(line.fallbackTranslation);
       const existing = pending.get(line.id);
       if (existing) {
