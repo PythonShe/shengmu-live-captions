@@ -296,11 +296,12 @@ export function createTranslationScheduler(deps) {
       // flight. Dropping the response was what postponed every subtitle to the
       // end of the sentence: apply it as a stage translation, keep it on
       // screen, and let the next round translate the newer source.
-      const stale = line.source !== entry.source;
+      const translatedSource = fallback ? entry.fallbackSource : entry.source;
+      const stale = line.source !== translatedSource;
       if (stale) sourceChanged = true;
       const patch = {
         translation: text,
-        translatedSource: entry.source,
+        translatedSource,
         translationPending: stale,
         translationFailed: false,
         translationFallback: fallback
@@ -353,9 +354,15 @@ export function createTranslationScheduler(deps) {
       // words have no translation yet.
       if (line.translation && !line.translationPending) continue;
       if (!line.translation && failed.get(line.id) === line.source) continue;
+      const fallback = cleanText(line.fallbackTranslation);
       const existing = pending.get(line.id);
       if (existing) {
-        existing.fallback = cleanText(line.fallbackTranslation) || existing.fallback;
+        // A row's fallback belongs to the source it arrived with, which can be
+        // newer or older than what the request asked for.
+        if (fallback) {
+          existing.fallback = fallback;
+          existing.fallbackSource = line.source;
+        }
         // An in-flight entry has to keep saying what was sent: comparing it with
         // the row is how applyLineTranslations tells a stage translation from a
         // final one. The grown source gets its own entry after the response.
@@ -373,7 +380,8 @@ export function createTranslationScheduler(deps) {
         // keeps the verbatim ASR text.
         promptText: stripSpeechFillers(line.source),
         attempts: 0,
-        fallback: cleanText(line.fallbackTranslation),
+        fallback,
+        fallbackSource: line.source,
         // queuedAt lets planTranslationBatch decide when a trailing fragment
         // has waited long enough for the row that would complete its sentence.
         queuedAt: now()

@@ -263,6 +263,52 @@ test("a worker that runs out of rounds on a growing row hands it on", async () =
   assert.equal(state.current.lines[0].translationPending, false);
 });
 
+test("a fallback that matches the grown row finishes it when the request fails", async () => {
+  const { clock, translator, state, history, scheduler } = setup({ lines: [row("a", LONG)] });
+  scheduler.scheduleLines(0);
+  await clock.advance(0);
+
+  const grown = `${LONG} And it keeps going with a clause nobody translated.`;
+  const line = state.current.lines[0];
+  line.source = grown;
+  line.translationPending = true;
+  line.fallbackTranslation = "完整兜底";
+  scheduler.scheduleLines();
+  translator.calls[0].reject(codedError("bad key", "auth"));
+  await settleAsync();
+
+  assert.equal(line.translation, "完整兜底");
+  assert.equal(line.translatedSource, grown);
+  assert.equal(line.translationPending, false);
+  assert.equal(line.translationFallback, true);
+  assert.equal(history.at(-1).translation, "完整兜底");
+  await clock.advance(1000);
+  assert.equal(translator.calls.length, 1, "the fallback covers the row, so no request is spent");
+});
+
+test("a fallback for the shorter text does not finish a row that grew", async () => {
+  const { clock, translator, state, history, scheduler } = setup({
+    lines: [row("a", LONG, { fallbackTranslation: "旧兜底" })]
+  });
+  scheduler.scheduleLines(50);
+
+  // Grown before the request leaves, and the worker has no fallback for it yet.
+  const grown = `${LONG} And it keeps going with a clause nobody translated.`;
+  const line = state.current.lines[0];
+  line.source = grown;
+  line.fallbackTranslation = "";
+  scheduler.scheduleLines(50);
+  await clock.advance(50);
+  assert.deepEqual(translator.calls[0].texts, [grown]);
+  translator.calls[0].reject(codedError("bad key", "auth"));
+  await settleAsync();
+
+  assert.equal(line.translation, "旧兜底", "shown as a stage translation");
+  assert.equal(line.translatedSource, LONG);
+  assert.equal(line.translationPending, true);
+  assert.deepEqual(history, [], "it does not reach the history as final");
+});
+
 test("reset discards a response that arrives for the previous generation", async () => {
   const { clock, translator, state, history, scheduler } = setup({ lines: [row("a", LONG)] });
   scheduler.scheduleLines(0);
