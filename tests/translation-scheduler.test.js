@@ -189,6 +189,54 @@ test("a row that grew while its request was in flight keeps the answer as a stag
   assert.equal(history.at(-1).translation, "新译文");
 });
 
+test("an ASR update during a request does not pass the old answer off as final", async () => {
+  const { clock, translator, state, history, knownLines, scheduler } = setup({ lines: [row("a", LONG)] });
+  scheduler.scheduleLines(0);
+  await clock.advance(0);
+  assert.deepEqual(translator.calls[0].texts, [LONG]);
+
+  // handleTranscriptUpdate runs scheduleLines after every ASR update, so the
+  // queue sees the grown row before the response comes back.
+  const grown = `${LONG} And it keeps going with a clause nobody translated.`;
+  state.current.lines[0].source = grown;
+  state.current.lines[0].translationPending = true;
+  scheduler.scheduleLines();
+  translator.calls[0].resolve({ translations: ["short"] });
+  await settleAsync();
+
+  const line = state.current.lines[0];
+  assert.equal(line.translation, "short", "still shown as a stage translation");
+  assert.equal(line.translatedSource, LONG, "it translates what was sent, not the grown row");
+  assert.equal(line.translationPending, true);
+  assert.equal(knownLines.get("a").translatedSource, LONG);
+  assert.deepEqual(history, [], "a stage translation is screen-only");
+
+  await clock.advance(400);
+  await clock.advance(0);
+  assert.deepEqual(translator.calls[1]?.texts, [grown], "the grown row is translated in full");
+  translator.calls[1].resolve({ translations: ["full"] });
+  await settleAsync();
+  assert.equal(line.translation, "full");
+  assert.equal(line.translatedSource, grown);
+  assert.equal(line.translationPending, false);
+  assert.equal(history.at(-1).translation, "full");
+});
+
+test("a batch split in flight still sends the text of the original request", async () => {
+  const { clock, translator, state, scheduler } = setup({
+    lines: [row("a", LONG), row("b", `${LONG} Second.`)]
+  });
+  scheduler.scheduleLines(0);
+  await clock.advance(0);
+  const [first] = translator.calls;
+  state.current.lines[0].source = `${LONG} Grown while the batch was out.`;
+  state.current.lines[0].translationPending = true;
+  scheduler.scheduleLines();
+  first.reject(new TranslationApiError("wrong count", { code: "count_mismatch" }));
+  await settleAsync();
+  assert.deepEqual(translator.calls[1]?.texts, [LONG], "the half repeats what was asked");
+});
+
 test("reset discards a response that arrives for the previous generation", async () => {
   const { clock, translator, state, history, scheduler } = setup({ lines: [row("a", LONG)] });
   scheduler.scheduleLines(0);
