@@ -1,5 +1,36 @@
 # 项目进度记录 (PROGRESS.md)
 
+## 2026-11-04 · 移植阶段 2：阶段译文单调递进 + 英文单行源槽 + 停用 buffer 送翻（0.5.8）
+
+任务书：`plan.md` 阶段 2。分支 `port/0.5.10`。
+
+### 已修改文件
+- `extension/lib/caption-utils.js`：
+  - `mergeCaptionFragments` 记 `fragmentIds`（单元拆分时新行可承接旧译文），合并后不再清空 `translation`，只置 `translationPending`；
+  - 新增 `reconcileLineTranslations(previousLines, nextLines, { useApi, knownLines })`（行保留译文并记 `translatedSource`，源文变长只标 pending）、`shouldRetranslateLine(line, guard, { now })`、常量 `TRANSLATION_RETRANSLATE_MIN_NEW_CHARS = 8` / `TRANSLATION_RETRANSLATE_MIN_INTERVAL_MS = 400`、`composeLiveSource(lineSource, bufferSource)`；
+  - `selectDisplayCaption` 改为读最新行译文（阶段译文优先），源槽 = 行文本 + buffer 尾部拼接，`pending` 不再由 buffer 非空触发。
+- `extension/lib/transcript-reducer.js`：`lineSignature(source, translation, translationPending)`；`linesChangedSince` 过滤 `translationPending === true`（阶段译文与未译行都不入 IndexedDB/SRT）；`reduceTranscriptUpdate` 改走 `reconcileLineTranslations`；API 模式 `bufferTranslation` 恒为 `""`。
+- `extension/lib/translation-scheduler.js`：删除 `createBufferTranslation` 实例与 `scheduleBuffer`/`flushBuffer`/`cancelBuffer`/`abortStaleBuffer`/`reusePrefetched`/prefetch；`collectPending` 放行 `translation && translationPending` 的行；`waitingEntries` 接入重译限流并在被限流时 `scheduleTranslationWake`（`wakeTimer`）；`requestBatch` 发送前记 `retranslateGuards`；`applyLineTranslations` 把源文已变的响应当作阶段译文上屏（不再丢弃）、只有源文匹配时才写 `knownLines` 与历史。
+- `extension/background/session-lifecycle.js`：`handleTranscriptUpdate` 去掉 buffer 相关调用；新增 `commitRuntimeLinesToHistory()`（`finalize` 里 `settle()` 之后、`historySealed` 之前把屏上阶段译文/未译行定稿写入历史，未译行记 `translationFailed`）。
+- `extension/background/service-worker.js`：创建 scheduler 时移除 `partialEnabled`。
+- `extension/background/settings-store.js`：`TRANSLATION_SETTING_KEYS` 移除 `translationTranslatePartial`（`caption-utils` 的 `DEFAULT_SETTINGS` 保留该字段兼容旧存储）。
+- `extension/popup/popup.html` / `popup.js`：删除「半句预翻译」开关及其绑定；`_locales` 三语删 `popup_partial` / `popup_partial_hint`。
+- 删除 `extension/lib/buffer-translation.js`（远端无对应单测文件，测试都在 `tests/translation-scheduler.test.js`）。
+
+### 已执行验证
+- `pnpm run verify`：281 项（1 skip）全过；`pnpm run smoke` 11 项全过。
+- 测试同步：删除 4 个 buffer 送翻用例；新增阶段译文上屏/限流唤醒/`reconcileLineTranslations`/`composeLiveSource`/`shouldRetranslateLine` 用例；`asr-sessions`、`session-lifecycle`、`service-worker.restart`、`transcript-reducer` 的断言改成“未译行与阶段译文不落盘，`finalize` 补齐”。
+
+### 行为变化（与 0.5.6 基线不同，属于 0.5.8 设计）
+- 英文源槽 = 最新行 + buffer 尾部（不再用 buffer 替换整行）；`pending` 只在“屏上中文落后于源文”时为真。
+- 历史与 SRT 只收“译文与源文匹配”的行；停止采集时由 `commitRuntimeLinesToHistory` 把屏上版本定格写入。
+- 同一句在 `8 字符 / 400 ms` 限流窗口内只重译一次，被限流时由 `wakeTimer` 补发，不会丢更新。
+
+### 未执行 / 待后续
+- 阶段 3（回看实时跟随）、阶段 4（浮层缓动 + 版本收口）未动。
+- 跨模型 `code review` 仍在全部阶段后统一做。
+- 未跑真实样本探针（`.research/rebound-probe.py` 等，存在 Windows 本机栈）。
+
 ## 2026-11-04 · 移植阶段 0~1：分支基底 + DeepL 协议分支（0.5.7）+ DeepSeek 锁 `deepseek-flash`
 
 任务书：仓库根 `plan.md`（以 `origin/master` = `c8fdab4`（v0.5.6）为唯一代码基底，逐阶段重做 0.5.7~0.5.10）。本分支 `port/0.5.10`，起点就是 `origin/master`。
