@@ -30,6 +30,12 @@
 - 未跑 `.research/scrollback-live-probe.py`（plan 第 4 节统一实测）。
 - 未在 server 模式（WLK 自带译文）下复测面板实时性。
 
+### 跨模型审阅（`fef5b13..2cab460`，qwen3.7-plus，只读 worktree）
+- P1 旧 worker shim 的 `planHistoryRows` 恒返回 `removed: []`，滑出行的节点会残留在 DOM 里 → 改成按 `nextSet` 过滤 `removed`，`added` 仍为全量（降级路径整表重建）。
+- P2 `resetSessionHistory()` 未清 `scrollbackRows` → 补 `clearScrollbackRows()`。
+- 自查补的一处：行滑入/滑出使面板高度变化时 `historyRectCache` 未失效，滚轮命中区还是旧矩形，新增区域滚轮会漏到页面 → `changed` 时先清 cache 再取 `lastPanelRect`。
+- 复跑 `pnpm run verify`（283 pass / 1 skip）+ `pnpm run smoke`（11 pass）全过。
+
 ## 2026-11-04 · 阶段 2 跨模型审阅：0 条 P0/P1 + 修掉测试里的裸 NUL
 
 审阅人：paseo `Code Review` profile（`pi/magpie/opencode-go/qwen3.7-plus`，thinking medium），独立 `--new-workspace` + `git worktree` 快照 `C:/Users/moule/Documents/ChatGPT/shengmu-review-058-stage2`（detach `d4a079c`），只读约束写在 prompt 里；审完 `git status` 干净，未动手。范围 `9df92c2..d4a079c`。

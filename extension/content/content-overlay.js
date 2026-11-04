@@ -91,11 +91,20 @@
       return api ? api.syncHistoryLog(log, lines) : false;
     },
     // Without overlay-history.js there is nothing to reuse, so the degraded
-    // panel re-creates its rows (correct, just not incremental).
+    // panel re-creates its rows (still correct, just not incremental). The
+    // removed list stays honest, otherwise the nodes of rows that slid out
+    // would pile up outside the plan's order.
     planHistoryRows(previousIds, nextIds) {
       const api = globalThis.ShengmuOverlayHistory;
       if (api) return api.planHistoryRows(previousIds, nextIds);
-      return { order: [...(nextIds || [])], added: [...(nextIds || [])], removed: [] };
+      const previous = Array.isArray(previousIds) ? previousIds : [];
+      const next = Array.isArray(nextIds) ? nextIds : [];
+      const nextSet = new Set(next);
+      return {
+        order: [...next],
+        added: [...next],
+        removed: previous.filter((id) => !nextSet.has(id))
+      };
     }
   };
   if (!globalThis.ShengmuOverlayHistory) {
@@ -1172,10 +1181,11 @@
     // cannot be anchored to the newest line until it is visible.
     const wasHidden = historyElement.hidden;
     historyElement.hidden = false;
-    if (wasHidden) {
-      historyRectCache = null;
-      changed = true;
-    }
+    if (wasHidden) changed = true;
+    // Rows sliding in or out change the panel box, so the rect the wheel
+    // hit-tests against has to be measured again; reusing the old one let a
+    // wheel over the newly grown part of the panel fall through to the page.
+    if (changed) historyRectCache = null;
     lastPanelRect = historyRect();
     if (changed) {
       // The reader is watching the newest rows, so every change re-anchors the
@@ -1426,6 +1436,7 @@
 
   function resetSessionHistory() {
     HISTORY_API.resetHistoryLog(historyLog);
+    clearScrollbackRows();
     syncedLinesRef = null;
     scrollBack = 0;
     wheelAccum = 0;
