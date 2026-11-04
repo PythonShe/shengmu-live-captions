@@ -27,6 +27,10 @@
 | `12-poe-glossary-0.5.4.md` | 《流放之路》313 条词库与数据判据 |
 | `13-subtitle-flow-0.5.5.md` | 去灰化、碎片合句、语气词清理、采集埋点 |
 | `14-zero-setup-0.5.6.md` | 零配置：Chrome 内置识别与翻译、阿里云百炼、Windows 本机消息助手、多语言界面、后台拆分与门禁 |
+| `15-deepl-0.5.7.md` | DeepL 协议分支、Key/host 规则、计费字符 |
+| `16-stage-translation-0.5.8.md` | 阶段译文（单调递进）、停用 buffer 送翻、英文固定单行 |
+| `17-scrollback-live-0.5.9.md` | 滚轮回看窗口改实时跟随、行节点增量复用 |
+| `18-overlay-bounce-0.5.10.md` | 去 `text-wrap: balance`、量宽余量、变宽零延迟、盒子高度 160 ms 缓动 |
 | `compare-codex-vs-paseo.md` | Codex 与 paseo 分工的评估（历史记录） |
 | `mock-openai-server.mjs` | 无 Key 联调用的 OpenAI 兼容 mock |
 
