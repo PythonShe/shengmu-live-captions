@@ -1,5 +1,38 @@
 # 项目进度记录 (PROGRESS.md)
 
+## 2026-11-04 · 移植阶段 0~1：分支基底 + DeepL 协议分支（0.5.7）+ DeepSeek 锁 `deepseek-flash`
+
+任务书：仓库根 `plan.md`（以 `origin/master` = `c8fdab4`（v0.5.6）为唯一代码基底，逐阶段重做 0.5.7~0.5.10）。本分支 `port/0.5.10`，起点就是 `origin/master`。
+
+### 阶段 0（分支与零冲突资产）
+- 本地旧 0.5.10 线保留在 `backup/pre-merge-0.5.10`（`d97884c`）；文档改动另提交在 `master`（`353a9aa`）。
+- 从备份分支检出 `.pit/pits/{chrome-uia-2caea5,dev-395f5a,dpi-unaware-python-317843}.md` 与 `paseo/{15-deepl-0.5.7,16-stage-translation-0.5.8,17-scrollback-live-0.5.9,18-overlay-bounce-0.5.10}.md`。
+- `paseo/README.md` 索引表补 15~18 四行（顺接远端 `14-zero-setup-0.5.6.md`）。
+- `plan.md` 随分支搬运，供后续阶段对齐。
+
+### 阶段 1（0.5.7 DeepL + 0.5.8 DeepSeek 锁模型）
+- `extension/lib/translation-api.js`：
+  - `TRANSLATION_PROVIDERS` 全量补 `protocol` / `requiresModel`；`deepseek` 改 `model: "deepseek-flash"` + `fixedModel: true`；新增 `deepl` 预设（`protocol: "deepl"`、`api.deepl.com/v2`、`requiresModel: false`、`keyUrl`）。
+  - 新增 `safeTranslationBaseUrl`；`normalizeTranslationSettings` 按 `requiresModel === false` 归零模型、`fixedModel` 强制预设模型（旧存储里的 `deepseek-chat` 自动归一）。
+  - `resolveTranslationConfig` 补 `protocol` / `requiresModel`，DeepL 经 `deeplBaseUrl` 切 host（`:fx` Key + 地址仍是官方预设 → `api-free.deepl.com`，手改地址优先）。
+  - 新增 `deeplTranslateUrl`、`buildDeepLRequestBody`（`text[]` + `target_lang` + 免计费 `context` 只放英文原文 + `show_billed_characters`）、`parseDeepLResponse`、`DEEPL_TARGET_LANG = "ZH-HANS"`。
+  - 抽出 `postJson`（OpenAI / DeepL 共用超时与 AbortSignal 转发），`postChatCompletion` 退化为薄封装；新增 `translateWithDeepL`（`ZH-HANS` 被 400 拒绝时回退 `ZH` 重试一次，累计 `usage.billedCharacters`）；`translateTexts` 按 `protocol` 分流。
+  - `mapHttpError` 新增 `456 -> code: "quota"`；`normalizeUsage` 补 `billedCharacters`；`translationConfigIssue` 只在 `requiresModel !== false` 时要求模型。
+- `extension/lib/translation-scheduler.js`：`NON_RETRYABLE_CODES` 加 `quota`；`emptyUsage`/`addUsage`/`restore` 补 `billedCharacters`。
+- `extension/popup/popup.js`：新增 `modelForPreset`；`requiresModel === false` 或 `fixedModel` 时禁用模型输入框；未知 provider 显式报错并禁用下拉（不再静默回退 DeepSeek）；DeepL 展示计费字符数（`popup_usage_characters`）与 `:fx` Key 提示；开始采集/测试按钮不再对 DeepL 强制要求模型。
+- `extension/popup/popup.html`：服务商下拉新增 `deepl`。
+- `extension/_locales/{zh_CN,en,zh_TW}/messages.json`：各 +5 键（`provider_deepl`、`translation_error_quota`、`popup_usage_characters`、`popup_deepl_key_hint`、`popup_provider_unknown`），三语参数集一致。
+- `tests/`：`translation-api.test.js` 新增 DeepL 5 项 + DeepSeek 固定模型 1 项；把“同端点不同模型重学请求形状”改用 OpenAI 预设（DeepSeek 已锁模型，无法在同端点复现两种形状）；`caption-utils` / `service-worker.integration` / `translation-scheduler` 的 `translationApiKeys`、`translationApiKeyConfigured`、`deepseek-chat→deepseek-flash`、`usage.billedCharacters` 断言同步。
+
+### 已执行验证
+- `pnpm run verify`：语法检查 + ESLint + `tsc`（两个 project）+ 275 项单测全过（269 基线 + 6 新增，1 项 skip）。
+- `pnpm run smoke`：11 项全过。
+
+### 未执行 / 待后续
+- 阶段 2（阶段译文 + 删 buffer 送翻）、阶段 3（回看实时跟随）、阶段 4（浮层缓动 + 版本收口）未动。
+- 按 `plan.md` 第 4 节，跨模型 `code review` 统一在全部阶段做完后对 `origin/master..port/0.5.10` 全量 diff 执行；本阶段尚未送审。
+- DeepL 尚未用真实 Key 端到端实测（单测用本地 mock server）。
+
 ## 2026-11-03 · 0.5.6：零配置（Chrome 内置识别与翻译、阿里云百炼、Windows 助手）、多语言界面、后台拆分与门禁
 
 设计/验收记录：`paseo/14-zero-setup-0.5.6.md`。目标是终端用户装上扩展即可使用，不运行脚本、不填 Key、不要求本地显卡。
