@@ -1,5 +1,15 @@
 # 项目进度记录 (PROGRESS.md)
 
+## 2026-11-04 · 修复在途请求期间源文被覆盖导致的译文截断
+
+- 现象：句子还在生长时发出的请求，响应回来后被当成整句的最终译文，句尾没有中文，且写入历史与 SRT。
+- 根因：`collectPending` 会改写在途条目的 `source`，而每次 ASR 更新都会调用它，于是 `applyLineTranslations` 拿新源文和新源文比较，判不出过期。该问题自调度器出现就有；它也让 0.5.8 的阶段译文在真实流程里几乎不会被判为过期。旧单测在改写源文后没有调用 `scheduleLines`，所以没有测出来。
+- 修复：在途条目不再改写 `source` / `promptText`。另修一处丢唤醒：worker 在第 `MAX_FLUSH_ROUNDS` 轮结束时，阶段译文行已离开队列，`release` 看不到它，现在先 `collectPending` 再判断。
+- 验证：`pnpm run verify` 288 项全过、`pnpm run smoke` 11 项全过；新增 3 项回归测试，修复前失败。
+- 合成回放（200 句逐词生长、回显翻译器，非真实音频）：延迟 600 / 1000 / 1000 / 1500 ms、ASR 步长 700 / 700 / 400 / 900 ms 时，错误行由 82 / 95 / 143 / 120 降为 0；请求数由 521 / 433 / 326 / 434 升至 802 / 689 / 475 / 630（约 1.45~1.6 倍）。
+- 待决定：请求增加是重译限流（8 字符 / 400 ms）的真实成本，之前被这个 bug 掩盖，DeepL 按字符计费时尤其明显。本次未调整限流参数。
+- 未做：真实音频端到端（`test-assets/quality-samples`）。
+
 ## 2026-11-04 · 固定测试音频入库（`test-assets/quality-samples`）
 
 - 把 `.research/quality-samples` 中的 7 个 120 s / 16 kHz 单声道 WAV（每个 3.84 MB）、3 套 VTT 与 3 个 silence 标注复制到 `test-assets/quality-samples/`（共 28 MB），并附 `README.md` 写清来源、切片、探针用法，让没有 `.research/` 的机器也能跑同一套端到端探针。
