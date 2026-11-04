@@ -23,7 +23,8 @@
 ### 未执行 / 待后续
 - 未跑 `.research/layout-synthetic.py`（长句↔短句、四模式切换、缩窄 420 ms 时序）。
 - 未在 server 模式（WLK 自带译文）下复测浮层。
-- 全量跨模型审阅（`origin/master..port/0.5.10`）待阶段 4 审阅完成后统一做。
+- 跨模型审阅（`bc75dd0..0cd4bc1`）：0 P0/P1；P2 已处理（`tests/version-sync.test.js` 新增 `OVERLAY_VERSION` 为数字且 ≥10 的断言，285 项全过）；`measureShellNaturalHeight` 因依赖真实 DOM 仍未抽纯函数，记作已知取舍。
+- 全量跨模型审阅（`origin/master..port/0.5.10`）待统一做。
 
 ## 2026-11-04 · 移植阶段 3：滚轮回看窗口实时跟随（0.5.9）
 
