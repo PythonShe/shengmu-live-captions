@@ -237,6 +237,32 @@ test("a batch split in flight still sends the text of the original request", asy
   assert.deepEqual(translator.calls[1]?.texts, [LONG], "the half repeats what was asked");
 });
 
+test("a worker that runs out of rounds on a growing row hands it on", async () => {
+  const { clock, translator, state, scheduler } = setup({ lines: [row("a", LONG)] });
+  scheduler.scheduleLines(0);
+  await clock.advance(0);
+  // No ASR update after the last response, so nothing but the worker can
+  // notice that the row is still behind.
+  let rounds = 0;
+  while (translator.calls.length > rounds && scheduler.inspect().lineWorkers > 0) {
+    state.current.lines[0].source += " And a few more words arrive.";
+    state.current.lines[0].translationPending = true;
+    translator.calls[rounds].resolve({ translations: [`stage ${rounds}`] });
+    rounds += 1;
+    await settleAsync();
+  }
+  assert.equal(state.current.lines[0].translationPending, true);
+
+  await clock.advance(1000);
+  const last = translator.calls.at(-1);
+  assert.equal(translator.calls.length, rounds + 1, "a new worker takes the row");
+  assert.deepEqual(last.texts, [state.current.lines[0].source]);
+  last.resolve({ translations: ["final"] });
+  await settleAsync();
+  assert.equal(state.current.lines[0].translation, "final");
+  assert.equal(state.current.lines[0].translationPending, false);
+});
+
 test("reset discards a response that arrives for the previous generation", async () => {
   const { clock, translator, state, history, scheduler } = setup({ lines: [row("a", LONG)] });
   scheduler.scheduleLines(0);

@@ -595,6 +595,9 @@ export function createTranslationScheduler(deps) {
     workers.add(promise);
     const release = () => {
       workers.delete(promise);
+      // A stage translation leaves the queue, so a worker that ended on its
+      // last round would otherwise leave that row behind with nothing to wake it.
+      collectPending();
       if (
         waitingEntries().length > 0 &&
         sessionActive() &&
