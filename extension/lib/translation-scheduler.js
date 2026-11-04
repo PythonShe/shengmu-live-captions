@@ -355,12 +355,16 @@ export function createTranslationScheduler(deps) {
       if (!line.translation && failed.get(line.id) === line.source) continue;
       const existing = pending.get(line.id);
       if (existing) {
+        existing.fallback = cleanText(line.fallbackTranslation) || existing.fallback;
+        // An in-flight entry has to keep saying what was sent: comparing it with
+        // the row is how applyLineTranslations tells a stage translation from a
+        // final one. The grown source gets its own entry after the response.
+        if (existing.inFlight) continue;
         if (existing.source !== line.source) {
           existing.source = line.source;
           existing.attempts = 0;
         }
         existing.promptText = stripSpeechFillers(line.source);
-        existing.fallback = cleanText(line.fallbackTranslation) || existing.fallback;
         continue;
       }
       pending.set(line.id, {
