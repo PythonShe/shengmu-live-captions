@@ -17,7 +17,7 @@
 
 后果分两种：开了「用完即停」→ 新用户第一次翻译直接报错；没开 → 按 0.8 元 / 2 元每百万 Token 扣费，用户不知道。
 
-**待办（一行改动，未做）**：默认值改 `qwen3.7-flash`。
+**已完成（0.5.11 后续提交）**：默认值已改为 `qwen3.7-flash`。
 
 ## 3. 翻译侧可填的 6 个免费模型
 
@@ -50,9 +50,31 @@
 
 轻中度用户想长期零成本，`paraformer-realtime-v2` 的**每月重置**比默认那 10 小时一次性额度更实用；接入成本只是把 `BAILIAN_ASR_MODEL` 变成可选项，协议无需重写。
 
-## 6. 待办（按性价比排）
+## 6. 实测：专用翻译模型 `qwen-mt-*`
 
-1. 百炼翻译默认模型 `qwen-plus` → `qwen3.7-flash`（一行，零风险，未做）。
-2. 百炼 ASR 模型在 `fun-asr-realtime` 与 `paraformer-realtime-v2` 之间可选（设置项 + popup 下拉，未做）。
-3. `qwen-mt-*` 协议分支：不推荐，除非将来翻译量级大到额度成为瓶颈。
+上一节把 `qwen-mt` 归为「不推荐」，是因为当时只看额度。实测后结论反转：**它是同一份免费额度里最快的路径**。
+
+| 请求 | 耗时 | token | 备注 |
+|---|---|---|---|
+| `qwen3.7-flash` + 9 条规则 prompt（2 行、1024 字符） | 1207 ms（5 次中位） | 550 | 当前 chat 链路 |
+| `qwen3.7-flash` 压缩到 6 条规则（766 字符） | 1323 ms | 406 | **没变快**，省下的只是输入 token，已回滚 |
+| `qwen-mt-flash`（`translation_options`，无 system） | **246~362 ms** | ~100 | 快 3~4 倍 |
+| `qwen-mt-plus` | 519~559 ms | 108 | 质量档 |
+
+关键对照：`qwen3.7-flash` 不传 `enable_thinking: false` 时单次要 **30~37 秒**（reasoning 近 1 万字符、输出 3000+ token），默认是开思考的；`qwen-mt-*` 没有思考开关，也就不存在踩这个坑的机会。
+
+能承载的能力（实测）：
+
+- **多段批处理**：段落按 `\n` 拼接，返回也是一行一段，行数与输入一致（不一致就走 `count_mismatch` 拆半重试）。
+- **术语**：`translation_options.terms` 直接吃 `{source, target}`，实测 `Spirit → 精魂`、`Orb of Augmentation → 增幅石`、`Divination card → 命运卡` 全部命中；不需要把词表塞进 prompt。
+- **领域**：`translation_options.domains` 接受自由文本（如 `Path of Exile game streaming`）。
+- **代价**：禁止 `system` 消息，所以「删语气词、相邻片段衔接、半句不续写」这些靠 prompt 撑的规则都没有；也没有 `context`，跨行术语可能漂移（实测同一段里 `tome` 一会儿「典籍」一会儿「大部头书」，`Alder League` / `Alder Lake` 按 ASR 原样翻）。
+
+落地：`lib/translation-api.js` 的 `resolveTranslationProtocol` 按模型名前缀切协议，用户在百炼的模型框里填 `qwen-mt-flash` 即可，Key 与地址不变。真机 120 s 首中文 p50 <1 s、`overlayStale` 7/120（DeepL 同口径 58/120）、缺译 0。
+
+## 7. 待办（按性价比排）
+
+1. 百炼 ASR 模型在 `fun-asr-realtime` 与 `paraformer-realtime-v2` 之间可选（设置项 + popup 下拉，未做）。
+2. 把 `qwen-mt-flash` 做成面板里的显式选项（现在要手填模型名，新人不知道）；若同时保留 `qwen3.7-flash`，需要在 UI 上说明两者差别。
+3. `qwen-mt-*` 补上下文：可试 `translation_options.tm_list` 或把前文当作不可译行，需先验证行对齐会不会被打乱。
 4. 端到端语音直译（`qwen3.8-livetranslate`）：只在决定砍掉「ASR + 翻译两段式」时才启动，见 `research.md` §5.5。

@@ -4,6 +4,7 @@ import test from "node:test";
 
 import {
   buildDeepLRequestBody,
+  buildQwenMtRequestBody,
   buildTranslationRequestBody,
   chatCompletionsUrl,
   DEEPL_TARGET_LANG,
@@ -16,11 +17,13 @@ import {
   MAX_RETRY_AFTER_MS,
   normalizeTranslationSettings,
   parseDeepLResponse,
+  parseQwenMtOutput,
   parseRetryAfter,
   parseTranslationOutput,
   recentTranslationContext,
   resetTranslationRequestShapeCache,
   resolveTranslationConfig,
+  resolveTranslationProtocol,
   MANAGED_TRANSLATION_PORT,
   translatesInExtension,
   usesManagedTranslator,
@@ -986,7 +989,9 @@ test("the bailian translation endpoint follows the speech region and keeps the s
     translationApiKeys: { bailian: "sk" }
   });
   assert.equal(intl.baseUrl, "https://dashscope-intl.aliyuncs.com/compatible-mode/v1");
-  assert.equal(intl.model, "qwen-plus");
+  // The 1M free grant sits on the 3.7/3.8 ids, not on the bare `qwen-plus`.
+  assert.equal(intl.model, "qwen3.7-flash");
+  assert.equal(cn.model, "qwen3.7-flash");
 });
 
 function deeplConfig(baseUrl, overrides = {}) {
@@ -1152,4 +1157,135 @@ test("DeepSeek always uses its fixed flash model, whatever was stored", () => {
     translationModel: "Index-Translate-9B"
   });
   assert.equal(custom.model, "Index-Translate-9B");
+});
+
+function qwenMtConfig(baseUrl, overrides = {}) {
+  // The bailian preset pins its own base URL, so the mock server is reached
+  // through a custom endpoint; the protocol still follows the model id.
+  return resolveTranslationConfig({
+    translationMode: "api",
+    translationProvider: "custom",
+    translationBaseUrl: baseUrl,
+    translationModel: "qwen-mt-flash",
+    translationApiKeys: { custom: "test-key" },
+    ...overrides
+  });
+}
+
+test("a qwen-mt model id selects its own protocol on top of the preset", () => {
+  assert.equal(resolveTranslationProtocol({ protocol: "openai" }, "qwen-mt-flash"), "qwen-mt");
+  assert.equal(resolveTranslationProtocol({ protocol: "openai" }, "qwen-mt-plus"), "qwen-mt");
+  assert.equal(resolveTranslationProtocol({ protocol: "openai" }, "qwen3.7-flash"), "openai");
+  assert.equal(resolveTranslationProtocol({ protocol: "deepl" }, "qwen-mt-flash"), "deepl");
+  assert.equal(qwenMtConfig("http://127.0.0.1:1/v1").protocol, "qwen-mt");
+
+  const bailian = resolveTranslationConfig({
+    translationProvider: "bailian",
+    translationModel: "qwen-mt-flash",
+    translationApiKeys: { bailian: "sk" }
+  });
+  assert.equal(bailian.protocol, "qwen-mt");
+  const plain = resolveTranslationConfig({
+    translationProvider: "bailian",
+    translationModel: "qwen3.7-flash",
+    translationApiKeys: { bailian: "sk" }
+  });
+  assert.equal(plain.protocol, "openai");
+});
+
+test("qwen-mt sends one line per segment with terms and no system message", () => {
+  const config = qwenMtConfig("http://127.0.0.1:1/v1");
+  const body = buildQwenMtRequestBody({
+    texts: ["I specced into Spirit.", "Nice."],
+    config,
+    glossaryEntries: [{ sources: ["Spirit"], target: "精魂" }],
+    domainHint: "Path of Exile"
+  });
+  assert.equal(body.model, "qwen-mt-flash");
+  assert.equal(body.messages.length, 1);
+  assert.equal(body.messages[0].role, "user");
+  assert.equal(body.messages[0].content, "I specced into Spirit.\nNice.");
+  assert.deepEqual(body.translation_options, {
+    source_lang: "English",
+    target_lang: "Chinese",
+    domains: "Path of Exile",
+    terms: [{ source: "Spirit", target: "精魂" }]
+  });
+  assert.equal(body.stream, false);
+  // No thinking switch exists on the dedicated translation models.
+  assert.equal(body.enable_thinking, undefined);
+
+  // Without glossary or domain neither key is sent at all.
+  const plain = buildQwenMtRequestBody({ texts: ["Hi."], config });
+  assert.deepEqual(plain.translation_options, {
+    source_lang: "English",
+    target_lang: "Chinese"
+  });
+
+  // A segment with an internal line break would shift the answer, so it is flattened.
+  const flattened = buildQwenMtRequestBody({ texts: ["one\ntwo"], config });
+  assert.equal(flattened.messages[0].content, "one two");
+});
+
+test("qwen-mt output splits line by line and rejects a wrong count", () => {
+  assert.deepEqual(parseQwenMtOutput("第一行\n第二行", 2), ["第一行", "第二行"]);
+  assert.deepEqual(parseQwenMtOutput("1. 第一行\n2. 第二行", 2), ["第一行", "第二行"]);
+  // A single segment may legitimately contain a line break of its own.
+  assert.deepEqual(parseQwenMtOutput("第一行\n续行", 1), ["第一行\n续行"]);
+  assert.throws(
+    () => parseQwenMtOutput("只有一行", 2),
+    (error) => error.code === "count_mismatch"
+  );
+  assert.throws(
+    () => parseQwenMtOutput("   ", 1),
+    (error) => error.code === "empty_response"
+  );
+});
+
+test("qwen-mt requests reach the endpoint without a system prompt", async () => {
+  const server = await startServer(({ response }) => {
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(
+      JSON.stringify({
+        model: "qwen-mt-flash",
+        choices: [{ message: { content: "我点了精魂。\n很好。" }, finish_reason: "stop" }],
+        usage: { prompt_tokens: 12, completion_tokens: 9 }
+      })
+    );
+  });
+  try {
+    const result = await translateTexts({
+      texts: ["I specced into Spirit.", "Nice."],
+      config: qwenMtConfig(server.url),
+      glossaryEntries: [{ sources: ["Spirit"], target: "精魂" }],
+      domainHint: "Path of Exile"
+    });
+    assert.deepEqual(result.translations, ["我点了精魂。", "很好。"]);
+    assert.equal(result.model, "qwen-mt-flash");
+    assert.equal(result.usage.promptTokens, 12);
+    const body = server.requests[0].body;
+    assert.equal(body.messages.length, 1);
+    assert.equal(body.messages.some((message) => message.role === "system"), false);
+    assert.deepEqual(body.translation_options.terms, [{ source: "Spirit", target: "精魂" }]);
+    assert.equal(server.requests[0].request.headers.authorization, "Bearer test-key");
+  } finally {
+    await server.close();
+  }
+});
+
+test("a qwen-mt answer with the wrong line count is a splittable failure", async () => {
+  const server = await startServer(({ response }) => {
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(
+      JSON.stringify({ choices: [{ message: { content: "只有一行" }, finish_reason: "stop" }] })
+    );
+  });
+  try {
+    await assert.rejects(
+      translateTexts({ texts: ["Hello.", "Good morning."], config: qwenMtConfig(server.url) }),
+      (error) => error.code === "count_mismatch" && isSplittableTranslationError(error, 2)
+    );
+  } finally {
+    await server.close();
+  }
 });

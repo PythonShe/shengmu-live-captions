@@ -1,5 +1,16 @@
 # 项目进度记录 (PROGRESS.md)
 
+## 2026-11-05 · 百炼默认模型换 `qwen3.7-flash` + 接入 `qwen-mt-*` 专用翻译协议
+
+- 默认值：`TRANSLATION_PROVIDERS.bailian.model` 由 `qwen-plus` 改为 `qwen3.7-flash`（老别名没有免费额度，开了「用完即停」会直接报错）。只影响没存过模型的用户；已存 `qwen-plus` 的不自动迁移（用户可能是故意选的），面板里改一下即可。
+- 慢的定位（先量后改）：百炼裸请求 551~589 ms，但真实链路（`SYSTEM_PROMPT` 646 字符 + context + JSON 输出）1125~1244 ms；面板测试 1488 ms。**推理是关的**——`enable_thinking: false` 时 1.04/1.14 s，传 `true` 或省略字段时 29.7~36.7 s、reasoning 近 1 万字符，这组 A/B 写进了 AGENTS.md 红线。
+- 压缩 prompt 试过又回滚：9 条规则压到 6 条（646→388 字符），交替 A/B 5+5 次结果旧 1207 ms / 新 1323 ms，input token 550→406 但没有速度收益（延迟由输出 100~150 个中文字决定），不值得多改文档与测试断言，已回滚。
+- 新协议：`resolveTranslationProtocol` 按模型名前缀把 `protocol` 切成 `qwen-mt`，用户在百炼的模型框里填 `qwen-mt-flash` 即生效（Key/地址不变）。新增 `buildQwenMtRequestBody`（单条 user 消息、`\n` 一行一段、`translation_options.terms/domains`、无 system）与 `parseQwenMtOutput`（按行切、行数不符抛 `count_mismatch` 进拆半重试）。无 context，跨行衔接交给模型，取舍已写入 `paseo/20` §6。
+- 实测：`qwen-mt-flash` 2 行批 246~362 ms（qwen3.7-flash 同口径 1007~1370 ms）；面板测试 197/209/211 ms（原 1488 ms）；术语 `Spirit/Orb of Augmentation/Divination card` 全部命中，领域传入生效。
+- 真机 120 s（WLK + `qwen-mt-flash` + `vkCu3V81N74-poe-05m15-07m15.wav`）：10 行 / 10 有译文、缺译 0、失败 0、截断 0、`deliveredRatio` 0.99916、历史 10 行一致、**首中文 avg 0.7 s / p50 <1 s**、`overlayStale` 7/120（DeepL 同口径 58/120）。译文抽查通顺，但同一段里 `tome` 出现「典籍/大部头书」两译、`Alder League`/`Alder Lake` 按 ASR 原样翻——这就是没有 context 的代价。
+- 验证：`pnpm run verify` 301 项（300 pass / 1 skip）、`translation-api.test.js` 50 项（新增 5 项：协议切换、请求体形状、输出切分与错数、端到端 mock、拆半可重试）。`pnpm run smoke` 待本次提交前重跑。
+- 真机环境坑：dev Chrome 重启后 `chrome.runtime.reload()` 会让页面标签消失，必须重新开 subtitle 页；页面被遮挡时 `visibilityState` 变 `hidden`，需 CDP `Page.bringToFront` 后再采集。
+
 ## 2026-11-05 · 重译限流按后端分档 + 百炼免费额度选型入库
 
 - 拍板：主力是付费 API 且挂后台常开，按上一轮成本核算选方案 B——按后端分档，而不是全局放宽（全局放会白丢本地模型跟手度）。

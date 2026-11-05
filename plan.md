@@ -39,7 +39,9 @@
 
 - [ ] WLK 连续讲话不分段：`Gq2r7x5qgmg-poe-24m00-26m00.wav` 整段 2 分钟仅 1 行（3543 字符），顶满 70vh 与历史 2 行截断；需在 WLK 侧强制切段或客户端对超长行按 `FRAGMENT_MAX_CHARS` 再切
 
-- [ ] 百炼翻译默认模型 `qwen-plus` → `qwen3.7-flash`（`paseo/20` §2，一行改动，新用户命中免费额度）
+- [x] 百炼翻译默认模型 `qwen-plus` → `qwen3.7-flash`（已完成）
+- [x] `qwen-mt-*` 专用翻译协议（已完成：0.2~0.36 s，真机首中文 p50 <1 s）
+- [ ] 把 `qwen-mt-flash` 做成面板显式选项（现在需手填模型名）
 - [ ] 百炼 ASR 在 `fun-asr-realtime` 与 `paraformer-realtime-v2`（每月重置 10 h）之间可选
 - [ ] 单行 Ticker 滚动模式
 - [ ] 原始协议帧环形缓冲查看器
