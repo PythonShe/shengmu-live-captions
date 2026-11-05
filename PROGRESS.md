@@ -11,6 +11,18 @@
 - 验证：`pnpm run verify` 301 项（300 pass / 1 skip）、`translation-api.test.js` 50 项（新增 5 项：协议切换、请求体形状、输出切分与错数、端到端 mock、拆半可重试）。`pnpm run smoke` 待本次提交前重跑。
 - 真机环境坑：dev Chrome 重启后 `chrome.runtime.reload()` 会让页面标签消失，必须重新开 subtitle 页；页面被遮挡时 `visibilityState` 变 `hidden`，需 CDP `Page.bringToFront` 后再采集。
 
+### 跨模型审阅（qwen3.7-plus，Code Review profile，只读 worktree `shengmu-review-mt` @ `83b92ab`）
+
+范围 `14a96b4..83b92ab`（6 文件）：0 P0、0 P1、3 P2。三条处理结果：
+
+1. `parseQwenMtOutput` 的 `if (stripped.length === count && …)` 不可达（`stripped.length === lines.length` 恒等，前一行已处理 `lines.length === count`）——**已删**。
+2. 编号剥离会误伤「译文本身以 `3.` 开头」的行——已知取舍，**不改**，已在代码注释与 `paseo/20` §6 记明。
+3. `AGENTS.md` 写 `0.20~0.36 s` 与实测 `246~362 ms` 不一致——**已改** `0.25~0.36 s`。
+
+审阅者核实无异议的关键项：`count_mismatch` 确实进拆半重试（拆分到底后 `count <= 1` 短路，不会无限拆）；协议切换只作用于 `openai` 基础协议，DeepL/Chrome 内置不受影响，custom 端点命名 `qwen-mt-*` 也会正确切且已有测试；请求端压平内部换行与解析端一致；`terms` 走 JSON 对象无分隔符注入风险（不适用 WLK 那套 `|` 规则）；非 200 / 非 JSON / 空 content / `finish_reason=length` 各有对应 code；不注入 `enable_thinking`。
+
+- 修复后 `pnpm run verify` 301 项（300 pass / 1 skip）、`translation-api.test.js` 50 项全过。
+
 ## 2026-11-05 · 重译限流按后端分档 + 百炼免费额度选型入库
 
 - 拍板：主力是付费 API 且挂后台常开，按上一轮成本核算选方案 B——按后端分档，而不是全局放宽（全局放会白丢本地模型跟手度）。

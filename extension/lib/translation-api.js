@@ -792,11 +792,12 @@ export function parseQwenMtOutput(content, expectedCount) {
     line.replace(/^\s*(?:[-*•]|\d+[.)、])\s*/, "").trim()
   );
   // Our segments never carry numbering, so when every line lost a prefix the
-  // model added its own list and the bare text is the translation.
+  // model added its own list and the bare text is the translation. A row whose
+  // translation legitimately starts with "3." would lose that digit; accepted,
+  // since numbering only appears when every line was numbered (see paseo/20).
   const allNumbered =
     stripped.every((line, index) => line !== lines[index]) && stripped.every(Boolean);
   if (lines.length === count) return allNumbered ? stripped : lines;
-  if (stripped.length === count && stripped.every(Boolean)) return stripped;
   throw new TranslationApiError(
     msg("translation_count_mismatch", count, lines.length),
     { code: "count_mismatch" }

@@ -72,6 +72,8 @@
 
 落地：`lib/translation-api.js` 的 `resolveTranslationProtocol` 按模型名前缀切协议，用户在百炼的模型框里填 `qwen-mt-flash` 即可，Key 与地址不变。真机 120 s 首中文 p50 <1 s、`overlayStale` 7/120（DeepL 同口径 58/120）、缺译 0。
 
+已知取舍（跨模型审阅提出，保留）：`parseQwenMtOutput` 在「每一行都以编号开头」时会把编号剥掉；若某行译文本身以「3.」这样的数字开头，会丢掉这个数字。这个判据是最保守的（要求全行都带前缀），不剥编号又会把 `1. ` 带进字幕，故保留并记在此。
+
 ## 7. 待办（按性价比排）
 
 1. 百炼 ASR 模型在 `fun-asr-realtime` 与 `paraformer-realtime-v2` 之间可选（设置项 + popup 下拉，未做）。
