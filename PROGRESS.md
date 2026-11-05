@@ -11,6 +11,13 @@
 - 仓库状态修正：`master` 相对 `origin/master` 是 ahead 5 / behind 1（上游已用 `865f0d9` 合并 PR #2）。已核对本地 `1efaa8c` 与 `865f0d9` 的 PR #2 实现与测试等价，差异全部是本地独有的 0.5.11；push 前应 merge 而非 rebase。
 - 待办：merge `origin/master` → 跨模型 `code review`（含本轮分档）→ push。
 
+### 跨模型审阅（qwen3.7-plus，Code Review profile，只读 worktree `shengmu-review-0511` @ `256fc15`）
+
+- 范围 `865f0d9..256fc15`（17 文件 +584/−277）：0 P0、0 P1、1 P2。
+- P2 已修：`extension/content/content-overlay.js` 旧 worker 降级路径把 `composeLiveSourceParts` 返回的**对象**当条件（`Boolean(source && …)` 恒真），与 `caption-utils.js` 的 `latestSource.stable` 不一致；空字幕时会误亮等待小点。改判 `source.stable`。该文件不被单测 import，靠 `node --check` + smoke 兜底。
+- 审阅者核过且我复核无异议的六项：`resolveRetranslateThrottle` 判据与 `getConfig()` 返回的 `apiKey` 一致且无循环导入；付费档 `wakeTimer` 不会丢（session 不活跃时不挂，恢复时由 `scheduleLines(0)` 重评）；改设置后档位下一帧生效（旧 timer 最多多等 800 ms）；`composeLiveSourceParts` 两份实现等价且 `setSourceText` 保持 `.caption-text` = 单串；PR #2 的 `fallbackSource` 机制完整且与本轮限流正交；文档常量/版本与代码一致。
+- 审阅者误判一处，已澄清：它称「line 为空 + buffer 非空时 caption-utils 判 pending=false」——实际那种情况 `stable = buffer`，两侧同为 true；真实差异只在两者都空时。
+
 ## 2026-11-04 · PR #2 · 修复在途请求期间源文被覆盖导致的译文截断
 
 - 现象：句子还在生长时发出的请求，响应回来后被当成整句的最终译文，句尾没有中文，且写入历史与 SRT。

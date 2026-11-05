@@ -1549,7 +1549,10 @@
       sourceStash: source.stash,
       translation: own || bufferTranslation || lineTranslation(translated),
       error: clean(current.translationError),
-      pending: Boolean(source && !failed && (line?.translationPending || !own)),
+      // `.stable`, not the object: `source` is always truthy, so testing the
+    // object would light the awaiting dot for an empty caption. selectDisplayCaption
+    // checks `latestSource.stable` the same way.
+    pending: Boolean(source.stable && !failed && (line?.translationPending || !own)),
       failed
     };
   }
