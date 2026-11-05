@@ -11,6 +11,7 @@
 import {
   TRANSLATION_RETRANSLATE_MIN_INTERVAL_MS,
   cleanText,
+  resolveRetranslateThrottle,
   selectDisplayCaption,
   shouldRetranslateLine
 } from "./caption-utils.js";
@@ -210,27 +211,31 @@ export function createTranslationScheduler(deps) {
   /**
    * Whether this row's newer source has to wait for the throttle window.
    * The wake timer re-runs the queue once the window is over, so a held row is
-   * delayed, never lost.
+   * delayed, never lost. The window itself depends on who pays for the text:
+   * a keyed backend resends the whole row on every retranslation, so it waits
+   * for a bigger chunk (see resolveRetranslateThrottle).
    */
   function shouldHoldRetranslation(lineId, entry, at) {
     const line =
       runtimeLines().find((item) => item?.id === lineId) || knownLines.get(lineId);
     if (!line?.translation) return false;
     const guard = retranslateGuards.get(lineId);
-    const allowed = shouldRetranslateLine(line, guard, { now: at });
+    const throttle = resolveRetranslateThrottle(getConfig());
+    const allowed = shouldRetranslateLine(line, guard, { now: at, ...throttle });
     if (allowed) return false;
     scheduleTranslationWake(
-      TRANSLATION_RETRANSLATE_MIN_INTERVAL_MS - (at - Number(guard?.at || 0))
+      throttle.minIntervalMs - (at - Number(guard?.at || 0)),
+      throttle.minIntervalMs
     );
     return true;
   }
 
-  function scheduleTranslationWake(delay) {
+  function scheduleTranslationWake(delay, windowMs = TRANSLATION_RETRANSLATE_MIN_INTERVAL_MS) {
     if (wakeTimer || !sessionActive()) return;
     wakeTimer = setTimer(() => {
       wakeTimer = null;
       scheduleLines(0);
-    }, Math.max(50, Math.min(Number(delay) || 0, TRANSLATION_RETRANSLATE_MIN_INTERVAL_MS)));
+    }, Math.max(50, Math.min(Number(delay) || 0, windowMs)));
   }
 
   function addUsage(value) {

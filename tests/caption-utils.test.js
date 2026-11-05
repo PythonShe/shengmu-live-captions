@@ -18,6 +18,7 @@ import {
   composeLiveSourceText,
   planTranscriptDiff,
   reconcileLineTranslations,
+  resolveRetranslateThrottle,
   sanitizeSettingsPatch,
   shouldRetranslateLine,
   selectDisplayCaption,
@@ -853,4 +854,23 @@ test("shouldRetranslateLine waits for new text or enough time", () => {
     shouldRetranslateLine(line, { source: "hello there world", at: 1_000 }, { now: 1_500 }),
     true
   );
+});
+
+test("a keyed backend retranslates on a wider window than a free one", () => {
+  const free = resolveRetranslateThrottle({ apiKey: "" });
+  assert.deepEqual(free, { minNewChars: 8, minIntervalMs: 400 });
+  // Chrome builtin and a keyless custom endpoint both resolve to no key.
+  assert.deepEqual(resolveRetranslateThrottle({}), free);
+  assert.deepEqual(resolveRetranslateThrottle({ apiKey: "   " }), free);
+
+  const paid = resolveRetranslateThrottle({ apiKey: "deepl-key" });
+  assert.deepEqual(paid, { minNewChars: 24, minIntervalMs: 1200 });
+
+  // Ten new characters is enough for the free window, not for the paid one.
+  const line = { translation: "阶段译文", source: "hello there world and more" };
+  const guard = { source: "hello there", at: 1_000 };
+  assert.equal(shouldRetranslateLine(line, guard, { now: 1_400, ...free }), true);
+  assert.equal(shouldRetranslateLine(line, guard, { now: 1_400, ...paid }), false);
+  // 1.2 s later the paid window is over even without new text.
+  assert.equal(shouldRetranslateLine(line, guard, { now: 2_200, ...paid }), true);
 });

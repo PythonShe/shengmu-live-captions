@@ -1,5 +1,16 @@
 # 项目进度记录 (PROGRESS.md)
 
+## 2026-11-05 · 重译限流按后端分档 + 百炼免费额度选型入库
+
+- 拍板：主力是付费 API 且挂后台常开，按上一轮成本核算选方案 B——按后端分档，而不是全局放宽（全局放会白丢本地模型跟手度）。
+- 实现：`extension/lib/caption-utils.js` 新增 `TRANSLATION_RETRANSLATE_PAID_MIN_NEW_CHARS = 24` / `_PAID_MIN_INTERVAL_MS = 1200` 与 `resolveRetranslateThrottle(config)`：配置带 `apiKey` 就是付费档，无 Key（Chrome 内置、无 Key 的自定义本地端点）保持 8 / 400。判据用户拍板为「有没有 API Key」，不按地址猜本机还是局域网。
+- 接入：`extension/lib/translation-scheduler.js` 的 `shouldHoldRetranslation` 每帧从 `getConfig()` 重算档位，`scheduleTranslationWake` 的补发上限跟着档位走（原来硬编码 400 ms，若不放宽，付费档的 held 行最多 400 ms 就会被唤醒，等于分档无效）。
+- 单测：`tests/caption-utils.test.js` 新增档位判据用例（空 Key / 无 Key / 全空白归免费，有 Key 归付费，同一增长量在两档下的不同结论）；`tests/translation-scheduler.test.js` 新增付费档用例（源文增长 10 字符，400 ms 时不重译且 `wakeTimer` 已挂，1200 ms 时重译并定稿）。
+- 验证：`pnpm run verify` 296 项（295 pass / 1 skip）、`pnpm run smoke` 11 项全过。真机未跑（需用户启动采集），列入 plan.md 第 2 节第 4 步。
+- 文档：`paseo/20-bailian-free-tier.md`（`research.md` §7 拆出：免费额度规则、默认模型 `qwen-plus` 已无额度、6 个可填模型、`qwen-mt-*` 与仅思考模式的坑、每月重置的 `paraformer-realtime-v2`），`paseo/README.md` 加索引；`AGENTS.md` 首行版本号 0.5.10 → 0.5.11，两处限流常量说明改为按后端分档。`research.md` 其余部分继续留在仓库外（untracked）。
+- 仓库状态修正：`master` 相对 `origin/master` 是 ahead 5 / behind 1（上游已用 `865f0d9` 合并 PR #2）。已核对本地 `1efaa8c` 与 `865f0d9` 的 PR #2 实现与测试等价，差异全部是本地独有的 0.5.11；push 前应 merge 而非 rebase。
+- 待办：merge `origin/master` → 跨模型 `code review`（含本轮分档）→ push。
+
 ## 2026-11-04 · PR #2 · 修复在途请求期间源文被覆盖导致的译文截断
 
 - 现象：句子还在生长时发出的请求，响应回来后被当成整句的最终译文，句尾没有中文，且写入历史与 SRT。

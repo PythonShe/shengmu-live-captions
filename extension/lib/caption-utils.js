@@ -588,6 +588,40 @@ export function mergeCaptionLines(existingLines, incomingLines, limit = 20000) {
 /** A growing row is retranslated only after this much new text or this long. */
 export const TRANSLATION_RETRANSLATE_MIN_NEW_CHARS = 8;
 export const TRANSLATION_RETRANSLATE_MIN_INTERVAL_MS = 400;
+/**
+ * Same throttle for a backend that bills per character.
+ *
+ * Every retranslation resends the whole row, so at the free-backend cadence a
+ * 120 s session sent about 4.3x its final character count (measured on real
+ * DeepL traffic, see PROGRESS.md). The 400 ms window is always satisfied by the
+ * ASR cadence (0.5-1.5 s per frame), so the cadence is what has to move: 24
+ * characters is about four English words, which lands at 2.6x and still keeps
+ * the stage translation following the recogniser.
+ */
+export const TRANSLATION_RETRANSLATE_PAID_MIN_NEW_CHARS = 24;
+export const TRANSLATION_RETRANSLATE_PAID_MIN_INTERVAL_MS = 1200;
+
+/**
+ * Which retranslate throttle applies to a resolved translation config.
+ *
+ * A key means someone pays for the characters, whatever the endpoint is: Chrome
+ * builtin and a keyless custom endpoint (a local llama.cpp / Ollama) stay at the
+ * responsive cadence, everything else waits for a bigger chunk of the row.
+ * @param {{ apiKey?: string }} [config] Resolved translation config.
+ * @returns {{ minNewChars: number, minIntervalMs: number }}
+ */
+export function resolveRetranslateThrottle(config = {}) {
+  if (!cleanText(config?.apiKey)) {
+    return {
+      minNewChars: TRANSLATION_RETRANSLATE_MIN_NEW_CHARS,
+      minIntervalMs: TRANSLATION_RETRANSLATE_MIN_INTERVAL_MS
+    };
+  }
+  return {
+    minNewChars: TRANSLATION_RETRANSLATE_PAID_MIN_NEW_CHARS,
+    minIntervalMs: TRANSLATION_RETRANSLATE_PAID_MIN_INTERVAL_MS
+  };
+}
 
 /** A fragment is only merged when the next row really follows it. */
 export const FRAGMENT_GAP_SECONDS = 2.0;

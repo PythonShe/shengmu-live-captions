@@ -190,6 +190,38 @@ test("a row that grew while its request was in flight keeps the answer as a stag
   assert.equal(history.at(-1).translation, "新译文");
 });
 
+test("a keyed backend holds a growing row for the paid retranslate window", async () => {
+  // Same sentence as above, but the endpoint charges per character, so ten new
+  // characters are not worth a request that resends the whole row.
+  const { clock, translator, state, scheduler } = setup({
+    lines: [row("a", LONG)],
+    config: { apiKey: "deepl-key" }
+  });
+  scheduler.scheduleLines(0);
+  await clock.advance(0);
+  assert.equal(translator.calls.length, 1);
+
+  state.current.lines[0].source = `${LONG} One more.`;
+  state.current.lines[0].translationPending = true;
+  translator.calls[0].resolve({ translations: ["旧译文"] });
+  await settleAsync();
+  assert.equal(state.current.lines[0].translation, "旧译文");
+  assert.equal(state.current.lines[0].translationPending, true);
+
+  scheduler.scheduleLines(0);
+  await clock.advance(400);
+  assert.equal(translator.calls.length, 1, "the paid window still holds the row");
+  assert.equal(scheduler.inspect().wakeTimer, true, "the held row is woken, not dropped");
+
+  await clock.advance(800);
+  await clock.advance(0);
+  assert.equal(translator.calls.length, 2);
+  translator.calls[1].resolve({ translations: ["新译文"] });
+  await settleAsync();
+  assert.equal(state.current.lines[0].translation, "新译文");
+  assert.equal(state.current.lines[0].translationPending, false);
+});
+
 test("an ASR update during a request does not pass the old answer off as final", async () => {
   const { clock, translator, state, history, knownLines, scheduler } = setup({ lines: [row("a", LONG)] });
   scheduler.scheduleLines(0);
