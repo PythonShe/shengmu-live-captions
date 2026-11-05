@@ -1,5 +1,21 @@
 # 项目进度记录 (PROGRESS.md)
 
+## 2026-11-05 · 用量面板（本地 90 天账本 + DeepL/DeepSeek 账号额度）
+
+- 背景：`runtimeState.translation.usage` 只有会话内可见，`stop-capture` 会清空；面板看不到「今日/本月」和账号额度。
+- 先查清楚各家能查到什么（不臆造）：DeepL 有 `GET /v2/usage`（`character_count`/`character_limit`），DeepSeek 有 `GET /user/balance`（在 `/v1` 前缀之外，只认 `*.deepseek.com`），**百炼没有用量 API**（控制台页 + `bl` CLI，需 AccessKey），OpenAI 需管理员 Key。
+- 分层实现：
+  - `extension/lib/usage-ledger.js`（纯函数）：按本地日 + `provider:model` 分桶、90 天保留、坏数据降级、今日/本月汇总。
+  - `extension/lib/provider-usage.js`（纯函数）：端点构造（DeepL `:fx` 走 api-free、DeepSeek 去 `/v1`）与响应归一。
+  - `extension/background/usage-service.js`：`chrome.storage.local.usageLedger` 读写（节流 2 s 合并）、远端查询与 5 分钟缓存、`record/flush/snapshot`。
+  - `translation-scheduler.js` 新增 `recordUsage(delta, config)` 回调；`message-router` 新增 `get-usage`（仅 `extension-page`，因为返回的是账号额度）。
+  - popup 新增 `#usageLedger` 一行：今日/本月 + 远端；换 provider/模型后立即强制刷新。
+  - i18n 三语新增 11 个键；`AGENTS.md` 顶层键冻名单加 `usageLedger`。
+- 真机修了一个 bug：远端缓存只按时间缓存，切到 DeepSeek 时把 DeepL 的 551,077 字符原样显示。现在缓存命中要求 provider 相同，并补了单测（临时去掉判据会红，已验证）。
+- 实测：DeepL `551,077 / 1,000,000 字符（55%）`；DeepSeek `CNY 99.95`；百炼 `console_only`；用 DeepSeek 跑 30 s 后本地账本 `today.requests = 2 / 1041 prompt / 109 completion`（桶 `deepseek:deepseek-flash`）；面板文案三种 provider 都正确渲染。
+- 验证：`pnpm run verify` 313 项（312 pass / 1 skip）、`pnpm run smoke` 11 项全过。新增 12 项单测（ledger 6、provider-usage 3、usage-service 3）。
+- 文档：`paseo/21-usage-panel.md`（能力表 + 数据模型 + 刷新策略 + 已知限制）、`paseo/README.md` 索引。
+
 ## 2026-11-05 · 百炼默认模型换 `qwen3.7-flash` + 接入 `qwen-mt-*` 专用翻译协议
 
 - 默认值：`TRANSLATION_PROVIDERS.bailian.model` 由 `qwen-plus` 改为 `qwen3.7-flash`（老别名没有免费额度，开了「用完即停」会直接报错）。只影响没存过模型的用户；已存 `qwen-plus` 的不自动迁移（用户可能是故意选的），面板里改一下即可。

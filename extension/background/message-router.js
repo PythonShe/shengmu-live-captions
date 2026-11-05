@@ -73,6 +73,15 @@ export const MESSAGE_ROUTES = Object.freeze({
       }
     }
   },
+  // Local ledger plus the account-level number when the provider publishes one.
+  // Extension pages only: it answers with the account's remaining quota.
+  "get-usage": {
+    allow: "extension-page",
+    handler: async ({ services }) => ({
+      ok: true,
+      usage: await services.getUsage()
+    })
+  },
   // Re-injecting scripts into the captured tab is not a display setting: a
   // page must not be able to trigger it.
   "refresh-overlay": {

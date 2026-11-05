@@ -4,6 +4,7 @@ import {
   normalizeSettings,
   normalizeWsUrl
 } from "../lib/caption-utils.js";
+import { totalTokens } from "../lib/usage-ledger.js";
 import {
   GLOSSARY_PRESETS,
   MAX_CUSTOM_GLOSSARY_CHARS,
@@ -64,6 +65,7 @@ const elements = {
   clearTranslationKey: document.querySelector("#clearTranslationKey"),
   translationTestResult: document.querySelector("#translationTestResult"),
   translationUsage: document.querySelector("#translationUsage"),
+  usageLedger: document.querySelector("#usageLedger"),
   glossaryEnabled: document.querySelector("#glossaryEnabled"),
   glossaryPresetPoe: document.querySelector("#glossaryPresetPoe"),
   glossarySummaryHint: document.querySelector("#glossarySummaryHint"),
@@ -274,6 +276,7 @@ function render() {
   setFieldValue(elements.wsUrl, settings.wsUrl);
   renderSpeechSettings();
   renderTranslationSettings();
+  void refreshUsageLedger();
   renderGlossarySettings();
 }
 
@@ -479,6 +482,92 @@ function renderTranslationSettings() {
     usageText += ` · ${renderMessage(translationState.error).slice(0, 90)}`;
   }
   elements.translationUsage.textContent = usageText;
+}
+
+// Cross-session usage: the session line above comes from runtimeState and is
+// cleared on stop, so the daily/monthly totals and the account-level number are
+// fetched from the worker. Refetching on every status broadcast would hammer a
+// rate-limited endpoint, so the result is keyed to provider+model and cached.
+let usageLedgerCache = { at: 0, key: "", data: null };
+const USAGE_LEDGER_REFRESH_MS = 10_000;
+
+function usageAmount(totals) {
+  if ((Number(totals?.billedCharacters) || 0) > 0) {
+    return t("popup_usage_amount_chars", Number(totals.billedCharacters).toLocaleString());
+  }
+  return t("popup_usage_amount_tokens", totalTokens(totals).toLocaleString());
+}
+
+function remoteUsageText(remote) {
+  if (!remote) return "";
+  if (remote.kind === "characters") {
+    const percent = remote.limit > 0 ? Math.round((remote.used / remote.limit) * 100) : 0;
+    return t(
+      "popup_usage_remote_chars",
+      Number(remote.used).toLocaleString(),
+      Number(remote.limit).toLocaleString(),
+      percent
+    );
+  }
+  if (remote.kind === "balance") {
+    return t(
+      "popup_usage_remote_balance",
+      remote.currency || "",
+      Number(remote.total).toFixed(2),
+      Number(remote.granted).toFixed(2)
+    );
+  }
+  if (remote.kind === "error") {
+    return t("popup_usage_remote_error", remote.reason);
+  }
+  const reasonKey = {
+    console_only: "popup_usage_remote_console",
+    admin_key_required: "popup_usage_remote_admin",
+    free: "popup_usage_remote_free",
+    local_or_unknown: "popup_usage_remote_local"
+  }[remote.reason || ""];
+  return reasonKey ? t(reasonKey) : "";
+}
+
+function renderUsageLedger(data) {
+  const node = elements.usageLedger;
+  if (!node) return;
+  if (!data) {
+    node.hidden = true;
+    return;
+  }
+  const lines = [
+    t("popup_usage_today", Number(data.today?.requests) || 0, usageAmount(data.today)),
+    t("popup_usage_month", Number(data.month?.requests) || 0, usageAmount(data.month))
+  ];
+  const remote = remoteUsageText(data.remote);
+  if (remote) lines.push(remote);
+  node.textContent = lines.join(" · ");
+  node.hidden = false;
+}
+
+async function refreshUsageLedger(force = false) {
+  const key = `${settings.translationProvider}|${settings.translationModel}|${settings.translationMode}`;
+  const now = Date.now();
+  if (
+    !force &&
+    usageLedgerCache.data &&
+    usageLedgerCache.key === key &&
+    now - usageLedgerCache.at < USAGE_LEDGER_REFRESH_MS
+  ) {
+    return;
+  }
+  try {
+    const response = await chrome.runtime.sendMessage({
+      target: "background",
+      type: "get-usage"
+    });
+    if (!response?.ok) return;
+    usageLedgerCache = { at: now, key, data: response.usage };
+    renderUsageLedger(response.usage);
+  } catch {
+    // A closed worker or a failed remote call must not break the panel.
+  }
 }
 
 // render() runs on every status broadcast, but the summary only depends on
@@ -1216,7 +1305,9 @@ elements.translationProvider.addEventListener("change", () => {
     translationProvider: preset.id,
     translationBaseUrl: preset.baseUrl,
     translationModel: preset.model
-  }).catch((error) => setError(errorText(error)));
+  })
+    .then(() => refreshUsageLedger(true))
+    .catch((error) => setError(errorText(error)));
 });
 
 elements.translationBaseUrl.addEventListener("change", () => {
@@ -1234,9 +1325,9 @@ elements.translationBaseUrl.addEventListener("change", () => {
 
 elements.translationModel.addEventListener("change", () => {
   const model = elements.translationModel.value.trim();
-  void savePatch({ translationModel: model }).catch((error) =>
-    setError(errorText(error))
-  );
+  void savePatch({ translationModel: model })
+    .then(() => refreshUsageLedger(true))
+    .catch((error) => setError(errorText(error)));
 });
 
 elements.translationApiKey.addEventListener("change", () => {

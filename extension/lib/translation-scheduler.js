@@ -82,6 +82,9 @@ function emptyUsage() {
  * @property {() => any} getConfig Resolved translation config (mode, enabled,
  *   provider, model, glossary entries ...), read fresh on every decision.
  * @property {(options: any) => Promise<{ translations: string[], usage?: any }>} translateTexts
+ * @property {(delta: any, config: any) => void} [recordUsage] Receives one
+ *   request's totals so a persistent ledger can outlive the session.
+ *   The scheduler's own `usage` is cleared when a session stops.
  * @property {Map<string, any>} knownLines Last known copy of every session row,
  *   including rows that already left the runtime window.
  * @property {(lines: any[]) => void} enqueueHistory
@@ -103,6 +106,7 @@ export function createTranslationScheduler(deps) {
     getState,
     getConfig,
     translateTexts,
+    recordUsage = null,
     knownLines,
     enqueueHistory,
     publish,
@@ -243,6 +247,15 @@ export function createTranslationScheduler(deps) {
     usage.promptTokens += Number(value?.promptTokens) || 0;
     usage.completionTokens += Number(value?.completionTokens) || 0;
     usage.billedCharacters += Number(value?.billedCharacters) || 0;
+    recordUsage?.(
+      {
+        requests: 1,
+        promptTokens: Number(value?.promptTokens) || 0,
+        completionTokens: Number(value?.completionTokens) || 0,
+        billedCharacters: Number(value?.billedCharacters) || 0
+      },
+      getConfig()
+    );
   }
 
   function patchRuntimeLine(lineId, patch) {

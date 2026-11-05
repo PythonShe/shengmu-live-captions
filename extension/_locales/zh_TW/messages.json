@@ -437,6 +437,39 @@
   "popup_usage_characters": {
     "message": "本次 $1 次請求 / $2 字元"
   },
+  "popup_usage_today": {
+    "message": "今日 $1 次 · $2"
+  },
+  "popup_usage_month": {
+    "message": "本月 $1 次 · $2"
+  },
+  "popup_usage_amount_tokens": {
+    "message": "$1 tokens"
+  },
+  "popup_usage_amount_chars": {
+    "message": "$1 字元"
+  },
+  "popup_usage_remote_chars": {
+    "message": "DeepL 本月 $1 / $2 字元（$3%）"
+  },
+  "popup_usage_remote_balance": {
+    "message": "DeepSeek 餘額 $1 $2（贈送 $3）"
+  },
+  "popup_usage_remote_console": {
+    "message": "百煉額度請到控制台查看"
+  },
+  "popup_usage_remote_admin": {
+    "message": "OpenAI 額度需管理員 Key 才能查"
+  },
+  "popup_usage_remote_free": {
+    "message": "本機/內建翻譯，不計費"
+  },
+  "popup_usage_remote_local": {
+    "message": "自訂端點無帳號額度"
+  },
+  "popup_usage_remote_error": {
+    "message": "額度查詢失敗（$1）"
+  },
   "popup_no_model": {
     "message": "未填模型"
   },

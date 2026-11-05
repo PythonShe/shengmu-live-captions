@@ -11,6 +11,7 @@ import { createOffscreenClient } from "./offscreen-client.js";
 import { createRuntimeStore } from "./runtime-store.js";
 import { createSessionLifecycle } from "./session-lifecycle.js";
 import { createSettingsStore, translationSettingsChanged } from "./settings-store.js";
+import { createUsageService } from "./usage-service.js";
 import { createViews } from "./views.js";
 
 // Composition root: build the services, then register the chrome.* listeners.
@@ -31,11 +32,13 @@ async function builtinTranslate(texts) {
   return response.translations;
 }
 const history = createHistorySync({ store, views });
+const usage = createUsageService({ getConfig: () => settings.translationConfig() });
 const scheduler = createTranslationScheduler({
   getState: () => store.state,
   getConfig: () => settings.translationConfig(),
   isApiEnabled: () => settings.apiTranslationActive(),
   translateTexts: (options) => translateTexts({ ...options, builtinTranslate }),
+  recordUsage: (delta, config) => usage.record(delta, config),
   knownLines: history.knownLines,
   enqueueHistory: (lines) => history.enqueue(lines),
   publish: () => lifecycle.publishCaptions(),
@@ -95,6 +98,7 @@ const dispatch = createMessageDispatcher({
     saveSettings,
     overlayEnabled: () => settings.current.overlayEnabled,
     testTranslationApi: () => testTranslationApi(settings.translationConfig(), { builtinTranslate }),
+    getUsage: () => usage.snapshot(),
     openMonitorWindow: () => views.openMonitorWindow(),
     refreshOverlay: () => views.refreshOverlay(),
     acknowledgeContentReady: (sender) => views.acknowledgeContentReady(sender),

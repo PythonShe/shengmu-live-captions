@@ -437,6 +437,39 @@
   "popup_usage_characters": {
     "message": "$1 requests / $2 characters this session"
   },
+  "popup_usage_today": {
+    "message": "$1 requests today · $2"
+  },
+  "popup_usage_month": {
+    "message": "$1 requests this month · $2"
+  },
+  "popup_usage_amount_tokens": {
+    "message": "$1 tokens"
+  },
+  "popup_usage_amount_chars": {
+    "message": "$1 characters"
+  },
+  "popup_usage_remote_chars": {
+    "message": "DeepL: $1 / $2 characters this month ($3%)"
+  },
+  "popup_usage_remote_balance": {
+    "message": "DeepSeek balance $1 $2 (granted $3)"
+  },
+  "popup_usage_remote_console": {
+    "message": "Bailian quota lives in the console"
+  },
+  "popup_usage_remote_admin": {
+    "message": "OpenAI quota needs an admin key"
+  },
+  "popup_usage_remote_free": {
+    "message": "On-device translation, no billing"
+  },
+  "popup_usage_remote_local": {
+    "message": "Custom endpoint, no account quota"
+  },
+  "popup_usage_remote_error": {
+    "message": "Usage lookup failed ($1)"
+  },
   "popup_no_model": {
     "message": "no model set"
   },
