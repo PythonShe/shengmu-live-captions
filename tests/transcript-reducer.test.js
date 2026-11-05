@@ -60,7 +60,9 @@ test("API mode: fragments merge into one pending row and the buffer extends the 
         source: "We went to the shop and bought some bread.",
         translation: "",
         translatedSource: "",
-        fallbackTranslation: "我们去了商店",
+        // Only the first fragment has a server translation, so it cannot stand
+        // in for the whole row.
+        fallbackTranslation: "",
         translationPending: true,
         translationFailed: false,
         speaker: 1,
@@ -105,6 +107,25 @@ test("API mode keeps a server translation only as the polished fallback", () => 
   assert.equal(row.translation, "");
   assert.equal(row.fallbackTranslation, "这句话独立成句。");
   assert.equal(row.translationPending, true);
+});
+
+test("a merged row's fallback covers every fragment or is not offered", () => {
+  const rows = [
+    { text: "We went to the shop and", start: "0:00:01.00", end: "0:00:02.00", translation: "我们去了商店，" },
+    { text: "bought some bread.", start: "0:00:02.20", end: "0:00:03.00" }
+  ];
+  const partial = reduce(state(), message(rows));
+  assert.equal(partial.patch.current.lines[0].fallbackTranslation, "");
+  assert.equal("translationPartial" in partial.patch.current.lines[0], false, "merge bookkeeping stays off the row");
+
+  const whole = reduce(partial.patch, message([rows[0], { ...rows[1], translation: "买了面包。" }]));
+  assert.equal(whole.patch.current.lines[0].source, "We went to the shop and bought some bread.");
+  assert.equal(whole.patch.current.lines[0].fallbackTranslation, "我们去了商店，买了面包。");
+
+  // A later frame that lost the second translation keeps the one that covered
+  // this exact source.
+  const again = reduce(whole.patch, message(rows));
+  assert.equal(again.patch.current.lines[0].fallbackTranslation, "我们去了商店，买了面包。");
 });
 
 test("server mode keeps the WLK rows, polishes their translations and never merges fragments", () => {

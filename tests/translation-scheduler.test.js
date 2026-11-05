@@ -9,6 +9,7 @@ import {
   shouldRetryTranslationError
 } from "../extension/lib/translation-scheduler.js";
 import { TranslationApiError } from "../extension/lib/translation-api.js";
+import { reduceTranscriptUpdate } from "../extension/lib/transcript-reducer.js";
 import { createFakeClock, settleAsync } from "./helpers/fake-clock.js";
 
 const LONG = "This sentence is long enough to never be held as a fragment.";
@@ -189,6 +190,194 @@ test("a row that grew while its request was in flight keeps the answer as a stag
   assert.equal(history.at(-1).translation, "新译文");
 });
 
+test("an ASR update during a request does not pass the old answer off as final", async () => {
+  const { clock, translator, state, history, knownLines, scheduler } = setup({ lines: [row("a", LONG)] });
+  scheduler.scheduleLines(0);
+  await clock.advance(0);
+  assert.deepEqual(translator.calls[0].texts, [LONG]);
+
+  // handleTranscriptUpdate runs scheduleLines after every ASR update, so the
+  // queue sees the grown row before the response comes back.
+  const grown = `${LONG} And it keeps going with a clause nobody translated.`;
+  state.current.lines[0].source = grown;
+  state.current.lines[0].translationPending = true;
+  scheduler.scheduleLines();
+  translator.calls[0].resolve({ translations: ["short"] });
+  await settleAsync();
+
+  const line = state.current.lines[0];
+  assert.equal(line.translation, "short", "still shown as a stage translation");
+  assert.equal(line.translatedSource, LONG, "it translates what was sent, not the grown row");
+  assert.equal(line.translationPending, true);
+  assert.equal(knownLines.get("a").translatedSource, LONG);
+  assert.deepEqual(history, [], "a stage translation is screen-only");
+
+  await clock.advance(400);
+  await clock.advance(0);
+  assert.deepEqual(translator.calls[1]?.texts, [grown], "the grown row is translated in full");
+  translator.calls[1].resolve({ translations: ["full"] });
+  await settleAsync();
+  assert.equal(line.translation, "full");
+  assert.equal(line.translatedSource, grown);
+  assert.equal(line.translationPending, false);
+  assert.equal(history.at(-1).translation, "full");
+});
+
+test("a batch split in flight still sends the text of the original request", async () => {
+  const { clock, translator, state, scheduler } = setup({
+    lines: [row("a", LONG), row("b", `${LONG} Second.`)]
+  });
+  scheduler.scheduleLines(0);
+  await clock.advance(0);
+  const [first] = translator.calls;
+  state.current.lines[0].source = `${LONG} Grown while the batch was out.`;
+  state.current.lines[0].translationPending = true;
+  scheduler.scheduleLines();
+  first.reject(new TranslationApiError("wrong count", { code: "count_mismatch" }));
+  await settleAsync();
+  assert.deepEqual(translator.calls[1]?.texts, [LONG], "the half repeats what was asked");
+});
+
+test("a worker that runs out of rounds on a growing row hands it on", async () => {
+  const { clock, translator, state, scheduler } = setup({ lines: [row("a", LONG)] });
+  scheduler.scheduleLines(0);
+  await clock.advance(0);
+  // No ASR update after the last response, so nothing but the worker can
+  // notice that the row is still behind.
+  let rounds = 0;
+  while (translator.calls.length > rounds && scheduler.inspect().lineWorkers > 0) {
+    state.current.lines[0].source += " And a few more words arrive.";
+    state.current.lines[0].translationPending = true;
+    translator.calls[rounds].resolve({ translations: [`stage ${rounds}`] });
+    rounds += 1;
+    await settleAsync();
+  }
+  assert.equal(state.current.lines[0].translationPending, true);
+
+  await clock.advance(1000);
+  const last = translator.calls.at(-1);
+  assert.equal(translator.calls.length, rounds + 1, "a new worker takes the row");
+  assert.deepEqual(last.texts, [state.current.lines[0].source]);
+  last.resolve({ translations: ["final"] });
+  await settleAsync();
+  assert.equal(state.current.lines[0].translation, "final");
+  assert.equal(state.current.lines[0].translationPending, false);
+});
+
+test("a fallback that matches the grown row finishes it when the request fails", async () => {
+  const { clock, translator, state, history, scheduler } = setup({ lines: [row("a", LONG)] });
+  scheduler.scheduleLines(0);
+  await clock.advance(0);
+
+  const grown = `${LONG} And it keeps going with a clause nobody translated.`;
+  const line = state.current.lines[0];
+  line.source = grown;
+  line.translationPending = true;
+  line.fallbackTranslation = "完整兜底";
+  scheduler.scheduleLines();
+  translator.calls[0].reject(codedError("bad key", "auth"));
+  await settleAsync();
+
+  assert.equal(line.translation, "完整兜底");
+  assert.equal(line.translatedSource, grown);
+  assert.equal(line.translationPending, false);
+  assert.equal(line.translationFallback, true);
+  assert.equal(history.at(-1).translation, "完整兜底");
+  await clock.advance(1000);
+  assert.equal(translator.calls.length, 1, "the fallback covers the row, so no request is spent");
+});
+
+test("a fallback for the shorter text does not finish a row that grew", async () => {
+  const { clock, translator, state, history, scheduler } = setup({
+    lines: [row("a", LONG, { fallbackTranslation: "旧兜底" })]
+  });
+  scheduler.scheduleLines(50);
+
+  // Grown before the request leaves, and the worker has no fallback for it yet.
+  const grown = `${LONG} And it keeps going with a clause nobody translated.`;
+  const line = state.current.lines[0];
+  line.source = grown;
+  line.fallbackTranslation = "";
+  scheduler.scheduleLines(50);
+  await clock.advance(50);
+  assert.deepEqual(translator.calls[0].texts, [grown]);
+  translator.calls[0].reject(codedError("bad key", "auth"));
+  await settleAsync();
+
+  assert.equal(line.translation, "旧兜底", "shown as a stage translation");
+  assert.equal(line.translatedSource, LONG);
+  assert.equal(line.translationPending, true);
+  assert.deepEqual(history, [], "it does not reach the history as final");
+});
+
+// One ASR update through the real reducer, the way handleTranscriptUpdate runs it.
+async function asrFrame({ clock, state, knownLines, scheduler }, text) {
+  const next = reduceTranscriptUpdate(
+    state,
+    {
+      sessionId: "s1",
+      epochId: "e1",
+      epochStartedAt: 1000,
+      data: { lines: [{ text, start: "0:00:01.00", end: "0:00:02.00" }] }
+    },
+    { knownLines, useApi: true, now: clock.now() }
+  );
+  Object.assign(state, next.patch);
+  scheduler.scheduleLines();
+  await clock.advance(500);
+}
+
+async function failStageRow(rig, grown) {
+  await asrFrame(rig, LONG);
+  rig.translator.calls[0].resolve({ translations: ["stage"] });
+  await settleAsync();
+  await asrFrame(rig, grown);
+  rig.translator.calls[1].reject(codedError("bad key", "auth"));
+  await settleAsync();
+}
+
+test("a permanent failure on a stage row stops requests until the settings change", async () => {
+  const rig = setup();
+  const grown = `${LONG} And it keeps going with a clause nobody translated.`;
+  await failStageRow(rig, grown);
+
+  for (let frame = 0; frame < 5; frame += 1) await asrFrame(rig, grown);
+  assert.equal(rig.translator.calls.length, 2, "identical frames send nothing");
+  const failed = rig.state.current.lines[0];
+  assert.equal(failed.translation, "stage", "the stage translation stays on screen");
+  assert.equal(failed.translationFailed, true);
+  assert.equal(failed.translationPending, false);
+  assert.equal(rig.state.current.displayCaption.pending, false, "nothing is on its way");
+
+  rig.scheduler.handleConfigChanged();
+  await rig.clock.advance(500);
+  assert.deepEqual(rig.translator.calls[2]?.texts, [grown], "a new key gets a new attempt");
+  rig.translator.calls[2].resolve({ translations: ["full"] });
+  await settleAsync();
+  const fixed = rig.state.current.lines[0];
+  assert.equal(fixed.translation, "full");
+  assert.equal(fixed.translationFailed, false);
+  assert.equal(fixed.translationPending, false);
+  assert.equal(rig.history.at(-1).translation, "full");
+});
+
+test("a stage row that failed gets one new attempt when it grows", async () => {
+  const rig = setup();
+  const grown = `${LONG} And it keeps going with a clause nobody translated.`;
+  await failStageRow(rig, grown);
+
+  const longer = `${grown} Then one more clause arrives.`;
+  await asrFrame(rig, longer);
+  assert.equal(rig.state.current.lines[0].translationFailed, false);
+  assert.equal(rig.state.current.lines[0].translationPending, true);
+  assert.deepEqual(rig.translator.calls[2]?.texts, [longer]);
+  rig.translator.calls[2].reject(codedError("bad key", "auth"));
+  await settleAsync();
+
+  await asrFrame(rig, longer);
+  assert.equal(rig.translator.calls.length, 3);
+});
+
 test("reset discards a response that arrives for the previous generation", async () => {
   const { clock, translator, state, history, scheduler } = setup({ lines: [row("a", LONG)] });
   scheduler.scheduleLines(0);
@@ -285,8 +474,6 @@ test("restore and config changes reset the error and requeue failed rows", async
   await settleAsync();
   assert.equal(state.current.lines[0].translationFailed, true);
 
-  // translationFailed is a row flag the reducer clears on the next update.
-  state.current.lines[0] = row("a", LONG);
   scheduler.handleConfigChanged();
   assert.equal(scheduler.lastError, "");
   await clock.advance(0);
