@@ -10,7 +10,28 @@
 - 修复失败后按帧重试：带阶段译文的行遇到不可重试错误（如 Key 失效）后，下一帧 `reconcileLineTranslations` 会清掉失败标记并重新标为待译，调度器也只对无译文的行检查失败记录，于是每个 ASR 帧都发一次请求（合成复现：10 帧 10 次，修复后 0 次）。现在同一源文失败后不再重发，阶段译文留在屏上且不再显示“还在翻”；行继续生长或修改翻译设置后才重新尝试。
 - 验证：`pnpm run verify` 293 项全过、`pnpm run smoke` 11 项全过；新增 8 项回归测试，修复前失败。
 - 合成回放（200 句逐词生长、回显翻译器，非真实音频）：延迟 600 / 1000 / 1000 / 1500 ms、ASR 步长 700 / 700 / 400 / 900 ms 时，错误行由 82 / 95 / 143 / 120 降为 0；请求数由 521 / 433 / 326 / 434 升至 802 / 689 / 475 / 630（约 1.45~1.6 倍）。
-- 本机合入：先以隔离 worktree（`.pr-test/pr2`）验证（`pnpm run verify` 293 项 292 pass / 1 skip、`pnpm run smoke` 11 项全过），再 merge 进 0.5.11 工作区；代码文件全部自动合并，仅本文件冲突手工解决。
+- 本机合入：先以隔离 worktree（`.pr-test/pr2`）验证（`pnpm run verify` 293 项 292 pass / 1 skip、`pnpm run smoke` 11 项全过），再 merge 进 0.5.11 工作区；代码文件全部自动合并，仅本文件冲突手工解决。合并后 `pnpm run verify` 294 项（293 pass / 1 skip）、`pnpm run smoke` 11 项全过。
+
+### 本机真机验证（dev 9223 + tabCapture + WLK large-v3-turbo + DeepL，`test-assets/quality-samples/vkCu3V81N74-poe-05m15-07m15.wav`，各 120 s）
+
+| 指标 | 合并版（0.5.11 + PR #2） | 旧版（`c6f54f6`，无补丁，同一音频/后端） |
+|---|---|---|
+| 行数 / 有译文 | 24 / 23 | 16 / 15 |
+| 截断仍被定稿（`translation` 有值 + `translatedSource !== source` + 非 pending） | 0 | 0 |
+| 缺译 / 翻译失败 | 0 / 0 | 0 / 0 |
+| 历史落盘一致性 | 23 行，截断 0、缺译 0 | 15 行，截断 0、缺译 0 |
+| `deliveredRatio` / `peak` | 0.9994 / 0.93 | 0.9992 / 0.94 |
+
+- 真机在 DeepL 快响应下测不出两版差异：旧版把在途条目的 `source` 改写成新源文，响应回来后 `translatedSource` 正好等于新源文，探针的判据被 bug 自身掩盖；只有「译文内容覆盖度」能区分，而那是人工/模型判读，不适合做自动化回归。
+- 补丁必要性改由单测证明：把 PR 新增测试跑在 `c6f54f6` 的 `extension/lib` 上，8 项失败（`a merged row's fallback covers every fragment…`、`an ASR update during a request does not pass the old answer off as final`、`a batch split in flight still sends the text of the original request`、`a worker that runs out of rounds…`、`a fallback for the shorter text does not finish a row that grew`、`a permanent failure on a stage row…`、`a stage row that failed gets one new attempt…`、reducer 的 `fragments merge into one pending row…`），换回补丁后全绿。
+- 采集自动化：扩展页 `Runtime.evaluate` 带 `userGesture: true` 可以调 `chrome.tabCapture.getMediaStreamId` + `start-capture`，不必每次手点 popup；但标签页导航、Chrome 重启都会让 activeTab 失效，必须用户再按一次 `Ctrl+Shift+Y`。
+- 环境坑：Git Bash 会把 `node x.mjs /quality-samples/...` 的参数改写成 `C:/Program Files/Git/quality-samples/...`，页面里表现为 `MEDIA_ELEMENT_ERROR: Media load rejected by URL safety check`，传裸文件名、脚本里拼路径即可。
+- 探针与临时资产（未入库，仓库外）：`C:/Users/moule/Documents/ChatGPT/.pr-test/` 下 `probe-pr2.mjs`（采 runtimeState 行 + 浮层 DOM + IndexedDB 历史）、`auto-capture.mjs`、`reload.mjs`、`static-server.mjs`（带 Range 的 8783 静态服务器）、`old/extension`（`c6f54f6` 快照）。dev Chrome 中途自行退出一次（CDP 9223 拒绝连接，原因未定位）。
+
+### 待办
+- 重译请求数涨 1.45~1.6 倍（DeepL 按字符计费）是否放宽 `TRANSLATION_RETRANSLATE_MIN_NEW_CHARS` / `MIN_INTERVAL_MS`，等用户拍板。
+- 本地合并（`1efaa8c`）尚未 push，提交前按 AGENTS 送跨模型 `code review`。
+- 合并版 + 本地 9B（慢翻译 1~3 s）的一轮真机采样未做（用户叫停）。
 - 待决定：请求增加是重译限流（8 字符 / 400 ms）的真实成本，之前被这个 bug 掩盖，DeepL 按字符计费时尤其明显。本次未调整限流参数。
 - 未做：真实音频端到端（`test-assets/quality-samples`）。
 
