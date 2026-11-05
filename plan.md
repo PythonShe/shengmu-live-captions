@@ -25,7 +25,7 @@
 1. **merge `origin/master`**：`git fetch && git merge origin/master`，冲突应只出现在 `PROGRESS.md`（两侧都追加了 PR #2 记录），保留两侧内容。
 2. **跨模型 code review**：范围 `merge-base(origin/master, HEAD)..HEAD`，覆盖 0.5.11 视觉改版、PR #2 回合并、限流分档、`paseo/20`。独立 workspace + worktree、`code review` profile、只读约束。P0/P1 必修并复测。
 3. **push 到 `origin/master`**（禁未经指令 push，需我确认）。
-4. **真机采一轮**（付费 API + 新 24/1200 档）：捐 `test-assets/quality-samples/*poe*.wav`，须满足缺译 0、`deliveredRatio ≥ 0.999`、本地延迟 1~3 s；同时把 `runtimeState.usage.billedCharacters` 写进采样 JSON，用实测替代估算。
+4. **真机采一轮**（付费 API + 新 24/1200 档）：**已完成 2026-11-05**。样本 `vkCu3V81N74-poe-05m15-07m15.wav` 120 s：21 行 / 20 有译文、缺译 0、`deliveredRatio` 0.99993、历史 20 行一致，达标。另一段 `Gq2r7x5qgmg-poe-24m00-26m00.wav` 整段只出 1 行，定位为 WLK 分段问题（非本轮回归），已记入 backlog。
 
 ## 3. 未阻塞的验证缺项
 
@@ -36,6 +36,8 @@
 | 3 | 24/1200 下阶段译文跟手度体感确认（最坏等 1.2 s） | 中，跟第 4 步同一轮做 |
 
 ## 4. Backlog（不阻塞本次发布）
+
+- [ ] WLK 连续讲话不分段：`Gq2r7x5qgmg-poe-24m00-26m00.wav` 整段 2 分钟仅 1 行（3543 字符），顶满 70vh 与历史 2 行截断；需在 WLK 侧强制切段或客户端对超长行按 `FRAGMENT_MAX_CHARS` 再切
 
 - [ ] 百炼翻译默认模型 `qwen-plus` → `qwen3.7-flash`（`paseo/20` §2，一行改动，新用户命中免费额度）
 - [ ] 百炼 ASR 在 `fun-asr-realtime` 与 `paraformer-realtime-v2`（每月重置 10 h）之间可选

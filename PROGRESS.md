@@ -18,6 +18,23 @@
 - 审阅者核过且我复核无异议的六项：`resolveRetranslateThrottle` 判据与 `getConfig()` 返回的 `apiKey` 一致且无循环导入；付费档 `wakeTimer` 不会丢（session 不活跃时不挂，恢复时由 `scheduleLines(0)` 重评）；改设置后档位下一帧生效（旧 timer 最多多等 800 ms）；`composeLiveSourceParts` 两份实现等价且 `setSourceText` 保持 `.caption-text` = 单串；PR #2 的 `fallbackSource` 机制完整且与本轮限流正交；文档常量/版本与代码一致。
 - 审阅者误判一处，已澄清：它称「line 为空 + buffer 非空时 caption-utils 判 pending=false」——实际那种情况 `stable = buffer`，两侧同为 true；真实差异只在两者都空时。
 
+### 真机验收（2026-11-05，dev 9223 + WLK large-v3-turbo + DeepL + 新档 24/1200）
+
+环境：新起 dev Chrome（`pnpm services.mjs dev-browser --port 9223`）、WLK pid 28288 参数与 `scripts/local-service/config.mjs` 一致（`--buffer_trimming segment --buffer_trimming_sec 10`）、`translationProvider = deepl`（Key 已存）、`asrBackend = wlk`、`translationMode = api` → 走付费档。采集用 `.pr-test/auto-capture.mjs`（CDP `userGesture` 调 `getMediaStreamId` + `start-capture`）两次都成功，不必手点 popup。
+
+| 指标 | `vkCu3V81N74-poe-05m15-07m15.wav`（120 s） | `Gq2r7x5qgmg-poe-24m00-26m00.wav`（120 s） |
+|---|---|---|
+| 行数 / 有译文 | 21 / 20 | **1 / 1** |
+| 缺译 / 失败 / 截断被定稿 | 0 / 0 / 0 | 0 / 0 / 0 |
+| `deliveredRatio` / `peak` | 0.99993 / 0.75 | 0.99919 / 0.238 |
+| 历史行数 / 截断 / 缺译 | 20 / 0 / 0 | 未落盘（未停采） |
+| `overlayStale` / `overlayPending` | 58/120 / 0 | 85/120 / 0 |
+
+- 样本 A 结论：**新档 24/1200 在真实 DeepL 链路下没有制造缺译、截断或历史不一致**，缺译 0、`deliveredRatio ≥ 0.999` 过线。
+- 样本 B 是 WLK 分段问题，不是本轮回归：整段只出一行（`len 3543`、`end 0:02:44.79`、`fragmentIds` 长度 1 → 未经过客户端合并），`translationPending` 全程 true，阶段译文 1293 字符。推断为连续讲话没有 ≥1 s 停顿，`--pause-segmentation-seconds 1` 不切，`--buffer_trimming segment 10` 也没生效；本轮改动只碰限流与浮层 `pending` 判据，与 ASR 分段无交集。
+- 顺带暴露的既有缺陷：一行 3543 字符会顶满 `.caption-shell` 的 70vh 与历史 2 行截断。记 backlog（guillotine：WLK 侧强制按字符/时长切段，或客户端对超长行做 `FRAGMENT_MAX_CHARS` 级切分）。
+- 采集后已 `stop-capture`（`active: false`）；探针与样本均在仓库外 `.pr-test/`，原始采样 `probe-0511-throttle.json`、`probe-0511-vkCu3.json`。
+
 ## 2026-11-04 · PR #2 · 修复在途请求期间源文被覆盖导致的译文截断
 
 - 现象：句子还在生长时发出的请求，响应回来后被当成整句的最终译文，句尾没有中文，且写入历史与 SRT。
