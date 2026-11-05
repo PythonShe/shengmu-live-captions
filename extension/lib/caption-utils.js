@@ -661,6 +661,15 @@ export function mergeCaptionFragments(lines, options = {}) {
     unit.end = line.end || unit.end;
     unit.fragmentLines += 1;
     if (line.id) unit.fragmentIds = [...(unit.fragmentIds || []), line.id];
+    // A server translation may stand in for the unit only if it covers all of
+    // it (see reconcileLineTranslations).
+    const unitTranslation = getTranslationText(unit);
+    const rowTranslation = getTranslationText(line);
+    if (unit.translationPartial || !unitTranslation || !rowTranslation) {
+      unit.translationPartial = true;
+    } else {
+      unit.translation = `${unitTranslation}${rowTranslation}`;
+    }
     // Only "this row is itself unfinished" keeps the unit open. A row that
     // merely continues the previous sentence closes it, otherwise a whole
     // paragraph gets glued together and never gets translated.
@@ -718,14 +727,16 @@ export function reconcileLineTranslations(previousLines, nextLines, options = {}
     }
   }
 
-  return (Array.isArray(nextLines) ? nextLines : []).map((rawLine) => {
+  return (Array.isArray(nextLines) ? nextLines : []).map((nextLine) => {
+    const { translationPartial, ...rawLine } = nextLine;
     const own = byId.get(rawLine.id) || knownLines?.get(rawLine.id) || null;
     const carrier = own || byFragmentId.get(rawLine.id) || null;
     const carried = getTranslationText(carrier);
     // WhisperLiveKit's own translation for this row. In API mode it is the only
     // thing that saves a row when the external API gives up, so it is kept as
     // the fallback for the same source only: a grown row has to be translated
-    // again.
+    // again. A merged row missing a fragment's translation has no fallback,
+    // because the scheduler stores a fallback as this source's final translation.
     const serverTranslation = polishTranslation(getTranslationText(rawLine));
     const translation = useApi ? carried : serverTranslation;
     const translatedSource = translation
@@ -734,23 +745,22 @@ export function reconcileLineTranslations(previousLines, nextLines, options = {}
         : cleanText(rawLine.source)
       : "";
     const fallbackTranslation = useApi
-      ? serverTranslation ||
+      ? (translationPartial ? "" : serverTranslation) ||
         (carrier?.source === rawLine.source
           ? compactTextOf(carrier?.fallbackTranslation)
           : "")
       : "";
-    // Same source text but no translation means the last attempt failed for this
-    // exact row; a grown row is a new attempt, never a permanent failure.
-    const failed = Boolean(
-      !translation && carrier?.translationFailed && carrier.source === rawLine.source
-    );
+    // The last attempt failed for this exact row, whether or not a stage
+    // translation is still on screen. A grown row is a new attempt, never a
+    // permanent failure.
+    const failed = Boolean(carrier?.translationFailed && carrier.source === rawLine.source);
     return {
       ...rawLine,
       translation,
       translatedSource,
       fallbackTranslation,
       translationPending: useApi
-        ? Boolean(rawLine.source && translatedSource !== rawLine.source)
+        ? Boolean(rawLine.source && translatedSource !== rawLine.source && !failed)
         : Boolean(rawLine.source && !translation),
       translationFailed: failed
     };

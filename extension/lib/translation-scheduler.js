@@ -296,11 +296,12 @@ export function createTranslationScheduler(deps) {
       // flight. Dropping the response was what postponed every subtitle to the
       // end of the sentence: apply it as a stage translation, keep it on
       // screen, and let the next round translate the newer source.
-      const stale = line.source !== entry.source;
+      const translatedSource = fallback ? entry.fallbackSource : entry.source;
+      const stale = line.source !== translatedSource;
       if (stale) sourceChanged = true;
       const patch = {
         translation: text,
-        translatedSource: entry.source,
+        translatedSource,
         translationPending: stale,
         translationFailed: false,
         translationFallback: fallback
@@ -351,16 +352,29 @@ export function createTranslationScheduler(deps) {
       // A row whose translation still matches its source is done. A row holding
       // a stage translation is not: the source grew under it and the newest
       // words have no translation yet.
-      if (line.translation && !line.translationPending) continue;
-      if (!line.translation && failed.get(line.id) === line.source) continue;
+      if (line.translation && !line.translationPending && !line.translationFailed) continue;
+      // This exact source already used up its attempts. It stays out until the
+      // row grows or handleConfigChanged forgets the failure, or every ASR update
+      // would send another request a bad key cannot answer.
+      if (failed.get(line.id) === line.source) continue;
+      const fallback = cleanText(line.fallbackTranslation);
       const existing = pending.get(line.id);
       if (existing) {
+        // A row's fallback belongs to the source it arrived with, which can be
+        // newer or older than what the request asked for.
+        if (fallback) {
+          existing.fallback = fallback;
+          existing.fallbackSource = line.source;
+        }
+        // An in-flight entry has to keep saying what was sent: comparing it with
+        // the row is how applyLineTranslations tells a stage translation from a
+        // final one. The grown source gets its own entry after the response.
+        if (existing.inFlight) continue;
         if (existing.source !== line.source) {
           existing.source = line.source;
           existing.attempts = 0;
         }
         existing.promptText = stripSpeechFillers(line.source);
-        existing.fallback = cleanText(line.fallbackTranslation) || existing.fallback;
         continue;
       }
       pending.set(line.id, {
@@ -369,7 +383,8 @@ export function createTranslationScheduler(deps) {
         // keeps the verbatim ASR text.
         promptText: stripSpeechFillers(line.source),
         attempts: 0,
-        fallback: cleanText(line.fallbackTranslation),
+        fallback,
+        fallbackSource: line.source,
         // queuedAt lets planTranslationBatch decide when a trailing fragment
         // has waited long enough for the row that would complete its sentence.
         queuedAt: now()
@@ -591,6 +606,9 @@ export function createTranslationScheduler(deps) {
     workers.add(promise);
     const release = () => {
       workers.delete(promise);
+      // A stage translation leaves the queue, so a worker that ended on its
+      // last round would otherwise leave that row behind with nothing to wake it.
+      collectPending();
       if (
         waitingEntries().length > 0 &&
         sessionActive() &&
