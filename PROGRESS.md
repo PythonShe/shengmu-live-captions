@@ -28,12 +28,32 @@
 - 环境坑：Git Bash 会把 `node x.mjs /quality-samples/...` 的参数改写成 `C:/Program Files/Git/quality-samples/...`，页面里表现为 `MEDIA_ELEMENT_ERROR: Media load rejected by URL safety check`，传裸文件名、脚本里拼路径即可。
 - 探针与临时资产（未入库，仓库外）：`C:/Users/moule/Documents/ChatGPT/.pr-test/` 下 `probe-pr2.mjs`（采 runtimeState 行 + 浮层 DOM + IndexedDB 历史）、`auto-capture.mjs`、`reload.mjs`、`static-server.mjs`（带 Range 的 8783 静态服务器）、`old/extension`（`c6f54f6` 快照）。dev Chrome 中途自行退出一次（CDP 9223 拒绝连接，原因未定位）。
 
+### 限流成本核算（2026-11-05，只估算不动代码，等用户决策）
+
+PR 的核心代价是重译请求变多。本轮把「请求数」拆开重算了一遍，结论：**请求数只是表象，DeepL 按源文字符计费，钱花在「每次重译都重发整句」上**。
+
+- 机制：`extension/lib/caption-utils.js:589-590` 的 `TRANSLATION_RETRANSLATE_MIN_NEW_CHARS = 8` / `TRANSLATION_RETRANSLATE_MIN_INTERVAL_MS = 400` 是「或」关系（`shouldRetranslateLine`，`translation-scheduler.js:219-233` 消费）。WLK 的 ASR 帧间隔本来就在 0.5~1.5 s，400 ms 恒成立，实际门槛只剩 8 字符（≈1.5 个英文词），于是几乎每帧都发一次整句。涨的是原本被这个 bug 吞掉的开销，不是新功能开销。
+- 回放方法：`.pr-test/cost-estimate.mjs`（仓库外）把真机采样的每秒行快照喂给真实 `shouldRetranslateLine`，只统计「有源文」的行。1 s 采样粒度，所以是请求数下限。
+
+| 限流档位（字符 / ms） | 请求数 | 发送字符 | 字符/终态字符 | 相对当前省 |
+|---|---|---|---|---|
+| 8 / 400（当前） | 85 | 9 736 | **4.27×** | — |
+| 16 / 800 | 85 | 9 736 | 4.27× | 0% |
+| 24 / 1200 | 60 | 5 860 | **2.57×** | 40% |
+| 32 / 1500 | 60 | 5 888 | 2.58× | 40% |
+
+（合并版 120 s、24 行、终态 2 280 字符；旧版同口径 5.19×。16/800 一分钱没省——8 字符本来就约 1.5 个词，门槛提到 16 仍被 ASR 追加跨过；要动就得一次到 24~32。）
+
+- 成本量级（按 2026 年第三方整理的 Growth 报价：$32.50/月含 1 M 字符、超出 $27.5/1 M；官方页与现有账号套餐需另行核对）：1 h/天 → 终态 1.5 M，当前发 6.4 M（≈$148）、放宽后 3.9 M（≈$80）；2 h/天 → 3.0 M，当前 12.8 M（≈$325）、放宽后 7.7 M（≈$182）。若用的是 Developer 计划 1 M 一次性额度，当前设置约 4.7 小时烧光，放宽到 24 字符约 7.9 小时。
+- 这笔冗余买到的东西：0.5.8 的阶段译文（中文跟着英文往前进）。真机那轮 73/120 帧处于 `stale`（正在显示上一版阶段译文），即近 60% 时间屏上中文慢半拍但有内容；放宽后更新粒度从 ~1.5 个词变成 4~5 个词，最坏等 1.2 s。缺译、历史正确性、最终译文质量不受限流影响（实测 0 缺译、历史 23 行全一致）。
+- 三个选项：A 不动（适合本地 9B / Chrome 内置为主，成本 0）；B 按后端分档——付费 API 用 24/1200、本地 `server` 模式与 Chrome 内置保持 8/400（`shouldRetranslateLine` 已接受 options，约 10 行改动 + 单测）；C 直接全局调到 24/1200（本地模型白省、跟手度下降）。分析倾向 B，但涉及产品取舍，**本轮不实现、不改常量**。
+- 决策前需要用户回答：① 日常主要用哪个翻译后端（本地 Index-Translate-9B / DeepL）；② 每天大约看多久直播（决定账单是几十还是几百美元）。
+- 顺带发现：`runtimeState.usage` 里已有 `billedCharacters`（DeepL 返回的计费字符），但 `stop-capture` 收尾会清空 session，探针没抓到实测值；下轮采集应把 `usage` 一并写进采样 JSON，用实测替代估算。
+
 ### 待办
-- 重译请求数涨 1.45~1.6 倍（DeepL 按字符计费）是否放宽 `TRANSLATION_RETRANSLATE_MIN_NEW_CHARS` / `MIN_INTERVAL_MS`，等用户拍板。
+- 限流是否放宽：**暂时不决定**，见上节；需要用户先回答后端偏好与观看时长。
 - 本地合并（`1efaa8c`）尚未 push，提交前按 AGENTS 送跨模型 `code review`。
 - 合并版 + 本地 9B（慢翻译 1~3 s）的一轮真机采样未做（用户叫停）。
-- 待决定：请求增加是重译限流（8 字符 / 400 ms）的真实成本，之前被这个 bug 掩盖，DeepL 按字符计费时尤其明显。本次未调整限流参数。
-- 未做：真实音频端到端（`test-assets/quality-samples`）。
 
 ## 2026-11-04 · 0.5.11 浮层广播风视觉改版 + 英文未定稿尾巴
 
