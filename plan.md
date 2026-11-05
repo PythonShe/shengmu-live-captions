@@ -5,7 +5,7 @@
 
 ## 0. 仓库状态
 
-`git rev-list --left-right --count origin/master...HEAD` = `0 0`：上一轮的 merge、跨模型审阅与 push 全部完成，工作区除未跟踪的 `research.md` 外干净。
+`git rev-list --left-right --count origin/master...HEAD` = `0 0`：上一轮的 merge、跨模型审阅与 push 全部完成。本轮 0.5.12 已提交并 push（`3257f54` 功能 + `042c7b3` 审阅 P1 修复 + `3a08bab` pit 记录），工作区除未跟踪的 `research.md` 外干净。
 
 ## 1. 本轮已落地（0.5.12）
 
