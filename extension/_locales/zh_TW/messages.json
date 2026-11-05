@@ -1289,5 +1289,32 @@
   },
   "popup_switch_bailian": {
     "message": "改用阿里雲百煉"
+  },
+  "deepl_glossary_needs_deepl": {
+    "message": "只有把翻譯服務商設為 DeepL 才能同步術語庫"
+  },
+  "deepl_glossary_empty": {
+    "message": "術語庫為空：先啟用內建詞庫或填寫自訂術語"
+  },
+  "deepl_glossary_create_failed": {
+    "message": "DeepL 拒絕建立術語庫（HTTP $1）：$2"
+  },
+  "popup_sync_deepl_glossary": {
+    "message": "同步到 DeepL"
+  },
+  "popup_deepl_glossary_unsynced": {
+    "message": "DeepL 術語庫未同步，術語暫不生效"
+  },
+  "popup_deepl_glossary_stale": {
+    "message": "詞條已變化，重新同步後新術語才生效"
+  },
+  "popup_deepl_glossary_synced": {
+    "message": "已同步 $1 條術語到 DeepL"
+  },
+  "popup_deepl_glossary_syncing": {
+    "message": "正在同步術語庫…"
+  },
+  "popup_deepl_glossary_hint": {
+    "message": "DeepL 只能透過術語庫固定譯名，不能改提示詞；免費帳號只允許 1 個術語庫，同步會先刪除舊的再建立"
   }
 }

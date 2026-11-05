@@ -3,6 +3,7 @@ import http from "node:http";
 import test from "node:test";
 
 import {
+  BAILIAN_TRANSLATION_MODELS,
   buildDeepLRequestBody,
   buildQwenMtRequestBody,
   buildTranslationRequestBody,
@@ -1285,6 +1286,84 @@ test("a qwen-mt answer with the wrong line count is a splittable failure", async
       translateTexts({ texts: ["Hello.", "Good morning."], config: qwenMtConfig(server.url) }),
       (error) => error.code === "count_mismatch" && isSplittableTranslationError(error, 2)
     );
+  } finally {
+    await server.close();
+  }
+});
+
+test("Bailian offers a closed model list and normalises anything else", () => {
+  // The popup renders exactly these five as a select, so a stored id outside
+  // the list has no option to highlight; it falls back to the preset default
+  // instead of silently keeping a model the field cannot show.
+  assert.deepEqual([...BAILIAN_TRANSLATION_MODELS], [
+    "qwen3.7-flash",
+    "qwen-mt-flash",
+    "qwen-mt-plus",
+    "qwen-mt-lite"
+  ]);
+
+  const legacy = normalizeTranslationSettings({
+    translationProvider: "bailian",
+    translationModel: "qwen-plus"
+  });
+  assert.equal(legacy.model, "qwen3.7-flash");
+
+  const listed = normalizeTranslationSettings({
+    translationProvider: "bailian",
+    translationModel: " qwen-mt-lite "
+  });
+  assert.equal(listed.model, "qwen-mt-lite");
+
+  // qwen-mt-turbo answers 404 model_not_found (cn region, 2026-11-05), so a
+  // stored value for it must not survive as an unselectable model.
+  const dead = normalizeTranslationSettings({
+    translationProvider: "bailian",
+    translationModel: "qwen-mt-turbo"
+  });
+  assert.equal(dead.model, "qwen3.7-flash");
+
+  const config = resolveTranslationConfig({
+    translationMode: "api",
+    translationProvider: "bailian",
+    translationModel: "qwen-mt-lite",
+    translationApiKeys: { bailian: "bk" },
+    bailianRegion: "cn"
+  });
+  assert.equal(config.protocol, "qwen-mt");
+  assert.equal(config.enabled, true);
+});
+
+test("a DeepL glossary rides on the request and degrades when it is gone", async () => {
+  const body = buildDeepLRequestBody({
+    texts: ["I found a Spirit."],
+    glossaryId: "g-123"
+  });
+  assert.equal(body.glossary_id, "g-123");
+  // DeepL rejects a glossary without an explicit source language.
+  assert.equal(body.source_lang, "EN");
+  assert.equal(buildDeepLRequestBody({ texts: ["Hi"], glossaryId: "  " }).glossary_id, undefined);
+
+  // A glossary deleted on the account side answers 400 naming the glossary;
+  // the retry must drop it instead of failing the row.
+  const server = await startServer(({ body: requestBody, response, requests }) => {
+    response.setHeader("Content-Type", "application/json");
+    if (requestBody.glossary_id) {
+      response.writeHead(400);
+      response.end(JSON.stringify({ message: "Glossary with id 'g-123' not found." }));
+      return;
+    }
+    assert.equal(requests.length, 2);
+    response.writeHead(200);
+    response.end(JSON.stringify({ translations: [{ text: "我找到了一只精魂。" }] }));
+  });
+  try {
+    const result = await translateTexts({
+      texts: ["I found a Spirit."],
+      config: { ...deeplConfig(server.url, { translationApiKeyConfigured: { deepl: true } }), deeplGlossaryId: "g-123" }
+    });
+    assert.deepEqual(result.translations, ["我找到了一只精魂。"]);
+    assert.equal(server.requests[0].body.glossary_id, "g-123");
+    assert.equal(server.requests[1].body.glossary_id, undefined);
   } finally {
     await server.close();
   }

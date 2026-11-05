@@ -11,6 +11,7 @@ import { createOffscreenClient } from "./offscreen-client.js";
 import { createRuntimeStore } from "./runtime-store.js";
 import { createSessionLifecycle } from "./session-lifecycle.js";
 import { createSettingsStore, translationSettingsChanged } from "./settings-store.js";
+import { createDeepLGlossaryService } from "./deepl-glossary-service.js";
 import { createUsageService } from "./usage-service.js";
 import { createViews } from "./views.js";
 
@@ -33,9 +34,19 @@ async function builtinTranslate(texts) {
 }
 const history = createHistorySync({ store, views });
 const usage = createUsageService({ getConfig: () => settings.translationConfig() });
+// One DeepL glossary, synced from the panel on demand: DeepL cannot be prompted,
+// so this id is the only way the term base reaches it.
+const deeplGlossary = createDeepLGlossaryService({
+  getConfig: () => settings.translationConfig()
+});
 const scheduler = createTranslationScheduler({
   getState: () => store.state,
-  getConfig: () => settings.translationConfig(),
+  // The glossary id rides on the config so every request in a session uses the
+  // same glossary the user synced, without a lookup per batch.
+  getConfig: () => ({
+    ...settings.translationConfig(),
+    deeplGlossaryId: deeplGlossary.currentId()
+  }),
   isApiEnabled: () => settings.apiTranslationActive(),
   translateTexts: (options) => translateTexts({ ...options, builtinTranslate }),
   recordUsage: (delta, config) => usage.record(delta, config),
@@ -60,7 +71,11 @@ let initializationPromise = null;
 function initialize() {
   if (initializationPromise) return initializationPromise;
   initializationPromise = (async () => {
-    const [, restored] = await Promise.all([settings.load(), store.rehydrate()]);
+    const [, restored] = await Promise.all([
+      settings.load(),
+      store.rehydrate(),
+      deeplGlossary.load()
+    ]);
     if (restored) {
       scheduler.restore({
         usage: restored.translation?.usage,
@@ -100,8 +115,13 @@ const dispatch = createMessageDispatcher({
     publicSettings: () => settingsForBroadcast(settings.current),
     saveSettings,
     overlayEnabled: () => settings.current.overlayEnabled,
-    testTranslationApi: () => testTranslationApi(settings.translationConfig(), { builtinTranslate }),
+    testTranslationApi: () => testTranslationApi(
+      { ...settings.translationConfig(), deeplGlossaryId: deeplGlossary.currentId() },
+      { builtinTranslate }
+    ),
     getUsage: () => usage.snapshot(),
+    syncDeepLGlossary: () => deeplGlossary.sync(),
+    deepLGlossaryStatus: () => deeplGlossary.status(),
     openMonitorWindow: () => views.openMonitorWindow(),
     refreshOverlay: () => views.refreshOverlay(),
     acknowledgeContentReady: (sender) => views.acknowledgeContentReady(sender),

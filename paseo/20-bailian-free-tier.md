@@ -59,7 +59,11 @@
 | `qwen3.7-flash` + 9 条规则 prompt（2 行、1024 字符） | 1207 ms（5 次中位） | 550 | 当前 chat 链路 |
 | `qwen3.7-flash` 压缩到 6 条规则（766 字符） | 1323 ms | 406 | **没变快**，省下的只是输入 token，已回滚 |
 | `qwen-mt-flash`（`translation_options`，无 system） | **246~362 ms** | ~100 | 快 3~4 倍 |
-| `qwen-mt-plus` | 519~559 ms | 108 | 质量档 |
+| `qwen-mt-plus` | 442~559 ms | ~180 | 质量档 |
+| `qwen-mt-lite` | **321 ms**（275~348） | ~187 | 与 flash 同档 |
+| `qwen-mt-turbo` | **404 `model_not_found`** | — | cn 地域已不可用（2026-11-05 实测 5/5 全 404） |
+
+补充（2026-11-05，同一条 2 行真实字幕批、带 `terms` 与 `domains`、各 5 次交错跑）：`qwen-mt-flash` 中位 **325 ms**、`qwen-mt-plus` 442 ms、`qwen-mt-lite` 321 ms，三者都 5/5 返回 2 行。`qwen-mt-turbo` 连发 5 次全是 404 `Model not exist` / `model_not_found`，**不要再放进面板选项**。
 
 关键对照：`qwen3.7-flash` 不传 `enable_thinking: false` 时单次要 **30~37 秒**（reasoning 近 1 万字符、输出 3000+ token），默认是开思考的；`qwen-mt-*` 没有思考开关，也就不存在踩这个坑的机会。
 
@@ -70,7 +74,7 @@
 - **领域**：`translation_options.domains` 接受自由文本（如 `Path of Exile game streaming`）。
 - **代价**：禁止 `system` 消息，所以「删语气词、相邻片段衔接、半句不续写」这些靠 prompt 撑的规则都没有；也没有 `context`，跨行术语可能漂移（实测同一段里 `tome` 一会儿「典籍」一会儿「大部头书」，`Alder League` / `Alder Lake` 按 ASR 原样翻）。
 
-落地：`lib/translation-api.js` 的 `resolveTranslationProtocol` 按模型名前缀切协议，用户在百炼的模型框里填 `qwen-mt-flash` 即可，Key 与地址不变。真机 120 s 首中文 p50 <1 s、`overlayStale` 7/120（DeepL 同口径 58/120）、缺译 0。
+落地：`lib/translation-api.js` 的 `resolveTranslationProtocol` 按模型名前缀切协议；0.5.12 起面板是封闭下拉（`BAILIAN_TRANSLATION_MODELS`：`qwen3.7-flash` / `qwen-mt-flash` / `qwen-mt-plus` / `qwen-mt-lite`），Key 与地址不变。真机 120 s 首中文 p50 <1 s、`overlayStale` 7/120（DeepL 同口径 58/120）、缺译 0。
 
 已知取舍（跨模型审阅提出，保留）：`parseQwenMtOutput` 在「每一行都以编号开头」时会把编号剥掉；若某行译文本身以「3.」这样的数字开头，会丢掉这个数字。这个判据是最保守的（要求全行都带前缀），不剥编号又会把 `1. ` 带进字幕，故保留并记在此。
 

@@ -108,6 +108,20 @@ export const TRANSLATION_PROVIDERS = Object.freeze({
   })
 });
 
+/**
+ * Bailian models the popup offers as a closed list: the chat default plus the
+ * three reachable dedicated translation models (`qwen-mt-turbo` answers 404
+ * "model_not_found" in the cn region as of 2026-11-05). A stored id outside this list is
+ * normalised back to the preset default, so the panel select never has to
+ * invent an option for a model the extension no longer sends.
+ */
+export const BAILIAN_TRANSLATION_MODELS = Object.freeze([
+  "qwen3.7-flash",
+  "qwen-mt-flash",
+  "qwen-mt-plus",
+  "qwen-mt-lite"
+]);
+
 const PROVIDER_IDS = Object.keys(TRANSLATION_PROVIDERS);
 
 /**
@@ -332,12 +346,16 @@ export function normalizeTranslationSettings(value = {}) {
   // DeepL selects its own engine, so a leftover OpenAI model name must not
   // travel with the config or block validation. A provider with a fixed model
   // (DeepSeek) always uses the preset, ignoring whatever was stored before.
-  const model =
+  const rawModel =
     preset.requiresModel === false
       ? ""
       : preset.fixedModel
         ? preset.model
         : String(value.translationModel ?? preset.model).trim();
+  const model =
+    provider === "bailian" && !BAILIAN_TRANSLATION_MODELS.includes(rawModel)
+      ? preset.model
+      : rawModel;
   const timeout = Number(value.translationTimeoutMs);
   return {
     mode: normalizeTranslationMode(value.translationMode),
@@ -516,17 +534,32 @@ export function deeplTranslateUrl(baseUrl) {
 }
 
 /**
+ * Glossary endpoints live next to /translate on the same host, so a pinned URL
+ * keeps working. `suffix` is the tail after /glossaries, or "" for the
+ * collection itself.
+ * @param {string} baseUrl
+ * @param {string} [suffix]
+ */
+export function deeplGlossaryUrl(baseUrl, suffix = "") {
+  const translate = deeplTranslateUrl(baseUrl);
+  const root = translate.replace(/\/translate$/i, "");
+  const tail = String(suffix || "").replace(/^\/+/, "");
+  return tail ? `${root}/glossaries/${tail}` : `${root}/glossaries`;
+}
+
+/**
  * DeepL translates every text independently and understands no prompts, so
  * the only way to keep a fragment attached to the sentence before it is the
  * free `context` field (not billed, applies to the whole request).
  * @param {{ texts?: string[], context?: Array<{ source?: string }>,
- *   targetLang?: string }} [options]
+ *   targetLang?: string, glossaryId?: string }} [options]
  * @returns {Record<string, unknown>}
  */
 export function buildDeepLRequestBody({
   texts,
   context = [],
-  targetLang = DEEPL_TARGET_LANG
+  targetLang = DEEPL_TARGET_LANG,
+  glossaryId = ""
 } = {}) {
   if (!Array.isArray(texts) || texts.length === 0) {
     throw new TranslationApiError(msg("translation_nothing_to_translate"), { code: "empty" });
@@ -546,6 +579,13 @@ export function buildDeepLRequestBody({
     show_billed_characters: true
   };
   if (contextText) body.context = contextText;
+  // DeepL requires the source language once a glossary is attached; without it
+  // the request answers 400 even though glossary_id alone looks sufficient.
+  const glossary = String(glossaryId || "").trim();
+  if (glossary) {
+    body.glossary_id = glossary;
+    body.source_lang = "EN";
+  }
   return body;
 }
 
@@ -1133,10 +1173,11 @@ async function translateWithDeepL({ texts, context = [], config, fetchImpl, sign
   // ZH-HANS is the explicit Simplified variant; older accounts only know the
   // generic ZH code, so a 400 that names the language falls back once.
   let targetLang = DEEPL_TARGET_LANG;
-  const send = (lang) =>
+  const glossaryId = String(config.deeplGlossaryId || "").trim();
+  const send = (lang, glossary = glossaryId) =>
     postJson({
       url: endpoint,
-      body: buildDeepLRequestBody({ texts, context, targetLang: lang }),
+      body: buildDeepLRequestBody({ texts, context, targetLang: lang, glossaryId: glossary }),
       headers: { Authorization: `DeepL-Auth-Key ${config.apiKey}` },
       config,
       fetchImpl,
@@ -1150,6 +1191,12 @@ async function translateWithDeepL({ texts, context = [], config, fetchImpl, sign
   ) {
     targetLang = "ZH";
     attempt = await send(targetLang);
+  }
+  // A deleted or expired glossary must not stop the captions: DeepL answers 400
+  // naming the glossary id, so retry once without it and let the term base fall
+  // back to prompt injection on the other providers.
+  if (!attempt.response.ok && attempt.response.status === 400 && glossaryId && /glossary/i.test(attempt.bodyText)) {
+    attempt = await send(targetLang, "");
   }
   if (!attempt.response.ok) {
     throw mapHttpError(

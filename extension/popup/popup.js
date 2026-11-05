@@ -15,6 +15,7 @@ import {
   serializeWlkGlossary
 } from "../lib/glossary.js";
 import {
+  BAILIAN_TRANSLATION_MODELS,
   TRANSLATION_PROVIDERS,
   normalizeTranslationBaseUrl,
   translatesInExtension,
@@ -59,6 +60,8 @@ const elements = {
   apiTranslationFields: document.querySelector("#apiTranslationFields"),
   translationBaseUrl: document.querySelector("#translationBaseUrl"),
   translationModel: document.querySelector("#translationModel"),
+  translationModelSelect: document.querySelector("#translationModelSelect"),
+  translationModelLabel: document.querySelector("#translationModelLabel"),
   translationApiKey: document.querySelector("#translationApiKey"),
   translationKeyHint: document.querySelector("#translationKeyHint"),
   testTranslationButton: document.querySelector("#testTranslationButton"),
@@ -76,6 +79,9 @@ const elements = {
   exportGlossaryTextButton: document.querySelector("#exportGlossaryTextButton"),
   exportGlossaryCsvButton: document.querySelector("#exportGlossaryCsvButton"),
   glossaryActionHint: document.querySelector("#glossaryActionHint"),
+  deeplGlossaryRow: document.querySelector("#deeplGlossaryRow"),
+  deeplGlossaryHint: document.querySelector("#deeplGlossaryHint"),
+  syncDeeplGlossary: document.querySelector("#syncDeeplGlossary"),
   openMonitor: document.querySelector("#openMonitor"),
   openMonitorFooter: document.querySelector("#openMonitorFooter"),
   localServiceBadge: document.querySelector("#localServiceBadge"),
@@ -411,6 +417,29 @@ function modelForPreset(preset, typed) {
   return String(typed || "").trim();
 }
 
+/**
+ * Bailian offers a closed model list, so it uses a select instead of the free
+ * text field the other providers share. The options never change at runtime.
+ * @returns {boolean} whether the select is the visible model control
+ */
+function usesModelSelect(provider) {
+  return provider?.id === "bailian";
+}
+
+function populateBailianModels() {
+  if (elements.translationModelSelect.options.length > 0) return;
+  for (const model of BAILIAN_TRANSLATION_MODELS) {
+    elements.translationModelSelect.append(new Option(model, model));
+  }
+}
+
+/** The model currently shown in whichever control the provider uses. */
+function selectedModelValue(provider) {
+  return usesModelSelect(provider)
+    ? elements.translationModelSelect.value
+    : elements.translationModel.value;
+}
+
 function renderTranslationSettings() {
   const providerId = settings.translationProvider;
   const provider = TRANSLATION_PROVIDERS[providerId];
@@ -420,6 +449,7 @@ function renderTranslationSettings() {
     elements.translationProvider.value = "";
     elements.translationProvider.disabled = true;
     elements.translationModel.disabled = true;
+    elements.translationModelSelect.disabled = true;
     elements.translationUsage.textContent = t("popup_provider_unknown", providerId);
     return;
   }
@@ -440,11 +470,27 @@ function renderTranslationSettings() {
   elements.translationProvider.value = provider.id;
   setFieldValue(elements.translationBaseUrl, settings.translationBaseUrl);
   setFieldValue(elements.translationModel, settings.translationModel);
+  // Bailian's four qwen-mt-* models and the chat default are a closed list:
+  // a select removes the typo path that used to silently keep the old model.
+  const modelSelect = usesModelSelect(provider);
+  populateBailianModels();
+  elements.translationModel.hidden = modelSelect;
+  elements.translationModelSelect.hidden = !modelSelect;
+  elements.translationModelLabel.htmlFor = modelSelect
+    ? "translationModelSelect"
+    : "translationModel";
+  if (modelSelect) {
+    setFieldValue(elements.translationModelSelect, settings.translationModel);
+  }
   // DeepL picks its own engine and DeepSeek ships a single flash id: typing a
   // model there could only put a value back that the resolver ignores.
   elements.translationModel.disabled =
     provider.requiresModel === false || Boolean(provider.fixedModel);
   elements.apiTranslationFields.hidden = settings.translationMode !== "api";
+  // DeepL pins terminology with a glossary instead of a prompt; the button only
+  // makes sense while DeepL is the provider.
+  elements.deeplGlossaryRow.hidden = provider.id !== "deepl";
+  if (provider.id === "deepl") void refreshDeepLGlossary();
   elements.translationKeyHint.textContent = configured
     ? t("popup_key_saved", providerLabel)
     : provider.id === "deepl"
@@ -575,6 +621,54 @@ async function refreshUsageLedger(force = false) {
     // A closed worker or a failed remote call must not break the panel.
   } finally {
     usageLedgerInFlight = false;
+  }
+}
+
+/**
+ * DeepL glossary state: whether the account already holds a glossary built from
+ * the current term base. Computed in the worker, so this only reads it.
+ */
+let deeplGlossaryCache = { at: 0, data: null };
+let deeplGlossaryInFlight = false;
+const DEEPL_GLOSSARY_REFRESH_MS = 5000;
+
+function renderDeepLGlossary(data) {
+  if (!elements.deeplGlossaryHint) return;
+  let text;
+  if (!data) {
+    text = "";
+  } else if (!data.synced) {
+    text = t("popup_deepl_glossary_unsynced");
+  } else if (data.stale) {
+    text = t("popup_deepl_glossary_stale");
+  } else {
+    text = t("popup_deepl_glossary_synced", Number(data.count) || 0);
+  }
+  const hint = data ? `${text}
+${t("popup_deepl_glossary_hint")}` : "";
+  elements.deeplGlossaryHint.textContent = hint;
+  elements.deeplGlossaryHint.hidden = !hint;
+}
+
+async function refreshDeepLGlossary(force = false) {
+  const now = Date.now();
+  if (!force && deeplGlossaryCache.data && now - deeplGlossaryCache.at < DEEPL_GLOSSARY_REFRESH_MS) {
+    return;
+  }
+  if (deeplGlossaryInFlight) return;
+  deeplGlossaryInFlight = true;
+  try {
+    const response = await chrome.runtime.sendMessage({
+      target: "background",
+      type: "get-deepl-glossary"
+    });
+    if (!response?.ok) return;
+    deeplGlossaryCache = { at: Date.now(), data: response.glossary };
+    renderDeepLGlossary(response.glossary);
+  } catch {
+    // A closed worker must not break the panel.
+  } finally {
+    deeplGlossaryInFlight = false;
   }
 }
 
@@ -1126,7 +1220,7 @@ async function startCapture() {
       if (!baseUrl) throw new Error(t("popup_base_url_required"));
       patch.translationBaseUrl = baseUrl;
     }
-    patch.translationModel = modelForPreset(preset, elements.translationModel.value);
+    patch.translationModel = modelForPreset(preset, selectedModelValue(preset));
     if (preset.requiresModel !== false && !patch.translationModel) {
       throw new Error(t("popup_model_required"));
     }
@@ -1331,6 +1425,13 @@ elements.translationBaseUrl.addEventListener("change", () => {
   }
 });
 
+elements.translationModelSelect.addEventListener("change", () => {
+  const model = elements.translationModelSelect.value.trim();
+  void savePatch({ translationModel: model })
+    .then(() => refreshUsageLedger(true))
+    .catch((error) => setError(errorText(error)));
+});
+
 elements.translationModel.addEventListener("change", () => {
   const model = elements.translationModel.value.trim();
   void savePatch({ translationModel: model })
@@ -1383,7 +1484,7 @@ elements.testTranslationButton.addEventListener("click", async () => {
         if (!baseUrl) throw new Error(t("popup_base_url_required"));
         patch.translationBaseUrl = baseUrl;
       }
-      patch.translationModel = modelForPreset(preset, elements.translationModel.value);
+      patch.translationModel = modelForPreset(preset, selectedModelValue(preset));
       if (preset.requiresModel !== false && !patch.translationModel) {
         throw new Error(t("popup_model_required"));
       }
@@ -1650,6 +1751,32 @@ elements.exportGlossaryTextButton.addEventListener("click", () => {
 
 elements.exportGlossaryCsvButton.addEventListener("click", () => {
   downloadGlossaryFile("csv");
+});
+
+// Rebuilding deletes the account's only glossary on the Free plan, so this is a
+// deliberate click, never a side effect of editing the term base.
+elements.syncDeeplGlossary.addEventListener("click", async () => {
+  elements.syncDeeplGlossary.disabled = true;
+  elements.deeplGlossaryHint.hidden = false;
+  elements.deeplGlossaryHint.textContent = t("popup_deepl_glossary_syncing");
+  setError();
+  try {
+    // The textarea may hold unsaved edits; the glossary is built from what the
+    // worker knows, so persist the draft first.
+    await savePatch(collectGlossaryPatchFromInputs());
+    const response = await chrome.runtime.sendMessage({
+      target: "background",
+      type: "sync-deepl-glossary"
+    });
+    if (!response?.ok) throw new Error(response?.error || t("deepl_glossary_empty"));
+    await refreshDeepLGlossary(true);
+  } catch (error) {
+    setError(errorText(error));
+    elements.deeplGlossaryHint.textContent = "";
+    elements.deeplGlossaryHint.hidden = true;
+  } finally {
+    elements.syncDeeplGlossary.disabled = false;
+  }
 });
 
 chrome.runtime.onMessage.addListener((message) => {

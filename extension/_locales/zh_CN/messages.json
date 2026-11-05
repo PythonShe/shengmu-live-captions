@@ -1289,5 +1289,32 @@
   },
   "popup_switch_bailian": {
     "message": "改用阿里云百炼"
+  },
+  "deepl_glossary_needs_deepl": {
+    "message": "只有把翻译服务商设为 DeepL 才能同步术语库"
+  },
+  "deepl_glossary_empty": {
+    "message": "术语库为空：先启用内置词库或填写自定义术语"
+  },
+  "deepl_glossary_create_failed": {
+    "message": "DeepL 拒绝创建术语库（HTTP $1）：$2"
+  },
+  "popup_sync_deepl_glossary": {
+    "message": "同步到 DeepL"
+  },
+  "popup_deepl_glossary_unsynced": {
+    "message": "DeepL 术语库未同步，术语暂不生效"
+  },
+  "popup_deepl_glossary_stale": {
+    "message": "词条已变化，重新同步后新术语才生效"
+  },
+  "popup_deepl_glossary_synced": {
+    "message": "已同步 $1 条术语到 DeepL"
+  },
+  "popup_deepl_glossary_syncing": {
+    "message": "正在同步术语库…"
+  },
+  "popup_deepl_glossary_hint": {
+    "message": "DeepL 只能通过术语库固定译名，不能改提示词；免费账号只允许 1 个术语库，同步会先删除旧的再创建"
   }
 }

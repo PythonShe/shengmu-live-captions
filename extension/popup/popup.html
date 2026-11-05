@@ -188,8 +188,9 @@
               <label for="translationBaseUrl" data-i18n="popup_base_url">API 地址</label>
               <input id="translationBaseUrl" type="url" spellcheck="false">
             </div>
-            <label for="translationModel" data-i18n="popup_model">模型</label>
+            <label id="translationModelLabel" for="translationModel" data-i18n="popup_model">模型</label>
             <input id="translationModel" type="text" spellcheck="false">
+            <select id="translationModelSelect" hidden></select>
             <div id="translationKeyField">
               <label for="translationApiKey">API Key</label>
               <input id="translationApiKey" type="password" spellcheck="false" autocomplete="off" placeholder="留空则不修改已保存的 Key" data-i18n-placeholder="popup_key_placeholder">
@@ -236,6 +237,12 @@
         </div>
         <input id="importGlossaryInput" type="file" accept=".txt,.csv,text/plain,text/csv" hidden>
         <p id="glossaryActionHint" class="field-hint" hidden></p>
+        <div id="deeplGlossaryRow" hidden>
+          <div class="button-row glossary-actions">
+            <button id="syncDeeplGlossary" class="outline-button" type="button" data-i18n="popup_sync_deepl_glossary">同步到 DeepL</button>
+          </div>
+          <p id="deeplGlossaryHint" class="field-hint"></p>
+        </div>
       </details>
 
       <details id="connectionSettings" class="advanced">

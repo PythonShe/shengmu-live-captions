@@ -73,6 +73,23 @@ export const MESSAGE_ROUTES = Object.freeze({
       }
     }
   },
+  // DeepL cannot be prompted, so its term base is pushed into a glossary. The
+  // rebuild deletes the account's only glossary on the Free plan, hence a
+  // button instead of an automatic write on every settings change.
+  "sync-deepl-glossary": {
+    allow: "extension-page",
+    handler: async ({ services }) => {
+      try {
+        return { ok: true, glossary: await services.syncDeepLGlossary() };
+      } catch (error) {
+        return { ok: false, error: errorText(error) };
+      }
+    }
+  },
+  "get-deepl-glossary": {
+    allow: "extension-page",
+    handler: ({ services }) => ({ ok: true, glossary: services.deepLGlossaryStatus() })
+  },
   // Local ledger plus the account-level number when the provider publishes one.
   // Extension pages only: it answers with the account's remaining quota.
   "get-usage": {

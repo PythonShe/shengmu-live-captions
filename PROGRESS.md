@@ -1,5 +1,41 @@
 # 项目进度记录 (PROGRESS.md)
 
+## 2026-11-05 · 0.5.12 · 百炼模型封闭下拉 + DeepL 术语库
+
+两项 backlog 一起做，另加用户点名的 turbo 实测。基线 0.5.11（325 项 verify 前是 315）。
+
+### 先查事实，再写代码
+
+- 百炼翻译模型：官方现存 `qwen-mt-plus` / `qwen-mt-turbo` / `qwen-mt-flash` / `qwen-mt-lite`，都是 16k、无思考模式。实测（真实 Key、2 行真实字幕批 + terms + domains、各 5 次交错）：`qwen-mt-flash` 中位 **325 ms**、`qwen-mt-lite` **321 ms**、`qwen-mt-plus` **442 ms**，三者 5/5 返回 2 行、约 180 token；**`qwen-mt-turbo` 5/5 全是 404 `model_not_found`**（cn 地域），故不入面板白名单。全量数据 `.pr-test/probe-qwen-mt-models.json`。
+- DeepL 术语库：网络上传言「API glossary 仅 Pro」，用仓库已存的 `:fx` Key 实测**免费层可用**：`POST /v2/glossaries` 201、带 `glossary_id` 翻译 `Spirit` 命中「精魂」、不带则「灵体」、`DELETE` 204。但免费层**只能存在 1 个** glossary（第二个 456 `Too many glossaries`，v3 同样 456 `Quota exceeded`）。另核实：创建必须 `source_lang: EN` + `target_lang: ZH`（root code，`ZH-HANS` 被拒），翻译时可用 `ZH-HANS` 并自动匹配 `ZH` 词典；条目大小写敏感；单条 ≤1024 字节。
+- 百炼 ASR：`paraformer-realtime-v2` 的 `run-task` 里 `input` 官方写明固定 `{}`，没有 fun-asr 的 `input.context`，热词只能靠 `vocabulary_id`。按用户决定**先记入 plan 待查，本轮不实现**。
+
+### 已修改文件
+
+- `extension/lib/translation-api.js`：新增 `BAILIAN_TRANSLATION_MODELS`（4 项，封闭列表）并在 `normalizeTranslationSettings` 里把百炼的其它 id 归一到预设；新增 `deeplGlossaryUrl`；`buildDeepLRequestBody` 支持 `glossaryId`（自动补 `source_lang: EN`）；`translateWithDeepL` 带 `config.deeplGlossaryId`，400 提到 glossary 时去 id 重试一次。
+- `extension/lib/deepl-glossary.js`（新增）：`buildDeepLGlossaryPairs`（展开 `sources[]`、追加全小写变体、丢弃含 tab/换行/非 ASCII/超长条目、同拼写先到先得）、`serializeDeepLGlossaryTsv`、`deepLGlossaryFingerprint`（FNV-1a + 条目数）。
+- `extension/background/deepl-glossary-service.js`（新增）：`load/currentId/status/sync`；`chrome.storage.local.deeplGlossary` 存 `{glossaryId, fingerprint, count, updatedAt}`；`sync` 先 DELETE 旧 id 再 POST，456 映射 `glossary_quota` 并保留服务端原话。
+- `extension/background/service-worker.js`：建服务、初始化时 `load()`、scheduler 的 `getConfig()` 注入 `deeplGlossaryId`、`test-translation-api` 也带同一 id、暴露 `syncDeepLGlossary` / `deepLGlossaryStatus`。
+- `extension/background/message-router.js`：新增 `sync-deepl-glossary`、`get-deepl-glossary`，均 `extension-page`。
+- `extension/popup/popup.html` / `popup.js`：百炼时把模型输入换成 `#translationModelSelect`（label `for` 动态切换，取值统一走 `selectedModelValue`）；术语库折叠区新增「同步到 DeepL」按钮与状态行（未同步 / 词条已变 / 已同步 N 条 + Free 只允许 1 个的说明）。
+- `extension/_locales/{zh_CN,en,zh_TW}/messages.json`：各 +9 键（439 条，三语一致）。
+- `package.json` / `extension/manifest.json`：0.5.11 → 0.5.12。
+- 测试：`tests/deepl-glossary.test.js`（4 项，纯函数）、`tests/deepl-glossary-service.test.js`（5 项，mock storage/fetch，含 456 与 stale 判定）、`tests/translation-api.test.js` +2（白名单归一 / glossary 随请求与 400 降级）、`tests/message-router.test.js` 期望表 +2。
+- 文档：`paseo/22-deepl-glossary-0.5.12.md`（新增）、`paseo/20` §6 补 4 模型实测与 turbo 404、`paseo/README.md` 索引、`README.md`（版本 + 术语库段补 DeepL）、`AGENTS.md`（版本、测试数 325、顶层键加 glossary、百炼封闭下拉、DeepL glossary 红线）、`plan.md` 重写。
+
+### 验证
+
+- `pnpm run verify` 325 项（324 pass / 1 skip / 0 fail）；`pnpm run smoke` 11 项全过。
+- 真机（dev 9223，真实 `:fx` Key）：面板切 DeepL → 勾术语库 + PoE 预设 → 点同步 → `已同步 680 条术语到 DeepL`；CDP 抓 service worker 网络确认 `POST /v2/glossaries`（680 行 TSV、`source_lang: EN`、`target_lang: ZH`）与后续 `POST /v2/translate` 带 `glossary_id: bbeca0d7-…` + `source_lang: EN`；`GET /v2/glossaries` 显示 `shengmu-captions` / `entry_count: 680` / `ready: true`；「测试翻译 API」457 ms 正常返回。
+- popup 下拉真机检查：`#translationModelSelect` 显示 4 项、`#translationModel` 隐藏、label `for` 正确。
+
+### 未做 / 风险
+
+- `paraformer-realtime-v2` 未实现（先查热词与断句，见 plan 第 2 节第 1 项）。
+- DeepL 术语库不会自动跟随词条变更：面板只提示「词条已变化，重新同步后新术语才生效」。这是刻意取舍（Free 只有 1 个坑位，重建要删库）。
+- 同步过程中先 DELETE 后 POST，中间窗口里在飞请求会带失效 id，靠 400 重试兜底；若 POST 失败则账号里暂时没有库。
+- 探测脚本与原始数据在仓库外 `.pr-test/probe-deepl-glossary*.mjs`、`probe-qwen-mt-models.mjs`。
+
 ## 2026-11-05 · 用量面板（本地 90 天账本 + DeepL/DeepSeek 账号额度）
 
 - 背景：`runtimeState.translation.usage` 只有会话内可见，`stop-capture` 会清空；面板看不到「今日/本月」和账号额度。
