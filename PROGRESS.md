@@ -16,6 +16,21 @@
 - 验证：`pnpm run verify` 313 项（312 pass / 1 skip）、`pnpm run smoke` 11 项全过。新增 12 项单测（ledger 6、provider-usage 3、usage-service 3）。
 - 文档：`paseo/21-usage-panel.md`（能力表 + 数据模型 + 刷新策略 + 已知限制）、`paseo/README.md` 索引。
 
+### 跨模型审阅（qwen3.7-plus，Code Review profile，只读 worktree `shengmu-review-usage` @ `90d1536`）
+
+范围 `f062750..90d1536`（19 文件）：0 P0、0 P1、6 P2，全部已修：
+
+1. `addUsage` 用的是 `getConfig()` 而不是请求时的 config → 在途期间换 provider 会把用量记到新桶；改为 `addUsage(value, config)` 由 `requestBatch` 传入，并补了一条回归测试（改回 `getConfig()` 会红，已验证）。顺带把测试里的 `getConfig` 改成每次返回新对象，否则「设置对象共享引用」会掩盖这个 bug。
+2. 远端缓存不判 apiKey / 设置变更 → `saveSettings` 里无条件 `usage.invalidateRemote()`（provider、Key、地址任一变更都可能换账号）。
+3. popup 在 `await` 期间可能并发多个 `get-usage` → 加 `usageLedgerInFlight` 标志。
+4. service worker 被 MV3 回收时 pending 桶会丢 → 加 `chrome.runtime.onSuspend` 调 `usage.flush()`（Chrome 不保证等完，尽力而为）。
+5. `AGENTS.md` 测试数还是 284 → 改为当前实际值。
+6. 关闭上面的缓存失效覆盖。
+
+审阅者核实无异议项：拆半重试不会双重记账（拆半路径直接 `return { split: true }`）；`flushChain` 串行化正确、`flush()` 与定时器无竞争；三个 storage 键各写各的、无全量覆盖；DeepL `:fx` 路由与 DeepSeek 主机判定正确；`get-usage` 仅扩展页且不回传 Key、`usageLedger` 不会被 `settingsForBroadcast` 广播；三语 i18n 占位符与传参完全匹配。
+
+- 修复后 `pnpm run verify` 314 项（313 pass / 1 skip）、`pnpm run smoke` 11 项全过。
+
 ## 2026-11-05 · 百炼默认模型换 `qwen3.7-flash` + 接入 `qwen-mt-*` 专用翻译协议
 
 - 默认值：`TRANSLATION_PROVIDERS.bailian.model` 由 `qwen-plus` 改为 `qwen3.7-flash`（老别名没有免费额度，开了「用完即停」会直接报错）。只影响没存过模型的用户；已存 `qwen-plus` 的不自动迁移（用户可能是故意选的），面板里改一下即可。

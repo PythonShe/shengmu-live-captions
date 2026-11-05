@@ -75,6 +75,9 @@ function initialize() {
 async function saveSettings(patch) {
   await initialize();
   const saved = await settings.applyPatch(patch);
+  // Any translation setting may change which account the quota comes from
+  // (provider, key, base URL), so the cached account number is dropped here.
+  usage.invalidateRemote();
   await views.broadcastToExtension({
     type: "settings-changed",
     settings: settingsForBroadcast(saved)
@@ -117,6 +120,12 @@ chrome.runtime.onInstalled.addListener((details) => {
 
 chrome.runtime.onStartup.addListener(() => {
   void initialize();
+});
+
+// MV3 stops the worker when it goes idle; a ledger bucket still waiting for its
+// throttle window would be lost. Best effort: Chrome may not wait for the write.
+chrome.runtime.onSuspend?.addListener(() => {
+  void usage.flush();
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

@@ -39,7 +39,7 @@ function row(id, source, extra = {}) {
   return { id, source, translation: "", translationPending: true, ...extra };
 }
 
-function setup({ lines = [], bufferSource = "", auto = null, config = {}, random = () => 0 } = {}) {
+function setup({ lines = [], bufferSource = "", auto = null, config = {}, random = () => 0, onUsage = null } = {}) {
   const clock = createFakeClock();
   const translator = createTranslator({ auto });
   const state = {
@@ -56,22 +56,32 @@ function setup({ lines = [], bufferSource = "", auto = null, config = {}, random
   };
   const knownLines = new Map();
   const history = [];
+  const usageRecords = [];
+  const recordUsage = onUsage
+    ? (delta, usedConfig) => {
+        usageRecords.push({ delta, provider: usedConfig?.provider, model: usedConfig?.model });
+        onUsage(delta, usedConfig);
+      }
+    : undefined;
   const published = [];
   const scheduler = createTranslationScheduler({
     getState: () => state,
-    getConfig: () => settings,
+    // A fresh object per call, like resolveTranslationConfig in the worker: a
+    // shared reference would let a settings change mutate an in-flight config.
+    getConfig: () => ({ ...settings }),
     translateTexts: translator.translate,
     knownLines,
     enqueueHistory: (batch) => history.push(...batch),
     publish: (change) => {
       published.push(change);
     },
+    recordUsage,
     setTimeout: clock.setTimeout,
     clearTimeout: clock.clearTimeout,
     now: clock.now,
     random
   });
-  return { clock, translator, state, settings, knownLines, history, published, scheduler };
+  return { clock, translator, state, settings, knownLines, history, published, scheduler, usageRecords };
 }
 
 test("completed rows debounce, batch together and leave their own ids out of the context", async () => {
@@ -571,4 +581,29 @@ test("a Retry-After holds back the line queue until the cooldown ends", async ()
   assert.equal(translator.calls.length, 1, "the retry does not jump the cooldown");
   await clock.advance(5000 - TRANSLATION_LINE_RETRY_DELAYS_MS[0]);
   assert.ok(translator.calls.length >= 2, "requests resume once the cooldown ends");
+});
+
+test("usage is credited to the provider that answered, not the one current now", async () => {
+  // The user switches provider while a request is in flight: the tokens were
+  // spent on the old one, so the ledger must not credit the new one.
+  const { clock, translator, state, settings, scheduler, usageRecords } = setup({
+    lines: [row("a", LONG)],
+    onUsage: () => {}
+  });
+  assert.equal(settings.provider, "custom");
+  settings.model = "mock";
+  scheduler.scheduleLines(0);
+  await clock.advance(0);
+  assert.equal(translator.calls.length, 1);
+
+  settings.provider = "deepl";
+  settings.model = "";
+  translator.calls[0].resolve({ translations: ["译文"], usage: { promptTokens: 10, completionTokens: 5 } });
+  await settleAsync();
+
+  assert.equal(state.current.lines[0].translation, "译文");
+  assert.equal(usageRecords.length, 1);
+  assert.equal(usageRecords[0].provider, "custom");
+  assert.equal(usageRecords[0].delta.requests, 1);
+  assert.equal(usageRecords[0].delta.promptTokens, 10);
 });

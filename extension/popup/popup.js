@@ -489,6 +489,7 @@ function renderTranslationSettings() {
 // fetched from the worker. Refetching on every status broadcast would hammer a
 // rate-limited endpoint, so the result is keyed to provider+model and cached.
 let usageLedgerCache = { at: 0, key: "", data: null };
+let usageLedgerInFlight = false;
 const USAGE_LEDGER_REFRESH_MS = 10_000;
 
 function usageAmount(totals) {
@@ -557,16 +558,23 @@ async function refreshUsageLedger(force = false) {
   ) {
     return;
   }
+  // render() runs on every status broadcast; without this flag a burst of
+  // broadcasts would send one get-usage message each while the first is still
+  // in flight.
+  if (usageLedgerInFlight) return;
+  usageLedgerInFlight = true;
   try {
     const response = await chrome.runtime.sendMessage({
       target: "background",
       type: "get-usage"
     });
     if (!response?.ok) return;
-    usageLedgerCache = { at: now, key, data: response.usage };
+    usageLedgerCache = { at: Date.now(), key, data: response.usage };
     renderUsageLedger(response.usage);
   } catch {
     // A closed worker or a failed remote call must not break the panel.
+  } finally {
+    usageLedgerInFlight = false;
   }
 }
 

@@ -242,11 +242,13 @@ export function createTranslationScheduler(deps) {
     }, Math.max(50, Math.min(Number(delay) || 0, windowMs)));
   }
 
-  function addUsage(value) {
+  function addUsage(value, config = getConfig()) {
     usage.requests += 1;
     usage.promptTokens += Number(value?.promptTokens) || 0;
     usage.completionTokens += Number(value?.completionTokens) || 0;
     usage.billedCharacters += Number(value?.billedCharacters) || 0;
+    // The config that produced this answer, not the one current now: a provider
+    // switched while the request was in flight must not get credited for it.
     recordUsage?.(
       {
         requests: 1,
@@ -254,7 +256,7 @@ export function createTranslationScheduler(deps) {
         completionTokens: Number(value?.completionTokens) || 0,
         billedCharacters: Number(value?.billedCharacters) || 0
       },
-      getConfig()
+      config
     );
   }
 
@@ -534,7 +536,7 @@ export function createTranslationScheduler(deps) {
     }
     if (startGeneration !== generation) return null;
     lastError = "";
-    addUsage(result.usage);
+    addUsage(result.usage, config);
     return result;
   }
 
