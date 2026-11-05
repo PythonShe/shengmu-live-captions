@@ -135,7 +135,15 @@ export function createDeepLGlossaryService({
     if (cached.glossaryId && cached.fingerprint === fingerprint) {
       return { created: false, count: cached.count, stale: false };
     }
-    await deleteGlossary(config.baseUrl, config.apiKey, cached.glossaryId);
+    if (cached.glossaryId) {
+      await deleteGlossary(config.baseUrl, config.apiKey, cached.glossaryId);
+      // The old id no longer exists, so it must stop reaching translations now:
+      // keeping it would make every batch pay a 400 round trip before the
+      // retry-without-glossary, and a failed create below must not leave the
+      // panel claiming a glossary that is gone.
+      cached = { glossaryId: "", fingerprint: "", count: 0, updatedAt: "" };
+      await storage.set({ [DEEPL_GLOSSARY_STORAGE_KEY]: cached });
+    }
     // Free accounts allow one glossary, so a leftover one from another tool
     // makes this fail with 456; the message says exactly that.
     const response = await fetchImpl(deeplGlossaryUrl(config.baseUrl), {

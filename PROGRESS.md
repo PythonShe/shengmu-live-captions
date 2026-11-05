@@ -36,6 +36,18 @@
 - 同步过程中先 DELETE 后 POST，中间窗口里在飞请求会带失效 id，靠 400 重试兜底；若 POST 失败则账号里暂时没有库。
 - 探测脚本与原始数据在仓库外 `.pr-test/probe-deepl-glossary*.mjs`、`probe-qwen-mt-models.mjs`。
 
+### 跨模型审阅（qwen3.7-plus · Code Review profile · 只读 worktree `shengmu-review-0512` @ `3257f54`）
+
+范围 `42e9eac..3257f54`（23 文件 +1134/−59）：0 P0、1 P1、2 P2。
+
+1. **P1（已修）**：`sync()` 先 DELETE 再 POST，若 POST 失败，`cached.glossaryId` 仍指向已被删掉的库 → 之后每个翻译批次都先 400 再重试，面板还显示「已同步」。改法比审阅建议更早一步：**DELETE 成功后立刻清空 `cached` 并写回存储**（这样 POST 任一种失败都不会留死 id；而 DELETE 自己失败时旧库还在，保留 id 才是对的）。新增回归测试 `a failed recreate drops the deleted id instead of keeping a dead one`（去掉修复会红，已验证）。
+2. **P2（记录，不改）**：存储里旧值 `qwen-plus` / `qwen-mt-turbo` 被静默归一为 `qwen3.7-flash`，面板下拉直接显示新值、没有一次性提示。判断：这两者一个没免费额度、一个 404，回落后功能只会更好；为一次性迁移加 i18n 键与渲染分支不值得。面板值本身是可见的。
+3. **P2（不是 bug）**：`deepLGlossaryFingerprint` 用 `charCodeAt` 遍历，对 surrogate pair 是确定双射；且 `usablePair` 已过滤非 ASCII 源词，输入里根本不会出现非 BMP 字符。
+
+审阅者核实无异议的关键项：`initialize()` 的 `Promise.all` 时序安全（路由先 `await ready()`）、`deeplGlossaryId` 只被 scheduler 与 `test-translation-api` 消费、DeepL 两条降级正则（`target_lang`/`language` 与 `glossary`）互不交叉、去重顺序与 `resolveEffectiveGlossary` 一致、`TextEncoder` 在 MV3 worker 可用、popup 的 label `for` 与 `selectedModelValue` 两条保存路径都正确、三语 9 个新键占位符一致、审阅 worktree `git status` 干净且 `pnpm test` 全过。
+
+- 修复后 `pnpm run verify` 326 项（325 pass / 1 skip / 0 fail）。
+
 ## 2026-11-05 · 用量面板（本地 90 天账本 + DeepL/DeepSeek 账号额度）
 
 - 背景：`runtimeState.translation.usage` 只有会话内可见，`stop-capture` 会清空；面板看不到「今日/本月」和账号额度。

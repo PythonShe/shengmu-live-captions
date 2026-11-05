@@ -62,7 +62,7 @@ node scripts/services.mjs help
 
 | Path | Holds |
 |---|---|
-| `extension/background/` `offscreen/` `content/` `popup/` `subtitle/` `ui/` | 入口与协调层；同级页面脚本严禁相互 import，仅经 `chrome.runtime` / `chrome.storage.local` 通信。`background/` 拆为 `settings-store.js`（设置、迁移、Key 规则）、`runtime-store.js`（运行态唯一所有者）、`session-lifecycle.js`（开始/停止/收尾/重启恢复）、`message-router.js`（`MESSAGE_ROUTES` 发送方策略表）、`history-sync.js`、`views.js`、`offscreen-client.js`、`asr-auth.js`（百炼 Key 的 DNR 会话规则）、`i18n.js` |
+| `extension/background/` `offscreen/` `content/` `popup/` `subtitle/` `ui/` | 入口与协调层；同级页面脚本严禁相互 import，仅经 `chrome.runtime` / `chrome.storage.local` 通信。`background/` 拆为 `settings-store.js`（设置、迁移、Key 规则）、`runtime-store.js`（运行态唯一所有者）、`session-lifecycle.js`（开始/停止/收尾/重启恢复）、`message-router.js`（`MESSAGE_ROUTES` 发送方策略表）、`history-sync.js`、`views.js`、`offscreen-client.js`、`asr-auth.js`（百炼 Key 的 DNR 会话规则）、`usage-service.js`、`deepl-glossary-service.js`（DeepL glossary 单例：删后建）、`i18n.js` |
 | `extension/lib/` | 领域纯函数与队列（`caption-utils`、`transcript-reducer`、`translation-scheduler`、`translation-api`、`translation-cooldown`、`caption-delta`、`utterance`、`speech-cleanup`、`asr-sessions`、`glossary`、`glossary-poe`、`history-write-queue`、`ui-model`、`i18n-message`）；严禁 `chrome.*` 与 DOM API |
 | `extension/storage/history-db.js` | IndexedDB `shengmu-caption-history` (v1: `sessions`, `lines`)；磁盘 schema 与 `chrome.storage.local` 顶层键（`settings`, `runtimeState`, `historyRevision`, `overlayPositions`, `usageLedger`, `deeplGlossary`）冻结，新增设置走 `normalizeSettings` / `migrateLegacySettings` |
 | `extension/content/overlay-history.js` `content-overlay.js` | classic script（IIFE），浮层与回看面板；`overlay-history.js` 必须先执行 |

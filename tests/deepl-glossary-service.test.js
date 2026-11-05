@@ -178,3 +178,32 @@ test("only DeepL can own a glossary, and an empty term base is refused", async (
   await empty.load();
   await assert.rejects(empty.sync(), (error) => error.code === "config");
 });
+
+test("a failed recreate drops the deleted id instead of keeping a dead one", async () => {
+  const storage = fakeStorage();
+  const { fetchImpl } = fakeFetch({
+    "DELETE /v2/glossaries/g-1": () => jsonResponse(204, {}),
+    "POST /v2/glossaries": () => jsonResponse(500, { message: "boom" })
+  });
+  const service = createDeepLGlossaryService({
+    getConfig: () => deeplConfig(),
+    storage,
+    fetchImpl
+  });
+  await service.load();
+  storage.data[DEEPL_GLOSSARY_STORAGE_KEY] = {
+    glossaryId: "g-1",
+    fingerprint: "old",
+    count: 2,
+    updatedAt: "2026-11-01T00:00:00.000Z"
+  };
+  await service.load();
+  assert.equal(service.currentId(), "g-1");
+
+  await assert.rejects(service.sync(), (error) => error.code === "glossary_create_failed");
+  // Translations must stop carrying an id that no longer exists: the next
+  // request would otherwise fail once and only then retry without it.
+  assert.equal(service.currentId(), "");
+  assert.equal(storage.data[DEEPL_GLOSSARY_STORAGE_KEY].glossaryId, "");
+  assert.equal(service.status().synced, false);
+});
