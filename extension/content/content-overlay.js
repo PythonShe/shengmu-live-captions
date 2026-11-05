@@ -2,8 +2,11 @@
   // 5 -> 6 (0.5.5): stale-slot rework (the previous translation stays at full
   // brightness and a corner dot marks the wait). 6 -> 7: the wheel listener is
   // bound only while the pointer is over the captions. 7 -> 8: caption rows
-  // arrive as deltas. An instance of an older version is rebuilt, not reused.
-  const OVERLAY_VERSION = 10;
+  // arrive as deltas. 8 -> 9: status and mode labels go through chrome.i18n.
+  // 9 -> 10: eased shell height and the one-line English slot. 10 -> 11: the
+  // broadcast visual restyle and the dimmed uncommitted tail inside .source.
+  // An instance of an older version is rebuilt, not reused.
+  const OVERLAY_VERSION = 11;
   const existing = globalThis.__shengmuCaptionOverlay;
   if (existing?.version === OVERLAY_VERSION && existing.refresh) {
     existing.refresh();
@@ -209,6 +212,17 @@
         .stage {
           --translation-size: 34px;
           --overlay-opacity: 0.86;
+          /* Broadcast-style typography: a modern sans stack survives the chroma
+             subsampling and bitrate squeeze of a livestream, while a serif
+             falls back to SimSun on Windows and its 1px horizontals break up. */
+          --caption-sans: "HarmonyOS Sans SC", "MiSans", "PingFang SC", "Source Han Sans SC", "Noto Sans CJK SC", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
+          --caption-latin: Inter, "Segoe UI", "SF Pro Text", Roboto, "Helvetica Neue", Arial, sans-serif;
+          /* Closed outlines instead of -webkit-text-stroke: a stroke eats into
+             the glyph fill and fattens the letterforms, these shadows only add
+             a black moat on all four sides, so the text stays crisp on a fully
+             transparent background over bright gameplay. */
+          --caption-outline-strong: -1px -1px 0 rgb(0 0 0 / 0.94), 1px -1px 0 rgb(0 0 0 / 0.94), -1px 1px 0 rgb(0 0 0 / 0.94), 1px 1px 0 rgb(0 0 0 / 0.94), 0 -1px 0 rgb(0 0 0 / 0.94), 0 1px 0 rgb(0 0 0 / 0.94), -1px 0 0 rgb(0 0 0 / 0.94), 1px 0 0 rgb(0 0 0 / 0.94), 0 2px 10px rgb(0 0 0 / 0.85);
+          --caption-outline-soft: -1px -1px 0 rgb(0 0 0 / 0.9), 1px -1px 0 rgb(0 0 0 / 0.9), -1px 1px 0 rgb(0 0 0 / 0.9), 1px 1px 0 rgb(0 0 0 / 0.9), 0 1px 6px rgb(0 0 0 / 0.8);
           position: fixed;
           left: 50%;
           bottom: 8vh;
@@ -221,8 +235,8 @@
           width: min(68vw, 860px);
           min-width: 260px;
           transform: translateX(-50%);
-          color: #fffdf4;
-          font-family: "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+          color: #f1f5f9;
+          font-family: var(--caption-sans);
           pointer-events: none;
           transition: opacity 180ms ease, transform 180ms ease;
         }
@@ -252,17 +266,16 @@
           flex-direction: column;
           gap: 6px;
           max-height: 40vh;
-          padding: 12px 20px 10px;
+          padding: 14px 22px 12px;
           overflow: hidden;
-          border: 1px solid rgb(255 249 225 / calc(0.13 * var(--overlay-opacity)));
-          border-left: 3px solid rgb(232 184 75 / calc(0.5 + var(--overlay-opacity) * 0.5));
-          border-radius: 3px 13px 13px 3px;
+          border: 1px solid rgb(255 255 255 / calc(0.11 * var(--overlay-opacity)));
+          border-radius: 14px;
           /* The history panel is read, not watched, so it keeps a readable floor
              even when the user pulls the background almost fully transparent. */
           background:
-            linear-gradient(105deg, rgb(20 28 24 / max(0.62, var(--overlay-opacity))), rgb(12 17 15 / max(0.58, var(--overlay-opacity))));
+            linear-gradient(180deg, rgb(14 18 26 / max(0.62, var(--overlay-opacity))), rgb(8 11 16 / max(0.58, var(--overlay-opacity))));
           box-shadow: 0 16px 40px rgb(0 0 0 / calc(0.36 * var(--overlay-opacity)));
-          backdrop-filter: blur(calc(11px * max(0.4, var(--overlay-opacity)))) saturate(0.8);
+          backdrop-filter: blur(calc(11px * max(0.4, var(--overlay-opacity))));
         }
         .history[hidden] { display: none; }
         .history-list {
@@ -281,9 +294,9 @@
           flex: none;
           margin-top: 2px;
           padding-top: 7px;
-          border-top: 1px solid rgba(255, 249, 225, 0.12);
-          color: #e8b84b;
-          font: 700 10px/1.5 "Microsoft YaHei UI", sans-serif;
+          border-top: 1px solid rgb(180 212 244 / 0.14);
+          color: rgb(203 213 225 / 0.72);
+          font: 700 10px/1.5 var(--caption-sans);
           letter-spacing: 0.06em;
           text-align: right;
           text-shadow: 0 1px 2px #000;
@@ -300,11 +313,12 @@
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
-          color: rgba(255, 253, 244, 0.45);
-          font-family: Georgia, "Times New Roman", serif;
+          color: rgb(180 212 244 / 0.92);
+          font-family: var(--caption-latin);
           font-size: clamp(10px, calc(var(--translation-size) * 0.38), 20px);
+          font-weight: 500;
           line-height: 1.35;
-          text-shadow: 0 1px 2px #000;
+          text-shadow: var(--caption-outline-soft);
         }
         .history-translation {
           display: -webkit-box;
@@ -312,12 +326,12 @@
           overflow: hidden;
           -webkit-box-orient: vertical;
           -webkit-line-clamp: 2;
-          color: rgba(255, 253, 244, 0.8);
-          font-family: "Noto Serif SC", "Songti SC", "SimSun", serif;
+          color: #f1f5f9;
+          font-family: var(--caption-sans);
           font-size: clamp(12px, calc(var(--translation-size) * 0.6), 30px);
           font-weight: 600;
           line-height: 1.4;
-          text-shadow: 0 1px 3px #000;
+          text-shadow: var(--caption-outline-soft);
         }
         .history-translation:empty,
         .history-source:empty { display: none; }
@@ -335,28 +349,23 @@
              ease the 1-line <-> 2-line jump instead of snapping the top
              border (see syncShellHeight). */
           transition: height 160ms cubic-bezier(0.22, 1, 0.36, 1);
-          padding: 18px 22px 16px;
+          /* Symmetric paddings keep the bar lean: it sits on top of gameplay,
+             so every pixel of height it does not use is a pixel of scene the
+             viewer still sees. */
+          padding: 14px 22px;
           overflow: hidden;
           /* Every chrome layer fades with the same opacity variable, so pulling
-             the slider down reaches "text only" instead of a glass slab. */
-          border: 1px solid rgb(255 249 225 / calc(0.16 * var(--overlay-opacity)));
-          border-left: 3px solid rgb(232 184 75 / var(--overlay-opacity));
-          border-radius: 3px 13px 13px 3px;
+             the slider down reaches "text only" instead of a glass slab. The
+             neutral obsidian base carries no hue of its own, so it does not
+             tint the gameplay behind it the way the old green did. */
+          border: 1px solid rgb(255 255 255 / calc(0.11 * var(--overlay-opacity)));
+          border-radius: 14px;
           background:
-            linear-gradient(105deg, rgb(20 28 24 / min(1, calc(var(--overlay-opacity) + 0.04))), rgb(12 17 15 / var(--overlay-opacity)));
+            linear-gradient(180deg, rgb(14 18 26 / var(--overlay-opacity)), rgb(8 11 16 / min(1, calc(var(--overlay-opacity) + 0.05))));
           box-shadow:
             0 20px 54px rgb(0 0 0 / calc(0.42 * var(--overlay-opacity))),
-            inset 0 1px rgb(255 255 255 / calc(0.06 * var(--overlay-opacity)));
-          backdrop-filter: blur(calc(11px * var(--overlay-opacity))) saturate(0.8);
-        }
-        .caption-shell::after {
-          position: absolute;
-          top: 0;
-          right: 0;
-          width: 38%;
-          height: 1px;
-          background: linear-gradient(90deg, transparent, rgb(232 184 75 / calc(0.65 * var(--overlay-opacity))));
-          content: "";
+            inset 0 1px rgb(255 255 255 / calc(0.07 * var(--overlay-opacity)));
+          backdrop-filter: blur(calc(11px * var(--overlay-opacity)));
         }
         /* One ASR segment can cover minutes of speech. Every caption slot is
            therefore a tail-aligned window of N lines: the newest lines stay
@@ -402,13 +411,16 @@
         .prev-translation {
           max-height: 2.68em;
           margin-bottom: 7px;
-          color: rgba(255, 253, 244, 0.82);
-          font-family: "Noto Serif SC", "Songti SC", "SimSun", serif;
+          /* Same language as the current line, but one step down the cool
+             grey scale: the time ordering reads at a glance without the old
+             opacity drop that made the line look disabled. */
+          color: rgb(203 213 225 / 0.88);
+          font-family: var(--caption-sans);
           font-size: calc(var(--translation-size) * 0.8);
           font-weight: 600;
-          letter-spacing: 0.02em;
+          letter-spacing: 0.015em;
           line-height: 1.34;
-          text-shadow: 0 1px 3px #000;
+          text-shadow: var(--caption-outline-soft);
           white-space: pre-wrap;
         }
         .source {
@@ -423,13 +435,16 @@
              natural width and spills to the left, where it is clipped. */
           align-items: flex-end;
           white-space: nowrap;
-          color: rgba(255, 253, 244, 0.63);
-          font-family: Georgia, "Times New Roman", serif;
+          /* Cool track vs warm-white Chinese: the eye splits the two lines by
+             hue in a glance, and 92% opacity keeps the letters from picking up
+             the colour of the footage underneath. */
+          color: rgb(180 212 244 / 0.92);
+          font-family: var(--caption-latin);
           font-size: clamp(13px, calc(var(--translation-size) * 0.6), 34px);
-          font-weight: 400;
-          letter-spacing: 0.01em;
+          font-weight: 500;
+          letter-spacing: 0.012em;
           line-height: 1.38;
-          text-shadow: 0 1px 2px #000;
+          text-shadow: var(--caption-outline-soft);
         }
         .source .caption-text {
           flex: 0 0 auto;
@@ -437,25 +452,29 @@
           max-width: none;
           white-space: nowrap;
         }
+        /* The words the recogniser is still revising sit one step down in
+           opacity, so the committed prefix reads as settled text and the tail
+           reads as a work in progress (ReaLingo calls this the stash). */
+        .source .source-stash {
+          color: rgb(180 212 244 / 0.56);
+        }
         .source.overflowing {
           -webkit-mask-image: linear-gradient(to right, transparent 0, #000 2em);
           mask-image: linear-gradient(to right, transparent 0, #000 2em);
         }
         .translation {
           max-height: 4.14em;
-          color: #fffdf4;
-          font-family: "Noto Serif SC", "Songti SC", "SimSun", serif;
+          color: #ffffff;
+          font-family: var(--caption-sans);
           font-size: var(--translation-size);
           font-weight: 700;
-          letter-spacing: 0.03em;
+          letter-spacing: 0.015em;
           line-height: 1.38;
-          text-shadow:
-            0 2px 2px rgba(0, 0, 0, 0.96),
-            0 0 14px rgba(0, 0, 0, 0.48);
+          text-shadow: var(--caption-outline-strong);
           white-space: pre-wrap;
         }
         .translation.pending {
-          color: rgba(255, 249, 225, 0.65);
+          color: rgb(180 212 244 / 0.68);
           font-size: calc(var(--translation-size) * 0.72);
           font-weight: 500;
           letter-spacing: 0.08em;
@@ -470,17 +489,17 @@
            .caption-shell[data-awaiting="1"]::before), so the Chinese text the
            reader is looking at never changes contrast. */
         .translation.stale {
-          color: #fffdf4;
+          color: #ffffff;
         }
         .caption-shell[data-awaiting="1"]::before {
           position: absolute;
-          right: 13px;
-          bottom: 7px;
+          right: 14px;
+          bottom: 8px;
           width: 5px;
           height: 5px;
           border-radius: 50%;
-          background: rgb(232 184 75 / calc(0.3 + var(--overlay-opacity) * 0.45));
-          box-shadow: 0 0 6px rgb(232 184 75 / calc(0.2 * var(--overlay-opacity)));
+          background: rgb(180 212 244 / calc(0.3 + var(--overlay-opacity) * 0.45));
+          box-shadow: 0 0 6px rgb(180 212 244 / calc(0.2 * var(--overlay-opacity)));
           content: "";
           animation: shengmu-awaiting 2.4s ease-in-out infinite;
         }
@@ -532,9 +551,9 @@
           align-items: center;
           gap: 4px;
           padding: 5px 6px;
-          border: 1px solid rgba(255, 249, 225, 0.13);
-          border-radius: 7px;
-          background: rgba(12, 17, 15, 0.84);
+          border: 1px solid rgb(255 255 255 / 0.13);
+          border-radius: 8px;
+          background: rgb(10 13 18 / 0.86);
           box-shadow: 0 7px 22px rgba(0, 0, 0, 0.28);
           opacity: 0;
           pointer-events: auto;
@@ -554,20 +573,20 @@
           border: 0;
           border-radius: 4px;
           background: transparent;
-          color: rgba(255, 253, 244, 0.8);
-          font: 11px/25px "Microsoft YaHei UI", sans-serif;
+          color: rgb(203 213 225 / 0.8);
+          font: 11px/25px var(--caption-sans);
           cursor: pointer;
         }
         .toolbar button:hover {
           background: rgba(255, 255, 255, 0.1);
-          color: #fffdf4;
+          color: #ffffff;
         }
         .live-chip {
           display: flex;
           align-items: center;
           gap: 5px;
           padding: 0 6px;
-          color: rgba(255, 253, 244, 0.72);
+          color: rgb(203 213 225 / 0.72);
           font: 700 9px/25px Bahnschrift, sans-serif;
           letter-spacing: 0.1em;
         }
@@ -583,8 +602,8 @@
         .status-text {
           min-width: 38px;
           padding-right: 4px;
-          color: #e8b84b;
-          font: 10px/25px "Microsoft YaHei UI", sans-serif;
+          color: rgb(180 212 244 / 0.86);
+          font: 10px/25px var(--caption-sans);
           text-align: center;
         }
         .divider {
@@ -602,7 +621,7 @@
         .translation-error.visible { display: block; }
         @media (max-width: 720px) {
           .stage { width: 92vw; min-width: 0; bottom: 5vh; }
-          .caption-shell { padding: 13px 15px 12px; }
+          .caption-shell { padding: 12px 16px; }
           .toolbar { right: 50%; transform: translate(50%, 4px); }
           .stage:hover .toolbar,
           .stage:focus-within .toolbar { transform: translate(50%, 0); }
@@ -1013,6 +1032,33 @@
       captionText.textContent = text;
     }
     element.classList.toggle("visible", Boolean(text));
+  }
+
+  // The English slot carries two tones: the committed row stays at full colour,
+  // the words the recogniser is still revising drop to 56 %. Both live inside
+  // the same .caption-text so measureSlotWidth keeps reading one text run (its
+  // textContent is exactly the string composeLiveSource would have produced).
+  let sourceTextKey = "";
+
+  function setSourceText(stable, stash) {
+    const node = sourceElement?.firstElementChild;
+    if (!node) return;
+    const key = `${stable}\u0000${stash}`;
+    // `!node.firstChild !== !key` also catches the round trip through the modes
+    // that blank the slot (english prints the source in the translation slot):
+    // the key is unchanged then, but the children are gone.
+    if (key !== sourceTextKey || Boolean(stable || stash) !== Boolean(node.firstChild)) {
+      sourceTextKey = key;
+      node.textContent = "";
+      if (stable) node.appendChild(document.createTextNode(stash ? `${stable} ` : stable));
+      if (stash) {
+        const tail = document.createElement("span");
+        tail.className = "source-stash";
+        tail.textContent = stash;
+        node.appendChild(tail);
+      }
+    }
+    sourceElement.classList.toggle("visible", Boolean(stable || stash));
   }
 
   // The shell height follows its text (1 <-> 2 lines several times a minute) and
@@ -1431,15 +1477,17 @@
     render();
   }
 
-  // Local copy of caption-utils' composeLiveSource: this file is an IIFE and
-  // may not import ES modules. The recogniser hands over the words after the
-  // row it is still working on, so appending keeps the English slot monotonic
-  // instead of alternating between the sentence and one or two words.
-  function composeLiveSource(lineSource, bufferSource) {
+  // Local copy of caption-utils' composeLiveSource / composeLiveSourceParts:
+  // this file is an IIFE and may not import ES modules. The recogniser hands
+  // over the words after the row it is still working on, so appending keeps the
+  // English slot monotonic instead of alternating between the sentence and one
+  // or two words. The split feeds the dimmed tail span; change both sides or
+  // their output drifts.
+  function composeLiveSourceParts(lineSource, bufferSource) {
     const line = clean(lineSource);
     const buffer = clean(bufferSource);
-    if (!line) return buffer;
-    if (!buffer) return line;
+    if (!line) return { stable: buffer, stash: "" };
+    if (!buffer) return { stable: line, stash: "" };
     const lineWords = line.split(" ");
     const bufferWords = buffer.split(" ");
     const shorter = Math.min(lineWords.length, bufferWords.length);
@@ -1448,19 +1496,33 @@
       const head = bufferWords.slice(0, count).join(" ").toLowerCase();
       if (tail !== head) continue;
       return count === bufferWords.length
-        ? line
-        : `${line} ${bufferWords.slice(count).join(" ")}`;
+        ? { stable: line, stash: "" }
+        : { stable: line, stash: bufferWords.slice(count).join(" ") };
     }
-    return `${line} ${buffer}`;
+    return { stable: line, stash: buffer };
+  }
+
+  function composeLiveSourceText(parts) {
+    const stable = parts?.stable || "";
+    const stash = parts?.stash || "";
+    if (!stable) return stash;
+    return stash ? `${stable} ${stash}` : stable;
   }
 
   function latestCaption() {
     const current = runtimeState?.current || {};
     const displayCaption = current.displayCaption;
     if (displayCaption) {
+      const source = clean(displayCaption.source);
+      const stable = clean(displayCaption.sourceStable);
+      const stash = clean(displayCaption.sourceStash);
       return {
         lineId: displayCaption.lineId || null,
-        source: clean(displayCaption.source),
+        source,
+        // A worker that predates the split sends only `source`: keep the whole
+        // line solid instead of guessing which words are still in flight.
+        sourceStable: stable || (stash ? "" : source),
+        sourceStash: stash,
         translation: clean(displayCaption.translation),
         error: clean(displayCaption.error),
         pending: Boolean(displayCaption.pending),
@@ -1478,11 +1540,13 @@
     const translated = reversed.find((item) => lineTranslation(item));
     const bufferTranslation = clean(current.bufferTranslation);
     const own = lineTranslation(line);
-    const source = composeLiveSource(line?.source, current.bufferSource);
+    const source = composeLiveSourceParts(line?.source, current.bufferSource);
     const failed = Boolean(line?.translationFailed && !own);
     return {
       lineId: line?.id || null,
-      source,
+      source: composeLiveSourceText(source),
+      sourceStable: source.stable,
+      sourceStash: source.stash,
       translation: own || bufferTranslation || lineTranslation(translated),
       error: clean(current.translationError),
       pending: Boolean(source && !failed && (line?.translationPending || !own)),
@@ -1577,10 +1641,11 @@
       // A short wait shows nothing at all: most gaps are under a second and a
       // dot that blinks on every sentence is worse than no feedback.
       syncAwaitingDot(Boolean(caption.pending && caption.translation));
-      setCaptionText(
-        sourceElement,
-        settings.displayMode === "bilingual" ? caption.source : ""
-      );
+      if (settings.displayMode === "bilingual") {
+        setSourceText(caption.sourceStable, caption.sourceStash);
+      } else {
+        setCaptionText(sourceElement, "");
+      }
     }
 
     const errorElement = shadow.querySelector(".translation-error");

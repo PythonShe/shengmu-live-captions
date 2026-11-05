@@ -14,6 +14,8 @@ import {
   normalizeCaptionLines,
   normalizeSettings,
   composeLiveSource,
+  composeLiveSourceParts,
+  composeLiveSourceText,
   planTranscriptDiff,
   reconcileLineTranslations,
   sanitizeSettingsPatch,
@@ -410,11 +412,39 @@ test("selectDisplayCaption appends the uncommitted tail instead of replacing the
   assert.deepEqual(caption, {
     lineId: "line-1",
     source: "The stable sentence. A newer unfinished sentence",
+    sourceStable: "The stable sentence.",
+    sourceStash: "A newer unfinished sentence",
     translation: "稳定的译文。",
     error: "",
     pending: false,
     failed: false
   });
+});
+
+test("composeLiveSourceParts splits the committed row from the uncommitted tail", () => {
+  const append = composeLiveSourceParts("The stable sentence.", "A newer unfinished sentence");
+  assert.deepEqual(append, {
+    stable: "The stable sentence.",
+    stash: "A newer unfinished sentence"
+  });
+  assert.equal(composeLiveSourceText(append), composeLiveSource("The stable sentence.", "A newer unfinished sentence"));
+
+  // The buffer only repeats the row's tail: nothing new to dim.
+  assert.deepEqual(composeLiveSourceParts("one two three", "two three"), {
+    stable: "one two three",
+    stash: ""
+  });
+  // The buffer overlaps the tail and then adds words.
+  assert.deepEqual(composeLiveSourceParts("one two three", "three four five"), {
+    stable: "one two three",
+    stash: "four five"
+  });
+  // Nothing committed yet: the whole slot is the stash.
+  assert.deepEqual(composeLiveSourceParts("", "only buffer"), {
+    stable: "only buffer",
+    stash: ""
+  });
+  assert.deepEqual(composeLiveSourceParts("only row", ""), { stable: "only row", stash: "" });
 });
 
 test("selectDisplayCaption does not wait for the translation of a committed line", () => {
@@ -428,6 +458,8 @@ test("selectDisplayCaption does not wait for the translation of a committed line
   assert.deepEqual(caption, {
     lineId: "line-2",
     source: "Second sentence.",
+    sourceStable: "Second sentence.",
+    sourceStash: "",
     translation: "第一句。",
     error: "",
     pending: true,
@@ -475,6 +507,8 @@ test("selectDisplayCaption leaves the first pending translation empty", () => {
   assert.deepEqual(caption, {
     lineId: null,
     source: "First sentence",
+    sourceStable: "First sentence",
+    sourceStash: "",
     translation: "",
     error: "",
     pending: true,

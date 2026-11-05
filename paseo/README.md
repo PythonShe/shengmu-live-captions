@@ -31,6 +31,7 @@
 | `16-stage-translation-0.5.8.md` | 阶段译文（单调递进）、停用 buffer 送翻、英文固定单行 |
 | `17-scrollback-live-0.5.9.md` | 滚轮回看窗口改实时跟随、行节点增量复用 |
 | `18-overlay-bounce-0.5.10.md` | 去 `text-wrap: balance`、量宽余量、变宽零延迟、盒子高度 160 ms 缓动 |
+| `19-broadcast-visuals-0.5.11.md` | 广播风视觉改版：无衬线字体、冷暖分轨实色、闭合描边、黑曜石底板、英文 stash 尾巴 |
 | `compare-codex-vs-paseo.md` | Codex 与 paseo 分工的评估（历史记录） |
 | `mock-openai-server.mjs` | 无 Key 联调用的 OpenAI 兼容 mock |
 

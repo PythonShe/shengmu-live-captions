@@ -1,5 +1,32 @@
 # 项目进度记录 (PROGRESS.md)
 
+## 2026-11-04 · 0.5.11 浮层广播风视觉改版 + 英文未定稿尾巴
+
+设计依据：`research.md` §6（ReaLingo 对比调研的三条拍板方向），落地记录 `paseo/19-broadcast-visuals-0.5.11.md`。定位浮层第一受众为「看推流画面的直播间观众」。
+
+### 已修改文件
+- `extension/content/content-overlay.js`：
+  - CSS：`.stage` 新增 `--caption-sans`（HarmonyOS Sans SC→MiSans→PingFang SC→Microsoft YaHei，700）/`--caption-latin`（Inter→Segoe UI，500）/`--caption-outline-strong`（8 向 1px 黑边+底影）/`--caption-outline-soft`（4 向）；译文 `#ffffff`、英文 `rgb(180 212 244 / .92)`、上一句 `rgb(203 213 225 / .88)`、`.pending` 冰蓝 68%、`.source-stash` 56%；底板改中性黑曜石 `180deg rgb(14 18 26) → rgb(8 11 16)`，去 `saturate(.8)`、去左侧 3px 金条与 `.caption-shell::after` 金线，`border-radius: 14px` 对称 + `padding: 14px 22px`；历史面板同语言（冰蓝英文 / `#f1f5f9` 中文 / 冷灰蓝 meta chip）；等待点由暗黄改冰蓝；`<720px` 内边距 `12px 16px`。
+  - JS：内联 `composeLiveSourceParts` / `composeLiveSourceText`（`composeLiveSource` 语义保持 `stable + " " + stash`）；`latestCaption()` 输出 `sourceStable`/`sourceStash`，旧 worker 只发 `source` 时整行回退为已定稿；新增 `setSourceText(stable, stash)` 把 stash 包进 `.source .caption-text > span.source-stash`（重建条件同时看内容键与子节点，防模式来回切换后空槽不恢复）；`OVERLAY_VERSION` 10 → 11。
+- `extension/lib/caption-utils.js`：新增 `composeLiveSourceParts`（返回 `{ stable, stash }`）与 `composeLiveSourceText`，`composeLiveSource` 改为两者组合；`selectDisplayCaption` 返回值新增 `sourceStable`/`sourceStash`。
+- `tests/caption-utils.test.js`：新增 `composeLiveSourceParts` 四项切分用例（buffer 仅重复尾巴、尾部重叠后追加、纯 buffer、纯行）；三处 `selectDisplayCaption` 断言补新字段。
+- `tests/transcript-reducer.test.js`：`displayCaption` deepEqual 补 `sourceStable`/`sourceStash`。
+- `package.json` / `extension/manifest.json`：0.5.10 → 0.5.11。
+- `AGENTS.md` §2：`OVERLAY_VERSION` 改 11 并补 10→11 说明；新增「视觉（0.5.11 广播风）」与「英文未定稿尾巴」两条红线（字体栈、文字色不乘 `--overlay-opacity`、禁 `-webkit-text-stroke`、禁恢复金条/金线/`saturate`、`.caption-text` 的 `textContent` 必须等于 `composeLiveSource` 单串）。
+- `README.md`：版本 0.5.11；等待点改「小冰蓝点」；行为列表补「英文未定稿尾巴淡一档」与「浮层按直播画面来做」两条。
+- `paseo/19-broadcast-visuals-0.5.11.md`（新增）与 `paseo/README.md` 索引。
+
+### 已执行验证
+- `pnpm run verify` 286 项（285 pass / 1 skip）、`pnpm run smoke` 11 项全过。
+- 可视化预览（仓库外 `C:/Users/moule/Documents/ChatGPT/.style-preview/preview.mjs`：mock `chrome.*` + 注入真实 `content-overlay.js` + CDP 截图）：5 张图覆盖双语、stash、dual+等待点、纯白压测、5% 底板；量得 `shell` 851px、英文槽恒 28px、stash 取色 `rgba(180,212,244,0.56)`、译文 9 条 text-shadow。
+- 真机采集（dev 9223 + 真实 tabCapture + `GHEBkhT1K7A-05m41-07m41.wav` + wlk ASR + DeepL，`OVERLAY_VERSION` 11 已重载）：50 s + 25 s 两轮采样；stash 出现 11/25，`.source` 高度恒 28px（无假折行）、无 A→B→A 回弹、`border-radius: 14px`、译文恒 `rgb(255,255,255)`、英文 `rgba(180,212,244,0.92)`。
+
+### 未执行 / 待后续
+- `subtitle/subtitle.html` 未跟进本次视觉（用户拍板暂不动，长文阅读页保留原样式）。
+- 未走跨模型 `code review`（待视觉定稿、提交前统一送审）。
+- Chrome 本机识别路径未复测（本轮真机跑的是 wlk + DeepL）。
+- `.style-preview/preview.mjs`、`probe-live.mjs`、`evaluate.mjs` 是仓库外的一次性可视化/采样工具，未入库。
+
 ## 2026-11-04 · 固定测试音频入库（`test-assets/quality-samples`）
 
 - 把 `.research/quality-samples` 中的 7 个 120 s / 16 kHz 单声道 WAV（每个 3.84 MB）、3 套 VTT 与 3 个 silence 标注复制到 `test-assets/quality-samples/`（共 28 MB），并附 `README.md` 写清来源、切片、探针用法，让没有 `.research/` 的机器也能跑同一套端到端探针。

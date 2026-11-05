@@ -375,7 +375,7 @@ export function selectDisplayCaption(current = {}) {
   // slot is that row plus whatever has not been committed yet. Replacing the
   // row with the buffer is what made the English line jump between a whole
   // sentence and two words.
-  const latestSource = composeLiveSource(latestLine?.source, bufferSource);
+  const latestSource = composeLiveSourceParts(latestLine?.source, bufferSource);
   // The translation slot reads the newest row's own translation first. A row
   // that is still growing keeps the stage translation it already had (see
   // reconcileLineTranslations), so the slot moves forward instead of falling
@@ -390,7 +390,11 @@ export function selectDisplayCaption(current = {}) {
     lineId: latestLine?.id || null,
     // Never copy a translation into the source slot: a translation-only line
     // would otherwise print Chinese in the English row of bilingual mode.
-    source: latestSource,
+    source: composeLiveSourceText(latestSource),
+    // The split itself, so the overlay can dim the words the recogniser has not
+    // committed yet. `sourceStable + " " + sourceStash` is always `source`.
+    sourceStable: latestSource.stable,
+    sourceStash: latestSource.stash,
     translation: latestTranslation,
     error: cleanText(current.translationError),
     // `pending` means "the Chinese on screen is not the newest source yet":
@@ -399,7 +403,7 @@ export function selectDisplayCaption(current = {}) {
     // is not a wait: WhisperLiveKit keeps a buffer almost all the time, and a
     // dot that glows constantly reads as a permanent failure.
     pending: Boolean(
-      latestSource && !failed && (latestLine?.translationPending || !lineTranslation)
+      latestSource.stable && !failed && (latestLine?.translationPending || !lineTranslation)
     ),
     failed
   };
@@ -420,10 +424,22 @@ export function selectDisplayCaption(current = {}) {
  * disagree.
  */
 export function composeLiveSource(lineSource, bufferSource) {
+  return composeLiveSourceText(composeLiveSourceParts(lineSource, bufferSource));
+}
+
+/**
+ * Same split as `composeLiveSource`, kept apart because the overlay renders the
+ * two halves at different opacities: the committed row stays solid, the tail the
+ * recogniser is still revising is dimmed.
+ *
+ * @returns {{ stable: string, stash: string }} `stable` is the committed row,
+ *   `stash` the words after it (empty when the buffer adds nothing new).
+ */
+export function composeLiveSourceParts(lineSource, bufferSource) {
   const line = cleanText(lineSource);
   const buffer = cleanText(bufferSource);
-  if (!line) return buffer;
-  if (!buffer) return line;
+  if (!line) return { stable: buffer, stash: "" };
+  if (!buffer) return { stable: line, stash: "" };
   const lineWords = line.split(" ");
   const bufferWords = buffer.split(" ");
   const shorter = Math.min(lineWords.length, bufferWords.length);
@@ -433,10 +449,16 @@ export function composeLiveSource(lineSource, bufferSource) {
     if (tail !== head) continue;
     // The buffer only repeats the row's tail: nothing new to append.
     return count === bufferWords.length
-      ? line
-      : `${line} ${bufferWords.slice(count).join(" ")}`;
+      ? { stable: line, stash: "" }
+      : { stable: line, stash: bufferWords.slice(count).join(" ") };
   }
-  return `${line} ${buffer}`;
+  return { stable: line, stash: buffer };
+}
+
+/** Join the two halves back into the single string the slots measure. */
+export function composeLiveSourceText({ stable = "", stash = "" } = {}) {
+  if (!stable) return stash;
+  return stash ? `${stable} ${stash}` : stable;
 }
 
 export function parseTimecode(value) {
