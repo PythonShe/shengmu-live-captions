@@ -25,6 +25,8 @@ import { endsOnFunctionWord } from "./utterance.js";
 export const SEGMENT_MAX_CHARS = FRAGMENT_MAX_CHARS;
 /** A forced cut looks no further back than this share of the limit. */
 const FORCED_CUT_MIN_SHARE = 0.6;
+/** How much of a trimmed row has to match to count as the same row. */
+const TRIM_MATCH_CHARS = 48;
 
 // CJK sentence marks need no following space, so they end a word by themselves.
 const WORD = /[^\s。！？]*[。！？]+["'”’)\]]*|[^\s。！？]+/gu;
@@ -141,30 +143,120 @@ function forcedCutIndex(words, overflow, start, maxChars) {
 }
 
 /**
+ * Finds the split row an incoming row is the trimmed continuation of.
+ *
+ * WhisperLiveKit prunes the row it is still building once its oldest words pass
+ * --retention-seconds, which moves the row's start and with it the id derived
+ * from that start. Rows never overlap in time, so a new row starting before an
+ * earlier one ended, whose text is found in it, is that row minus its front.
+ * @param {any} line
+ * @param {any[]} previousLines
+ * @returns {{ anchor: string, base: number, order: number, text: string } | null}
+ */
+function resolveTrimmedRow(line, previousLines) {
+  const known = new Set();
+  /** @type {Map<string, any[]>} */
+  const groups = new Map();
+  const addToGroup = (/** @type {string} */ anchor, /** @type {any} */ row) => {
+    if (!groups.has(anchor)) groups.set(anchor, []);
+    groups.get(anchor)?.push(row);
+  };
+  for (const row of previousLines) {
+    if (!row?.id) continue;
+    known.add(row.id);
+    for (const id of row.fragmentIds || []) known.add(id);
+    if (row.epochId !== line.epochId) continue;
+    if (row.segmentOf) addToGroup(row.segmentOf, row);
+    // A unit that took a split row's first piece holds that row's oldest text.
+    if (row.segmentTail && row.segmentTail !== row.segmentOf) addToGroup(row.segmentTail, row);
+  }
+  if (known.has(line.id) || line.source.length < TRIM_MATCH_CHARS) return null;
+
+  const start = parseTimecode(line.start);
+  // Newest first: a unit shared by two split rows belongs to the later one here.
+  for (const [anchor, rows] of [...groups].reverse()) {
+    // Only an upper bound: piece starts are estimates, so a row pruned right up
+    // to a piece boundary can start a moment before that piece does. The text
+    // is the evidence. Pieces start on cuts, so the scan can resume from any.
+    if (start >= parseTimecode(rows[rows.length - 1].end)) continue;
+    const held = rows.map((row) => row.source).join(" ");
+    const position = findContinuation(held, line.source);
+    if (position < 0) continue;
+    let offset = 0;
+    let keep = rows[0];
+    for (const row of rows) {
+      if (offset + row.source.length > position) {
+        keep = row;
+        break;
+      }
+      offset += row.source.length + 1;
+    }
+    // A unit from outside the row cannot be rebuilt from the row's own text.
+    const own = keep.segmentOf === anchor;
+    return {
+      anchor,
+      base: own ? keep.segmentIndex : 0,
+      order: own ? keep.order - keep.segmentIndex : keep.order,
+      text: own ? `${held.slice(offset, position)}${line.source}` : line.source
+    };
+  }
+  return null;
+}
+
+/**
+ * Where `source` continues `held`: from that position on the two agree for as
+ * long as both have text. A repeated phrase alone never passes. The row may end
+ * early when `held` also includes a piece of the next row.
+ * @param {string} held
+ * @param {string} source
+ */
+function findContinuation(held, source) {
+  const head = source.slice(0, TRIM_MATCH_CHARS);
+  for (let at = held.indexOf(head); at >= 0; at = held.indexOf(head, at + 1)) {
+    const tail = held.slice(at);
+    if (source.startsWith(tail) || tail.startsWith(source)) return at;
+  }
+  return -1;
+}
+
+/**
  * Replaces every row longer than one piece with its pieces. Pieces carry the raw
  * row's timing until settleSegmentTimes has seen the merged result.
  * @param {any[]} lines Normalised rows of this update.
+ * @param {any[]} [previousLines] Rows of the previous state.
  * @returns {any[]}
  */
-export function segmentCaptionLines(lines) {
+export function segmentCaptionLines(lines, previousLines = []) {
   const rows = Array.isArray(lines) ? lines : [];
   const output = [];
+  // Only the oldest row can be pruned from the front: every finished row before
+  // it has to leave the retention window first.
+  const firstSource = rows.find((line) => line?.source);
   for (const line of rows) {
-    const pieces = line?.source ? cutSentences(line.source) : [];
-    if (pieces.length <= 1) {
+    if (!line?.source) {
       output.push(line);
       continue;
     }
-    pieces.forEach((source, segmentIndex) => {
+    const trimmed = line === firstSource ? resolveTrimmedRow(line, previousLines) : null;
+    const anchor = trimmed?.anchor ?? line.id;
+    const base = trimmed?.base ?? 0;
+    const order = trimmed?.order ?? line.order;
+    const pieces = cutSentences(trimmed?.text ?? line.source);
+    if (pieces.length <= 1 && !trimmed) {
+      output.push(line);
+      continue;
+    }
+    pieces.forEach((source, index) => {
+      const segmentIndex = base + index;
       output.push({
         ...line,
-        id: segmentIndex === 0 ? line.id : `${line.id}#${segmentIndex}`,
+        id: segmentIndex === 0 ? anchor : `${anchor}#${segmentIndex}`,
         source,
         // A row's own translation cannot be divided between its pieces.
         translation: "",
         translationPending: true,
-        order: line.order + segmentIndex,
-        segmentOf: line.id,
+        order: order + segmentIndex,
+        segmentOf: anchor,
         segmentIndex
       });
     });
