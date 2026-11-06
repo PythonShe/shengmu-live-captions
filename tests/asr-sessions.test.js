@@ -135,3 +135,34 @@ test("parseBailianEvent maps server events and skips heartbeats", () => {
     "a failure without a server message still says what failed"
   );
 });
+
+test("a full window never repeats a sentence that a split row's piece joined", () => {
+  // The last piece of the long row is too short to stand alone, so the next row
+  // joins it. Dropping the long row alone would repeat that next row under a new id.
+  const accumulator = createLineAccumulator({ limit: 3 });
+  const long = `${"A long first sentence that goes on for a good while and then stops right there. ".repeat(3).trim()} Okay.`;
+  const state = { startedAt: 1, sessionId: "s", current: { lines: [] } };
+  const texts = new Map();
+  const feed = () => {
+    const { patch } = reduceTranscriptUpdate(
+      state,
+      { data: accumulator.message(), sessionId: "s", epochId: "e", epochStartedAt: 1 },
+      { knownLines: new Map(), useApi: true, now: 1 }
+    );
+    Object.assign(state, patch);
+    for (const row of state.current.lines) texts.set(row.id, row.source);
+  };
+
+  accumulator.final(long, 0, 20);
+  accumulator.final("And this row follows it closely here.", 20.5, 22);
+  feed();
+  accumulator.final("Number three is a complete row on its own here.", 23, 25);
+  accumulator.final("Number four is a complete row on its own here.", 26, 28);
+  feed();
+  accumulator.final("Number five is a complete row on its own here.", 29, 31);
+  feed();
+
+  const holding = [...texts.values()].filter((text) => text.includes("this row follows"));
+  assert.equal(holding.length, 1, holding.join(" | "));
+  assert.ok(accumulator.message().lines.length <= 3);
+});

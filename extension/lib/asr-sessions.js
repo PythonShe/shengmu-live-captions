@@ -10,6 +10,7 @@
  * recognizer and imports this module dynamically.
  */
 
+import { segmentCaptionLines } from "./caption-segment.js";
 import { mergeCaptionFragments, normalizeCaptionLines, parseTimecode } from "./caption-utils.js";
 import { msg } from "./i18n-message.js";
 
@@ -47,12 +48,15 @@ function trimToSentenceStart(rows, limit) {
   const { lines } = normalizeCaptionLines({ lines: rows });
   const alive = new Set(lines.map((line) => centis(line.start)));
   const kept = rows.filter((row) => alive.has(centis(row.start)));
-  let index = 0;
+  // Split the way the reducer does, or the two disagree on where sentences start.
+  const rowIndex = new Map(lines.map((line, index) => [line.id, index]));
   let lastSentence = 0;
-  for (const sentence of mergeCaptionFragments(lines)) {
+  for (const sentence of mergeCaptionFragments(segmentCaptionLines(lines))) {
+    const index = rowIndex.get(sentence.id);
+    // Starts inside a split row, but only a whole row can be dropped.
+    if (index === undefined) continue;
     if (kept.length - index <= limit) return kept.slice(index);
     lastSentence = index;
-    index += sentence.fragmentLines;
   }
   // One sentence longer than the limit stays whole; merging caps its rows.
   return kept.slice(lastSentence);
