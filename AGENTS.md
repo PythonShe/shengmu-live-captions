@@ -6,7 +6,7 @@ Chrome MV3 实时字幕翻译扩展（v0.5.12）：`tabCapture` 采集标签页�
 
 ```sh
 # From repo root (pnpm; Node 24.22.2+)
-pnpm run verify      # node --check + ESLint + tsc（只看 lib/）+ 359 项单测（1 skip）
+pnpm run verify      # node --check + ESLint + tsc（只看 lib/）+ 363 项单测（1 skip）
 pnpm run smoke       # 无头 Chrome 加载扩展，11 项
 pnpm test            # 只跑单测
 pnpm services:start [--asr-only] [--translation-model 9b-q4km|2b-iq4xs] [--asr-model large-v3-turbo|medium]
