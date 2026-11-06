@@ -18,6 +18,7 @@ Chrome MV3 extension: `tabCapture` audio -> `offscreen` -> WhisperLiveKit ASR (`
 - Typecheck covers `extension/lib/` only; destructured option params need a JSDoc type or tsc infers `{}` and rejects callers.
 - `popup.js`, `subtitle.js` and `content-overlay.js` have no unit tests; lint, check and smoke are their only net.
 - The `.research/` stack (WLK fork, venv, llama.cpp, models) is maintainer-provided and absent on this Mac, and the local models assume an NVIDIA GPU on Windows. Test API mode against DeepSeek (`.env.local`, git-excluded) or `node paseo/mock-openai-server.mjs`.
+- Real WLK does run on this Mac without `.research/`: a throwaway venv with `whisperlivekit mlx-whisper`, the `config.mjs` flags minus the fork-only `--localagreement-beam-size`, and `--backend mlx-whisper`. Results are not the fork's. Real capture in headless Chrome over CDP: `Extensions.triggerAction` on the `tab` target (not the page target) grants `activeTab`; `--mute-audio` zeroes the capture, so instead set the offscreen `monitorGain` to 0 before playing; a fresh profile stalls on the network for about 15 s, so wait for `test-translation-api` to answer quickly first.
 - `.research/ui-smoke-*.py` CDP mouse tests hang in `Input.dispatchMouseEvent` unless the page is `visibilityState === "visible"` and Chrome runs with `--disable-features=CalculateNativeWinOcclusion`. Known traps: `.pit/pits/`.
 
 ## Docs and files
@@ -43,6 +44,7 @@ No test catches these; each one came from a real bug.
 - Bump `OVERLAY_VERSION` on any overlay DOM/CSS/listener change, or open tabs keep the old instance. Keep the `HISTORY_API` null-fallback shim in `content-overlay.js`: an old worker may inject only that one file.
 - Overlay width is measured with canvas `measureText`, never on the DOM: `text-wrap: balance` makes measured and current width feed each other and oscillate.
 - Every translation path (including new backends) runs `polishTranslation` before display or storage.
+- With diarization off a WLK row closes only on a silence, whatever the punctuation, and a row older than `--retention-seconds` loses its first words, which moves its `start` and so its raw id. `lib/caption-segment.js` absorbs both, in API mode only.
 - WLK flags are tuned on 120 s sample comparisons (`--asr-coalesce-min-s 0.3` turned 54% of captions into "The."-sized shards; `--buffer_trimming_sec 4` cut audio every 4 s); rerun one before changing them.
 
 ## Security
