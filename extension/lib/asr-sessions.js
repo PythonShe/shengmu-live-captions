@@ -10,7 +10,7 @@
  * recognizer and imports this module dynamically.
  */
 
-import { segmentCaptionLines } from "./caption-segment.js";
+import { cutSentences } from "./caption-segment.js";
 import { mergeCaptionFragments, normalizeCaptionLines, parseTimecode } from "./caption-utils.js";
 import { msg } from "./i18n-message.js";
 
@@ -48,15 +48,12 @@ function trimToSentenceStart(rows, limit) {
   const { lines } = normalizeCaptionLines({ lines: rows });
   const alive = new Set(lines.map((line) => centis(line.start)));
   const kept = rows.filter((row) => alive.has(centis(row.start)));
-  // Split the way the reducer does, or the two disagree on where sentences start.
-  const rowIndex = new Map(lines.map((line, index) => [line.id, index]));
+  let index = 0;
   let lastSentence = 0;
-  for (const sentence of mergeCaptionFragments(segmentCaptionLines(lines))) {
-    const index = rowIndex.get(sentence.id);
-    // Starts inside a split row, but only a whole row can be dropped.
-    if (index === undefined) continue;
+  for (const sentence of mergeCaptionFragments(lines)) {
     if (kept.length - index <= limit) return kept.slice(index);
     lastSentence = index;
+    index += sentence.fragmentLines;
   }
   // One sentence longer than the limit stays whole; merging caps its rows.
   return kept.slice(lastSentence);
@@ -85,11 +82,22 @@ export function createLineAccumulator({ limit = ASR_MESSAGE_LINE_LIMIT } = {}) {
       const value = clean(text);
       buffer = "";
       if (!value) return false;
-      const start = Math.max(Number(startSeconds) || 0, lastStart + 0.01);
-      lastStart = Math.round(start * 100) / 100;
-      const end = Math.max(Number(endSeconds) || 0, lastStart);
-      lines.push({ speaker: 1, text: value, start: formatTimecode(lastStart), end: formatTimecode(end) });
-      lines = trimToSentenceStart(lines, limit);
+      const rowStart = Math.max(Number(startSeconds) || 0, lastStart + 0.01);
+      const span = Math.max((Number(endSeconds) || 0) - rowStart, 0);
+      // A finished row never grows, so it can be cut here and placed by its share
+      // of the characters. Left whole, the window could only be cut between rows,
+      // and that is no sentence start once a short last piece joins the next row.
+      const pieces = cutSentences(value);
+      let offset = 0;
+      for (const piece of pieces) {
+        const start = Math.max(rowStart + span * (offset / value.length), lastStart + 0.01);
+        lastStart = Math.round(start * 100) / 100;
+        offset = Math.min(offset + piece.length + 1, value.length);
+        const end = Math.max(rowStart + span * (offset / value.length), lastStart);
+        lines.push({ speaker: 1, text: piece, start: formatTimecode(lastStart), end: formatTimecode(end) });
+      }
+      // None of these pieces has been sent yet, so all of them stay this once.
+      lines = trimToSentenceStart(lines, Math.max(limit, pieces.length));
       return true;
     },
     /** @param {string} text The sentence still being recognized. */

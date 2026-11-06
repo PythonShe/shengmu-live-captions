@@ -11,6 +11,7 @@ import {
   parseBailianEvent,
   speechPhrases
 } from "../extension/lib/asr-sessions.js";
+import { SEGMENT_MAX_CHARS } from "../extension/lib/caption-segment.js";
 import { parseTimecode } from "../extension/lib/caption-utils.js";
 import { reduceTranscriptUpdate, rememberLine } from "../extension/lib/transcript-reducer.js";
 import { renderZh } from "./helpers/i18n.js";
@@ -164,5 +165,68 @@ test("a full window never repeats a sentence that a split row's piece joined", (
 
   const holding = [...texts.values()].filter((text) => text.includes("this row follows"));
   assert.equal(holding.length, 1, holding.join(" | "));
+  assert.ok(accumulator.message().lines.length <= 3);
+});
+
+test("a long row comes out of the accumulator as rows that fit, inside its time span", () => {
+  const accumulator = createLineAccumulator();
+  const text = "The whole group goes through the same map again because it clears fast. ".repeat(12).trim();
+  accumulator.final(text, 10, 40);
+  const { lines: rows } = accumulator.message();
+  assert.ok(rows.length > 1);
+  assert.ok(rows.every((row) => row.text.length <= SEGMENT_MAX_CHARS));
+  assert.equal(rows.map((row) => row.text).join(" "), text);
+  assert.equal(rows[0].start, "0:00:10.00");
+  assert.equal(rows[rows.length - 1].end, "0:00:40.00");
+  const starts = rows.map((row) => parseTimecode(row.start));
+  assert.ok(starts.every((start, index) => index === 0 || start > starts[index - 1]));
+
+  // No span at all: row ids come from the start, so the starts still have to differ.
+  const instant = createLineAccumulator();
+  instant.final(text, 5, 5);
+  const instantStarts = instant.message().lines.map((row) => parseTimecode(row.start));
+  assert.ok(instantStarts.every((start, index) => index === 0 || start > instantStarts[index - 1]));
+});
+
+test("a full window keeps moving when every long row ends in a short piece", () => {
+  const limit = 12;
+  const accumulator = createLineAccumulator({ limit });
+  const knownLines = new Map();
+  const state = { startedAt: 1, sessionId: "s", current: { lines: [] } };
+  const texts = new Map();
+  const spoken = [];
+  for (let index = 0; index < 60; index += 1) {
+    // Each "Okay." joins the first piece of the next row, so no row boundary is
+    // also the start of a sentence unless the rows are cut before the window.
+    const row = [0, 1, 2, 3]
+      .map((part) => `Row ${index} part ${part} keeps going for a good long while over the same stretch of the map.`)
+      .join(" ");
+    const text = `${row} Okay.`;
+    spoken.push(text);
+    accumulator.final(text, index * 30, index * 30 + 29);
+    assert.ok(accumulator.message().lines.length <= limit, `row ${index}`);
+    const { patch, historyLines } = reduceTranscriptUpdate(
+      state,
+      { data: accumulator.message(), sessionId: "s", epochId: "e", epochStartedAt: 1 },
+      { knownLines, useApi: true, now: 1 }
+    );
+    Object.assign(state, patch);
+    for (const line of historyLines) knownLines.set(line.id, rememberLine(line));
+    for (const line of state.current.lines) texts.set(line.id, line.source);
+  }
+  // Nothing dropped, nothing delivered twice.
+  assert.equal([...texts.values()].join(" "), spoken.join(" "));
+  assert.ok([...texts.keys()].every((id) => !id.includes("#")));
+});
+
+test("a row longer than the whole window still reaches the reducer complete", () => {
+  const accumulator = createLineAccumulator({ limit: 3 });
+  accumulator.final("An earlier row that came before the long one here.", 0, 2);
+  const sentences = Array.from({ length: 8 }, (_, index) => `Sentence ${index} of the one long row is complete on its own right here.`);
+  accumulator.final(sentences.join(" "), 3, 30);
+  const delivered = accumulator.message().lines.map((row) => row.text).join(" ");
+  assert.ok(delivered.endsWith(sentences.join(" ")), delivered);
+  // The next row brings the window back to its limit.
+  accumulator.final("The following row is complete on its own right here.", 31, 33);
   assert.ok(accumulator.message().lines.length <= 3);
 });

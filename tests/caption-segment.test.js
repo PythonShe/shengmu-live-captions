@@ -481,3 +481,19 @@ test("every request stays small and every row gets translated", async () => {
   const sent = requests.flat().join("").length;
   assert.ok(sent < RUN_ON.length * 8, `sent ${sent} for ${RUN_ON.length}`);
 });
+
+test("a piece is cut no further when it is cut again", () => {
+  // The accumulator cuts finished rows and the reducer sees them again as rows.
+  const inputs = [
+    "We finished the map. Then the boss spawned, and we ran. ".repeat(12),
+    "so we keep going through the whole map with the same build because it clears fast ".repeat(12),
+    "really good. for like a few days. and then, you know, it stopped; we moved on. ".repeat(12),
+    `${"x".repeat(500)} then some more words after the very long one. Okay.`,
+    "这一段没有空格但是有句号。下一句也很长，一直说下去。".repeat(30)
+  ];
+  for (const input of inputs) {
+    for (const piece of cutSentences(input)) {
+      assert.deepEqual(cutSentences(piece), [piece]);
+    }
+  }
+});
