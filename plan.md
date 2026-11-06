@@ -34,8 +34,6 @@
 
 ## 3. Backlog（不阻塞）
 
-- [ ] WLK 连续讲话不分段：`Gq2r7x5qgmg-poe-24m00-26m00.wav` 2 分钟仅 1 行（3543 字符），
-      顶满 70vh 与历史 2 行截断；WLK 侧强制切段或客户端按 `FRAGMENT_MAX_CHARS` 再切。
 - [ ] 百炼 ASR 在 `fun-asr-realtime` 与 `paraformer-realtime-v2`（每月重置 10 h）之间可选
       （即上面第 2 节第 1 项，未开工）。
 - [ ] `qwen-mt-turbo` 若换 intl 地域需复测（cn 已确认 404）。
@@ -53,3 +51,4 @@
 - [x] 用量面板（本地 90 天账本 + DeepL/DeepSeek 额度）
 - [x] DeepL 术语库（0.5.12）
 - [x] `qwen-mt-flash` 做成面板显式选项（0.5.12，连同类一起）
+- [x] WLK 连续讲话不分段：API 模式客户端切句（`paseo/23`）；server 模式仍是一整行
