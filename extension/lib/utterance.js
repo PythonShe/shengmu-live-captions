@@ -95,6 +95,12 @@ export function needsCompletion(text) {
   return TRAILING_FUNCTION_WORD.test(value.replace(SENTENCE_END, ""));
 }
 
+/** The text stops on a word that cannot end a sentence, punctuation or not. */
+export function endsOnFunctionWord(text) {
+  const value = typeof text === "string" ? text.trim() : "";
+  return TRAILING_FUNCTION_WORD.test(value.replace(SENTENCE_END, ""));
+}
+
 /**
  * Splits the pending rows into the next request and the rows to keep waiting.
  *

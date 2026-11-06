@@ -627,6 +627,12 @@ export function resolveRetranslateThrottle(config = {}) {
 export const FRAGMENT_GAP_SECONDS = 2.0;
 export const FRAGMENT_MAX_LINES = 4;
 export const FRAGMENT_MAX_CHARS = 180;
+/**
+ * From this length on a row of a split row counts as finished: the cut was made
+ * on purpose (see caption-segment.js), so a following "and ..." stays on its own
+ * instead of joining back and falling off again a few words later.
+ */
+export const SEGMENT_CLAUSE_MIN_CHARS = 120;
 
 /**
  * Joins ASR fragments into sentence-level rows.
