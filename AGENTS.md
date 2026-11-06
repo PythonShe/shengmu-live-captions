@@ -6,7 +6,7 @@ Chrome MV3 实时字幕翻译扩展（v0.5.12）：`tabCapture` 采集标签页�
 
 ```sh
 # From repo root (pnpm; Node 24.22.2+)
-pnpm run verify      # node --check + ESLint + tsc（只看 lib/）+ 325 项单测（1 skip）
+pnpm run verify      # node --check + ESLint + tsc（只看 lib/）+ 359 项单测（1 skip）
 pnpm run smoke       # 无头 Chrome 加载扩展，11 项
 pnpm test            # 只跑单测
 pnpm services:start [--asr-only] [--translation-model 9b-q4km|2b-iq4xs] [--asr-model large-v3-turbo|medium]
@@ -47,6 +47,7 @@ node scripts/services.mjs help
 - 英文槽固定单行：`.source` `max-height: 1.38em` + `white-space: nowrap` + 交叉轴 `align-items: flex-end`（溢出落在左侧），`.source.overflowing` 用水平 `to right` 渐隐；`markCaptionOverflow` 同时判垂直溢出与水平溢出（`rect.width - element.clientWidth > 1`）。
 - `selectDisplayCaption`：源槽 = 最新行英文 + `composeLiveSource` 拼上的 buffer 尾部（词级重叠去重，buffer 不再替换整行）；译文槽只读最新行自身的 `translation`（含阶段译文），未到时才回退上一句并置 `stale`。`.translation.pending` = 空占位，`.translation.stale` = 上一句（同字号**不降透明**），“还在翻”只由 `.caption-shell[data-awaiting="1"]::before` 角落小点表达（`syncAwaitingDot`，等待 >700ms 才出现）；勿把 stale 文本套 `pending` 小字号样式。`content-overlay.js` 里旧 worker 分支的内联副本必须与新规则一致（`composeLiveSource` 也是内联副本）。
 - 0.5.8 阶段译文（单调递进）：行字段 `translation` / `translatedSource` / `translationPending`（= 译文落后于源文）/ `fragmentIds`；`reconcileLineTranslations` 每帧从上一帧接管译文（源文变长也不清零），`mergeCaptionFragments` 合并时只置 `translationPending` 不清译文；在途响应回来时源文已变长则作为阶段译文上屏，不丢弃。只有 `translationPending === false` 的行进 IndexedDB 与 SRT，停止采集时 `commitRuntimeLinesToHistory` 把屏上版本定格补写。重译限流按后端分档（`resolveRetranslateThrottle`）：配置带 `apiKey` → `TRANSLATION_RETRANSLATE_PAID_MIN_NEW_CHARS = 24` / `_PAID_MIN_INTERVAL_MS = 1200`（每次重译重发整句，按字符计费，实测白烧 4.3 倍字符）；无 Key（Chrome 内置、无 Key 的自定义本地端点）→ `8` / `400`。被限流时必须由 `wakeTimer` 补一发，不得静默丢弃。API 模式已删除整套 buffer 送翻（`lib/buffer-translation.js` 与「半句预翻译」开关都已不存在），buffer 只进英文槽。
+- 超长 ASR 行（`paseo/23-long-row-segmentation.md`）：关闭说话人分离时 WLK 只在静音处结束一行，与标点无关；行活过 `--retention-seconds` 后开头被裁，`start` 与由它推出的行 id 每帧变化。API 模式下 `lib/caption-segment.js` 在合句之前把超长行切成 ≤`FRAGMENT_MAX_CHARS` 的句子（`<id>#<序号>`），被裁的行按文本接回原 id。**红线：`cutSentences` 的每个判断只能看到切点后一个词，追加文本不得移动已有切点**，否则行 id 会漂移（有测试逐词验证）。server 模式不切（译文按 WLK 的行对齐）。
 - 0.5.5 起 ASR 碎片在进入翻译/浮层/历史/SRT 之前先合并：`mergeCaptionFragments`（`lib/caption-utils.js` + `lib/utterance.js` 的 `startsContinuation`/`needsCompletion`）把「不完整行」与其后继合成一句，合并后行 id 沿用首行；**仅 API 模式合并**（server 模式的译文由 WLK 按自己的分段对齐，合并会丢弃译文）。判据红线：`startsContinuation` 只认 and/but/or/that/which/with/because/if/when/while 等从属连接词与 `PARTICIPLE_CONNECTORS` 白名单现在分词（禁 so/from/in/for）；封口只由「该行自身 needsCompletion」决定，否则整段会被粘成一行。
 - 透明度 `settings.opacity` 域 `0.05~1`（`normalizeOpacity`，`0` 不许回退默认值）；`--overlay-opacity` 同时驱动 `.caption-shell` 背景/边框/阴影/`backdrop-filter` 与 `.history` 背景（后者保底 `max(0.62, ...)` 保持可读）；UI 入口只在 popup `#opacity` 滑块，浮层工具栏不再加。
 - `.caption-shell` 锁死 `max-height: min(70vh, 680px)`；正文包裹 `.caption-text`（限行：译文 3 行、原文单行、双行模式上一句 2 行），超长经 `markCaptionOverflow` 渐隐裁切；历史面板每条译文 2 行、原文 1 行。
