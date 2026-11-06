@@ -17,6 +17,7 @@ import {
   reconcileLineTranslations,
   selectDisplayCaption
 } from "./caption-utils.js";
+import { segmentCaptionLines, settleSegmentTimes } from "./caption-segment.js";
 
 /** Rows kept in runtime state; older rows live on in history only. */
 export const RUNTIME_LINE_LIMIT = 120;
@@ -86,12 +87,18 @@ export function reduceTranscriptUpdate(state, message, options) {
     sessionStartedAt: state?.startedAt,
     updatedAt: now
   });
-  // In API mode the extension translates the rows itself, so ASR fragments are
-  // joined first and the overlay, history and SRT all work on whole sentences.
+  // In API mode the extension translates the rows itself, so a row that ran on
+  // for minutes is cut into sentences, ASR fragments are joined, and the overlay,
+  // history and SRT all work on whole sentences.
   // In server mode WhisperLiveKit already returned translations aligned to its
   // own segments; merging the rows there would throw those translations away.
   if (useApi) {
-    normalized.lines = mergeCaptionFragments(normalized.lines);
+    const previousLines = previous.lines || [];
+    normalized.lines = settleSegmentTimes(
+      mergeCaptionFragments(segmentCaptionLines(normalized.lines)),
+      previousLines,
+      knownLines
+    );
   }
   // A row keeps its translation while the recogniser appends to it; the stale
   // copy stays on screen as a stage translation instead of falling back to the

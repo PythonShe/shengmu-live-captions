@@ -13,7 +13,12 @@
  *
  * Pure: no chrome.*, no DOM.
  */
-import { FRAGMENT_MAX_CHARS, SEGMENT_CLAUSE_MIN_CHARS } from "./caption-utils.js";
+import {
+  FRAGMENT_MAX_CHARS,
+  SEGMENT_CLAUSE_MIN_CHARS,
+  parseTimecode,
+  shiftTimecode
+} from "./caption-utils.js";
 import { endsOnFunctionWord } from "./utterance.js";
 
 /** A piece never exceeds what mergeCaptionFragments would still join. */
@@ -133,4 +138,110 @@ function forcedCutIndex(words, overflow, start, maxChars) {
   }
   if (beforeOpener >= 0) return beforeOpener;
   return solid >= 0 ? solid : overflow - 1;
+}
+
+/**
+ * Replaces every row longer than one piece with its pieces. Pieces carry the raw
+ * row's timing until settleSegmentTimes has seen the merged result.
+ * @param {any[]} lines Normalised rows of this update.
+ * @returns {any[]}
+ */
+export function segmentCaptionLines(lines) {
+  const rows = Array.isArray(lines) ? lines : [];
+  const output = [];
+  for (const line of rows) {
+    const pieces = line?.source ? cutSentences(line.source) : [];
+    if (pieces.length <= 1) {
+      output.push(line);
+      continue;
+    }
+    pieces.forEach((source, segmentIndex) => {
+      output.push({
+        ...line,
+        id: segmentIndex === 0 ? line.id : `${line.id}#${segmentIndex}`,
+        source,
+        // A row's own translation cannot be divided between its pieces.
+        translation: "",
+        translationPending: true,
+        order: line.order + segmentIndex,
+        segmentOf: line.id,
+        segmentIndex
+      });
+    });
+  }
+  return output;
+}
+
+/**
+ * Gives the rows of a split row their own timing, after merging.
+ *
+ * The recogniser only reports the raw row's start and end, and the raw end moves
+ * with every update. A row that stopped growing therefore keeps the end it had
+ * on its last update, when the raw end was the end of its last word; this also
+ * stops finished rows from being rewritten to history on every frame. Only text
+ * that arrived in one go is placed by its share of the characters.
+ * @param {any[]} lines Rows of this update, already merged.
+ * @param {any[]} [previousLines] Rows of the previous state.
+ * @param {Map<string, any> | null} [knownLines] Rows beyond the runtime window.
+ * @returns {any[]}
+ */
+export function settleSegmentTimes(lines, previousLines = [], knownLines = null) {
+  const rows = Array.isArray(lines) ? lines : [];
+  const isSegmented = (/** @type {any} */ row) => Boolean(row?.segmentOf || row?.segmentTail);
+  const byId = new Map();
+  for (const row of previousLines) {
+    if (isSegmented(row)) byId.set(row.id, row);
+  }
+  /** @type {Map<string, { last: number, remaining: number, cursor: number, rawEnd: number }>} */
+  const groups = new Map();
+  rows.forEach((row, index) => {
+    if (!isSegmented(row)) return;
+    for (const anchor of new Set([row.segmentOf, row.segmentTail])) {
+      if (!anchor) continue;
+      const group = groups.get(anchor) || {
+        last: index,
+        remaining: 0,
+        cursor: parseTimecode(row.start),
+        rawEnd: parseTimecode(row.end)
+      };
+      group.last = index;
+      if (anchor === row.segmentTail) group.remaining += row.source.length;
+      groups.set(anchor, group);
+    }
+  });
+
+  return rows.map((row, index) => {
+    if (!isSegmented(row)) return row;
+    const known = knownLines?.get(row.id);
+    const prior = byId.get(row.id) || (isSegmented(known) ? known : null);
+    const head = groups.get(row.segmentOf);
+    // A unit that starts on a row of its own keeps that row's start.
+    const start = head ? prior?.start || timecodeAt(row.start, head.cursor) : row.start;
+    const tail = groups.get(row.segmentTail);
+    let end = row.end;
+    if (tail && tail.last !== index) {
+      if (prior?.source === row.source) {
+        end = prior.end;
+      } else {
+        const from = parseTimecode(start);
+        const share = tail.remaining > 0 ? row.source.length / tail.remaining : 0;
+        end = timecodeAt(row.start, from + share * Math.max(0, tail.rawEnd - from));
+      }
+    }
+    const reached = parseTimecode(end);
+    if (head) head.cursor = reached;
+    if (tail) {
+      tail.cursor = reached;
+      tail.remaining -= row.source.length;
+    }
+    return { ...row, start, end };
+  });
+}
+
+/**
+ * @param {string} reference The row's own timecode; an empty one stays unknown.
+ * @param {number} seconds
+ */
+function timecodeAt(reference, seconds) {
+  return reference ? shiftTimecode("0:00:00.00", seconds) : "";
 }

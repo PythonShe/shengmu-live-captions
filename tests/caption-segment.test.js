@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { SEGMENT_MAX_CHARS, cutSentences } from "../extension/lib/caption-segment.js";
+import {
+  SEGMENT_MAX_CHARS,
+  cutSentences,
+  segmentCaptionLines,
+  settleSegmentTimes
+} from "../extension/lib/caption-segment.js";
+import { lineSignature, linesChangedSince, reduceTranscriptUpdate, rememberLine } from "../extension/lib/transcript-reducer.js";
+import { createTranslationScheduler } from "../extension/lib/translation-scheduler.js";
+import { createFakeClock, settleAsync } from "./helpers/fake-clock.js";
 
 // Shaped like a real WhisperLiveKit run-on: sentences, chunk periods before a
 // lowercase word, and a long stretch with no punctuation at all.
@@ -14,6 +22,48 @@ const RUN_ON = [
   "What did we do about it?",
   "We shipped."
 ].join(" ");
+
+const SESSION = "s1";
+const EPOCH = "e1";
+const STARTED_AT = 1_700_000_000_000;
+const ROW_ID = `${SESSION}:${EPOCH}:0:00:00.00`;
+
+function clock(seconds) {
+  const total = Math.round(seconds * 100);
+  const centis = total % 100;
+  const whole = Math.floor(total / 100);
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${Math.floor(whole / 3600)}:${pad(Math.floor(whole / 60) % 60)}:${pad(whole % 60)}.${pad(centis)}`;
+}
+
+function raw(text, start, end) {
+  return { speaker: 1, text, start: clock(start), end: clock(end) };
+}
+
+function initialState() {
+  return { startedAt: STARTED_AT, sessionId: SESSION, status: "capturing", current: { lines: [] } };
+}
+
+/** Runs one ASR message through the reducer like the session does. */
+function step(state, lines, { useApi = true, knownLines = new Map(), now = STARTED_AT, epochId = EPOCH } = {}) {
+  const result = reduceTranscriptUpdate(
+    state,
+    { data: { lines }, sessionId: SESSION, epochId, epochStartedAt: STARTED_AT },
+    { knownLines, useApi, now }
+  );
+  return { state: { ...state, ...result.patch }, result };
+}
+
+/** Grows one raw row word by word at 15 characters a second. */
+function growRow(text, { everyWords = 4 } = {}) {
+  const words = text.split(" ");
+  const frames = [];
+  for (let count = everyWords; ; count += everyWords) {
+    const value = words.slice(0, Math.min(count, words.length)).join(" ");
+    frames.push(raw(value, 0, value.length / 15));
+    if (count >= words.length) return frames;
+  }
+}
 
 test("cutSentences keeps a short row whole", () => {
   assert.deepEqual(cutSentences("Just one short sentence."), ["Just one short sentence."]);
@@ -125,3 +175,209 @@ test("appending text never moves an earlier cut", () => {
   }
 });
 
+test("a row that fits passes through the same object, with no bookkeeping added", () => {
+  const line = { id: "a", source: "A short row.", start: "0:00:01.00", end: "0:00:02.00" };
+  const [out] = segmentCaptionLines([line], []);
+  assert.equal(out, line);
+  assert.equal(settleSegmentTimes([line], [], null)[0], line);
+});
+
+test("a long row becomes rows with the raw id first and an index after", () => {
+  const { state } = step(initialState(), [raw(RUN_ON, 0, 40)]);
+  const rows = state.current.lines;
+  assert.ok(rows.length > 3);
+  assert.equal(rows[0].id, ROW_ID);
+  assert.match(rows[1].id, new RegExp(`^${ROW_ID}#\\d+$`));
+  assert.equal(new Set(rows.map((row) => row.id)).size, rows.length);
+  assert.equal(rows.map((row) => row.source).join(" "), RUN_ON);
+  const orders = rows.map((row) => row.order);
+  assert.deepEqual([...orders].sort((a, b) => a - b), orders);
+  assert.equal(new Set(orders).size, orders.length);
+});
+
+test("text that arrives in one go is timed by its share of the characters", () => {
+  const { state } = step(initialState(), [raw(RUN_ON, 10, 50)]);
+  const rows = state.current.lines;
+  assert.equal(rows[0].start, "0:00:10.00");
+  assert.equal(rows.at(-1).end, "0:00:50.00");
+  let cursor = 10;
+  for (const row of rows) {
+    const [start, end] = [row.start, row.end].map((value) => {
+      const [hours, minutes, seconds] = value.split(":").map(Number);
+      return hours * 3600 + minutes * 60 + seconds;
+    });
+    assert.ok(Math.abs(start - cursor) < 0.02, `${row.start} follows ${cursor}`);
+    assert.ok(end > start);
+    cursor = end;
+  }
+});
+
+test("a row in server mode stays whole, its translation is aligned to it", () => {
+  const { state } = step(initialState(), [{ ...raw(RUN_ON, 0, 40), translation: "服务端译文" }], { useApi: false });
+  assert.equal(state.current.lines.length, 1);
+  assert.equal(state.current.lines[0].source, RUN_ON);
+  assert.equal(state.current.lines[0].translation, "服务端译文");
+});
+
+test("a growing row keeps its row ids and finished rows stop changing", () => {
+  let state = initialState();
+  const knownLines = new Map();
+  const finished = new Map();
+  const everSeen = new Set();
+  for (const frame of growRow(RUN_ON)) {
+    ({ state } = step(state, [frame], { knownLines }));
+    const rows = state.current.lines;
+    for (const row of rows) everSeen.add(row.id);
+    // Finished rows are the ones before the row that is still growing and the
+    // one before it, which the merge may still reach.
+    for (const row of rows.slice(0, -2)) {
+      const before = finished.get(row.id);
+      if (before) {
+        assert.equal(row.source, before.source, row.id);
+        assert.equal(row.start, before.start, row.id);
+        assert.equal(row.end, before.end, row.id);
+      }
+      finished.set(row.id, row);
+    }
+    for (const row of rows) knownLines.set(row.id, rememberLine(row));
+  }
+  const final = state.current.lines;
+  assert.equal(final.map((row) => row.source).join(" "), RUN_ON);
+  // An id the final state no longer has would be a row left behind in history.
+  for (const id of everSeen) assert.ok(final.some((row) => row.id === id), `${id} vanished`);
+});
+
+test("a finished row is not rewritten to history on every update", () => {
+  let state = initialState();
+  const knownLines = new Map();
+  const writes = new Map();
+  for (const frame of growRow(RUN_ON)) {
+    const { state: next, result } = step(state, [frame], { knownLines });
+    state = next;
+    for (const row of result.historyLines) {
+      writes.set(row.id, (writes.get(row.id) || 0) + 1);
+      knownLines.set(row.id, rememberLine(row));
+    }
+    // A translation lands right away, the way the scheduler would patch it in.
+    for (const row of state.current.lines) {
+      if (row === state.current.lines.at(-1)) continue;
+      Object.assign(row, { translation: `译${row.source.length}`, translatedSource: row.source, translationPending: false });
+      const remembered = rememberLine(row);
+      remembered.signature = lineSignature(row.source, row.translation);
+      if (knownLines.get(row.id)?.signature !== remembered.signature) {
+        writes.set(row.id, (writes.get(row.id) || 0) + 1);
+        knownLines.set(row.id, remembered);
+      }
+    }
+  }
+  assert.ok(writes.size > 2);
+  // A few writes while the merge settles are fine; one per frame is not.
+  const frames = growRow(RUN_ON).length;
+  for (const [id, count] of writes) assert.ok(count < frames / 3, `${id} written ${count} times`);
+  assert.deepEqual(linesChangedSince(state.current.lines.slice(0, -1), knownLines), []);
+});
+
+test("a finished short row that took a piece of a growing row stops changing", () => {
+  // "Okay." cannot stand alone, so the first piece of the next row joins it.
+  const words = RUN_ON.split(" ");
+  let state = initialState();
+  const seen = [];
+  for (let count = 40; count <= words.length; count += 6) {
+    const text = words.slice(0, count).join(" ");
+    ({ state } = step(state, [raw("Okay.", 10, 10.5), raw(text, 11, 11 + text.length / 15)]));
+    seen.push(state.current.lines[0]);
+  }
+  const first = seen.at(-1);
+  assert.match(first.source, /^Okay\. /);
+  assert.equal(first.start, "0:00:10.00");
+  const settled = seen.filter((row) => row.source === first.source);
+  assert.ok(settled.length > 3);
+  assert.deepEqual([...new Set(settled.map((row) => row.end))], [settled[0].end]);
+  assert.ok(first.end < state.current.lines.at(-1).end);
+});
+
+test("the row that took the first piece of the next split row stops changing too", () => {
+  const head = "A long first sentence that goes on for a good while and then stops right there. ".repeat(3).trim();
+  const words = RUN_ON.split(" ");
+  let state = initialState();
+  const ends = new Map();
+  for (let count = 40; count <= words.length; count += 6) {
+    const text = words.slice(0, count).join(" ");
+    ({ state } = step(state, [raw(`${head} Okay.`, 0, 20), raw(text, 21, 21 + text.length / 15)]));
+    const row = state.current.lines.find((line) => line.source.includes("Okay. "));
+    ends.set(row.source, [...(ends.get(row.source) || []), row.end]);
+  }
+  const lastSource = [...ends.keys()].at(-1);
+  assert.equal(new Set(ends.get(lastSource)).size, 1, ends.get(lastSource).join());
+});
+
+test("a row after a split row keeps its own timing, and the split row's last piece its end", () => {
+  const head = "A long first sentence that goes on for a good while and then stops right there. ".repeat(3).trim();
+  const { state } = step(initialState(), [raw(head, 0, 20), raw("This row stands on its own after the pause.", 24, 26)]);
+  const rows = state.current.lines;
+  assert.equal(rows.at(-1).start, "0:00:24.00");
+  assert.equal(rows.at(-1).end, "0:00:26.00");
+  assert.equal(rows.at(-2).end, "0:00:20.00");
+  assert.ok(rows.at(-3).end < rows.at(-2).end);
+});
+
+test("a following 'and ...' stays off a row that was cut on purpose", () => {
+  const long = Array.from({ length: 26 }, () => "lorem").join(" ");
+  const text = `${long} ipsum, and then a few more words came.`;
+  const { state } = step(initialState(), [raw(text, 0, 12)]);
+  assert.deepEqual(
+    state.current.lines.map((row) => row.source),
+    [`${long} ipsum,`, "and then a few more words came."]
+  );
+});
+
+test("a short 'and ...' after a short sentence still joins it", () => {
+  const { state } = step(initialState(), [raw("We went to the old shop. and bought some bread there.", 0, 5)]);
+  assert.equal(state.current.lines.length, 1);
+});
+
+test("every request stays small and every row gets translated", async () => {
+  const fake = createFakeClock(STARTED_AT);
+  const state = { ...initialState(), active: true };
+  const knownLines = new Map();
+  const requests = [];
+  const scheduler = createTranslationScheduler({
+    getState: () => state,
+    getConfig: () => ({ mode: "api", enabled: true, provider: "custom", model: "mock", apiKey: "key" }),
+    translateTexts: async ({ texts }) => {
+      requests.push(texts);
+      return { translations: texts.map((text) => `译[${text}]`), usage: {} };
+    },
+    knownLines,
+    enqueueHistory: (rows) => {
+      for (const row of rows) knownLines.set(row.id, rememberLine(row));
+    },
+    publish: () => {},
+    setTimeout: fake.setTimeout,
+    clearTimeout: fake.clearTimeout,
+    now: fake.now,
+    random: () => 0
+  });
+
+  for (const frame of growRow(RUN_ON)) {
+    const { state: next } = step(state, [frame], { knownLines, now: fake.now() });
+    Object.assign(state, next);
+    scheduler.scheduleLines();
+    await fake.advance(800);
+  }
+  await fake.advance(10_000);
+  await settleAsync();
+
+  const rows = state.current.lines;
+  assert.ok(rows.length > 3);
+  for (const row of rows) {
+    assert.equal(row.translationPending, false, row.source);
+    assert.ok(row.translation.includes(row.source.slice(0, 16)), `${row.translation} covers ${row.source}`);
+  }
+  for (const texts of requests) {
+    assert.ok(texts.join("").length <= SEGMENT_MAX_CHARS * 6);
+    for (const text of texts) assert.ok(text.length <= SEGMENT_MAX_CHARS);
+  }
+  const sent = requests.flat().join("").length;
+  assert.ok(sent < RUN_ON.length * 8, `sent ${sent} for ${RUN_ON.length}`);
+});

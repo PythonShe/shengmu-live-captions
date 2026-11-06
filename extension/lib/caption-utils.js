@@ -668,6 +668,7 @@ export function mergeCaptionFragments(lines, options = {}) {
       fragmentIds: line.id ? [line.id] : [],
       open: needsCompletion(line.source)
     };
+    if (line.segmentOf) next.segmentTail = line.segmentOf;
     merged.push(next);
     return next;
   };
@@ -692,7 +693,9 @@ export function mergeCaptionFragments(lines, options = {}) {
       gapOk &&
       unit.fragmentLines < maxLines &&
       unit.source.length + line.source.length + 1 <= maxChars &&
-      (startsContinuation(line.source) || unit.open);
+      ((startsContinuation(line.source) &&
+        !(line.segmentOf && unit.source.length >= SEGMENT_CLAUSE_MIN_CHARS)) ||
+        unit.open);
     if (!joinable) {
       unit = startUnit(line);
       continue;
@@ -701,6 +704,10 @@ export function mergeCaptionFragments(lines, options = {}) {
     unit.end = line.end || unit.end;
     unit.fragmentLines += 1;
     if (line.id) unit.fragmentIds = [...(unit.fragmentIds || []), line.id];
+    // The split row the unit now ends in, which is what decides its end time
+    // (see settleSegmentTimes).
+    if (line.segmentOf) unit.segmentTail = line.segmentOf;
+    else delete unit.segmentTail;
     // A server translation may stand in for the unit only if it covers all of
     // it (see reconcileLineTranslations).
     const unitTranslation = getTranslationText(unit);
