@@ -73,7 +73,10 @@ export const TRANSLATION_PROVIDERS = Object.freeze({
     id: "bailian",
     protocol: "openai",
     baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    model: "qwen-plus",
+    // The 1M free token grant moved to the 3.7/3.8 ids; the bare `qwen-plus`
+    // alias has none and bills from the first request. See
+    // paseo/20-bailian-free-tier.md.
+    model: "qwen3.7-flash",
     requiresApiKey: true,
     requiresModel: true,
     disableThinking: true,
@@ -105,6 +108,20 @@ export const TRANSLATION_PROVIDERS = Object.freeze({
   })
 });
 
+/**
+ * Bailian models the popup offers as a closed list: the chat default plus the
+ * three reachable dedicated translation models (`qwen-mt-turbo` answers 404
+ * "model_not_found" in the cn region as of 2026-11-05). A stored id outside this list is
+ * normalised back to the preset default, so the panel select never has to
+ * invent an option for a model the extension no longer sends.
+ */
+export const BAILIAN_TRANSLATION_MODELS = Object.freeze([
+  "qwen3.7-flash",
+  "qwen-mt-flash",
+  "qwen-mt-plus",
+  "qwen-mt-lite"
+]);
+
 const PROVIDER_IDS = Object.keys(TRANSLATION_PROVIDERS);
 
 /**
@@ -129,6 +146,25 @@ const MAX_CONTEXT_CHARS = 480;
 /** DeepL cannot be told which model to use, but it must be told the target
  * language; the project only ships English-to-Simplified-Chinese captions. */
 export const DEEPL_TARGET_LANG = "ZH-HANS";
+
+/**
+ * Wire protocol for a resolved provider + model pair.
+ *
+ * Bailian's dedicated translation models (`qwen-mt-*`) live behind the same
+ * OpenAI-compatible base URL but speak a different contract: no system message,
+ * no JSON, and a `translation_options` block with `source_lang` / `target_lang` /
+ * `terms` / `domains`. They answer a two-row batch in 0.25-0.36 s where
+ * qwen3.7-flash needs 1.0-1.3 s, so the model name selects the protocol; users
+ * switch by typing the model into the same panel field.
+ * @param {{ protocol?: string }} [preset]
+ * @param {string} [model]
+ * @returns {string}
+ */
+export function resolveTranslationProtocol(preset, model) {
+  const base = preset?.protocol || "openai";
+  if (base !== "openai") return base;
+  return /^qwen-mt/i.test(String(model || "").trim()) ? "qwen-mt" : base;
+}
 const DEEPL_MAX_CONTEXT_CHARS = 1000;
 
 // The system prompt must stay byte-identical for every request: DeepSeek and
@@ -310,12 +346,16 @@ export function normalizeTranslationSettings(value = {}) {
   // DeepL selects its own engine, so a leftover OpenAI model name must not
   // travel with the config or block validation. A provider with a fixed model
   // (DeepSeek) always uses the preset, ignoring whatever was stored before.
-  const model =
+  const rawModel =
     preset.requiresModel === false
       ? ""
       : preset.fixedModel
         ? preset.model
         : String(value.translationModel ?? preset.model).trim();
+  const model =
+    provider === "bailian" && !BAILIAN_TRANSLATION_MODELS.includes(rawModel)
+      ? preset.model
+      : rawModel;
   const timeout = Number(value.translationTimeoutMs);
   return {
     mode: normalizeTranslationMode(value.translationMode),
@@ -415,7 +455,7 @@ export function resolveTranslationConfig(settings = {}) {
       preset.protocol === "deepl"
         ? deeplBaseUrl(normalized.baseUrl, apiKey, preset)
         : normalized.baseUrl,
-    protocol: preset.protocol || "openai",
+    protocol: resolveTranslationProtocol(preset, normalized.model),
     requiresApiKey: preset.requiresApiKey,
     requiresModel: preset.requiresModel !== false,
     builtin: Boolean(preset.builtin),
@@ -494,17 +534,32 @@ export function deeplTranslateUrl(baseUrl) {
 }
 
 /**
+ * Glossary endpoints live next to /translate on the same host, so a pinned URL
+ * keeps working. `suffix` is the tail after /glossaries, or "" for the
+ * collection itself.
+ * @param {string} baseUrl
+ * @param {string} [suffix]
+ */
+export function deeplGlossaryUrl(baseUrl, suffix = "") {
+  const translate = deeplTranslateUrl(baseUrl);
+  const root = translate.replace(/\/translate$/i, "");
+  const tail = String(suffix || "").replace(/^\/+/, "");
+  return tail ? `${root}/glossaries/${tail}` : `${root}/glossaries`;
+}
+
+/**
  * DeepL translates every text independently and understands no prompts, so
  * the only way to keep a fragment attached to the sentence before it is the
  * free `context` field (not billed, applies to the whole request).
  * @param {{ texts?: string[], context?: Array<{ source?: string }>,
- *   targetLang?: string }} [options]
+ *   targetLang?: string, glossaryId?: string }} [options]
  * @returns {Record<string, unknown>}
  */
 export function buildDeepLRequestBody({
   texts,
   context = [],
-  targetLang = DEEPL_TARGET_LANG
+  targetLang = DEEPL_TARGET_LANG,
+  glossaryId = ""
 } = {}) {
   if (!Array.isArray(texts) || texts.length === 0) {
     throw new TranslationApiError(msg("translation_nothing_to_translate"), { code: "empty" });
@@ -524,6 +579,13 @@ export function buildDeepLRequestBody({
     show_billed_characters: true
   };
   if (contextText) body.context = contextText;
+  // DeepL requires the source language once a glossary is attached; without it
+  // the request answers 400 even though glossary_id alone looks sufficient.
+  const glossary = String(glossaryId || "").trim();
+  if (glossary) {
+    body.glossary_id = glossary;
+    body.source_lang = "EN";
+  }
   return body;
 }
 
@@ -685,6 +747,101 @@ export function buildTranslationRequestBody({
     Object.assign(body, config.thinkingOff || thinkingOffFields("deepseek", model));
   }
   return body;
+}
+
+/** Separator that keeps one segment per output line for `qwen-mt-*`. */
+export const QWEN_MT_SEPARATOR = "\n";
+export const QWEN_MT_SOURCE_LANG = "English";
+export const QWEN_MT_TARGET_LANG = "Chinese";
+
+/**
+ * Request body for Bailian's dedicated translation models.
+ *
+ * `qwen-mt-*` rejects a system message and knows nothing about JSON: the text
+ * goes in as one user message, one segment per line, and the translation comes
+ * back line by line. Terms and the domain travel in `translation_options`
+ * (measured working: Spirit / Orb of Augmentation / Divination card all came
+ * back with the glossary spelling). There is no context block, so cross-row
+ * continuity is left to the model.
+ * @param {{
+ *   texts?: string[],
+ *   config?: any,
+ *   glossaryEntries?: any[],
+ *   domainHint?: string
+ * }} [options]
+ */
+export function buildQwenMtRequestBody({ texts, config, glossaryEntries = [], domainHint = "" } = {}) {
+  if (!Array.isArray(texts) || texts.length === 0) {
+    throw new TranslationApiError(msg("translation_nothing_to_translate"), { code: "empty" });
+  }
+  const segments = texts.map((text) => String(text || "").replace(/\s+/g, " ").trim());
+  if (segments.some((text) => !text)) {
+    throw new TranslationApiError(msg("translation_empty_segment"), { code: "empty" });
+  }
+  const model = String(config?.model || "").trim();
+  if (!model) {
+    throw new TranslationApiError(msg("translation_model_missing"), { code: "config" });
+  }
+  const effectiveEntries =
+    Array.isArray(glossaryEntries) && glossaryEntries.length > 0
+      ? glossaryEntries
+      : config?.glossaryEntries || [];
+  const terms = Object.entries(
+    buildGlossaryMap(matchGlossaryTerms(segments, effectiveEntries))
+  ).map(([source, target]) => ({ source, target }));
+  const cleanDomain = cleanDomainHint(domainHint || config?.domainHint || "");
+  return {
+    model,
+    messages: [{ role: "user", content: segments.join(QWEN_MT_SEPARATOR) }],
+    translation_options: {
+      source_lang: QWEN_MT_SOURCE_LANG,
+      target_lang: QWEN_MT_TARGET_LANG,
+      ...(cleanDomain ? { domains: cleanDomain } : {}),
+      ...(terms.length > 0 ? { terms } : {})
+    },
+    stream: false
+  };
+}
+
+/**
+ * Splits a `qwen-mt-*` answer back into one translation per input segment.
+ *
+ * The model answers one line per input line, but it occasionally keeps the
+ * numbering or turns one long sentence into two lines. A single input segment is
+ * therefore taken whole, and a mismatch is reported as `count_mismatch` so the
+ * scheduler can retry the batch in halves (SPLITTABLE_ERROR_CODES) instead of
+ * pairing the wrong translation with a row.
+ * @param {string} content Raw assistant content.
+ * @param {number} expectedCount Number of segments that were sent.
+ * @returns {string[]}
+ */
+export function parseQwenMtOutput(content, expectedCount) {
+  const text = String(content ?? "").trim();
+  if (!text) {
+    throw new TranslationApiError(msg("translation_empty_response"), {
+      code: "empty_response"
+    });
+  }
+  const count = Math.max(0, Number(expectedCount) || 0);
+  if (count <= 1) return [text];
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const stripped = lines.map((line) =>
+    line.replace(/^\s*(?:[-*•]|\d+[.)、])\s*/, "").trim()
+  );
+  // Our segments never carry numbering, so when every line lost a prefix the
+  // model added its own list and the bare text is the translation. A row whose
+  // translation legitimately starts with "3." would lose that digit; accepted,
+  // since numbering only appears when every line was numbered (see paseo/20).
+  const allNumbered =
+    stripped.every((line, index) => line !== lines[index]) && stripped.every(Boolean);
+  if (lines.length === count) return allNumbered ? stripped : lines;
+  throw new TranslationApiError(
+    msg("translation_count_mismatch", count, lines.length),
+    { code: "count_mismatch" }
+  );
 }
 
 function stripCodeFence(value) {
@@ -1016,10 +1173,11 @@ async function translateWithDeepL({ texts, context = [], config, fetchImpl, sign
   // ZH-HANS is the explicit Simplified variant; older accounts only know the
   // generic ZH code, so a 400 that names the language falls back once.
   let targetLang = DEEPL_TARGET_LANG;
-  const send = (lang) =>
+  const glossaryId = String(config.deeplGlossaryId || "").trim();
+  const send = (lang, glossary = glossaryId) =>
     postJson({
       url: endpoint,
-      body: buildDeepLRequestBody({ texts, context, targetLang: lang }),
+      body: buildDeepLRequestBody({ texts, context, targetLang: lang, glossaryId: glossary }),
       headers: { Authorization: `DeepL-Auth-Key ${config.apiKey}` },
       config,
       fetchImpl,
@@ -1033,6 +1191,12 @@ async function translateWithDeepL({ texts, context = [], config, fetchImpl, sign
   ) {
     targetLang = "ZH";
     attempt = await send(targetLang);
+  }
+  // A deleted or expired glossary must not stop the captions: DeepL answers 400
+  // naming the glossary id, so retry once without it and let the term base fall
+  // back to prompt injection on the other providers.
+  if (!attempt.response.ok && attempt.response.status === 400 && glossaryId && /glossary/i.test(attempt.bodyText)) {
+    attempt = await send(targetLang, "");
   }
   if (!attempt.response.ok) {
     throw mapHttpError(
@@ -1057,6 +1221,73 @@ async function translateWithDeepL({ texts, context = [], config, fetchImpl, sign
     translations,
     usage: normalizeUsage({ billedCharacters }),
     model: "deepl",
+    latencyMs: Date.now() - startedAt
+  };
+}
+
+/**
+ * Bailian dedicated translation models (`qwen-mt-*`).
+ *
+ * Same OpenAI-compatible endpoint and key, different request and response shape
+ * (see buildQwenMtRequestBody / parseQwenMtOutput). No thinking switch exists on
+ * these models, so nothing is injected.
+ * @param {{
+ *   texts: string[],
+ *   config: any,
+ *   glossaryEntries?: any[],
+ *   domainHint?: string,
+ *   fetchImpl: typeof fetch,
+ *   signal?: AbortSignal | null
+ * }} options
+ */
+async function translateWithQwenMt({
+  texts,
+  config,
+  glossaryEntries = [],
+  domainHint = "",
+  fetchImpl,
+  signal
+}) {
+  if (!config.apiKey) {
+    throw new TranslationApiError(msg("translation_key_missing", providerName(config)), {
+      code: "config"
+    });
+  }
+  const endpoint = chatCompletionsUrl(config.baseUrl);
+  const startedAt = Date.now();
+  const attempt = await postJson({
+    url: endpoint,
+    body: buildQwenMtRequestBody({ texts, config, glossaryEntries, domainHint }),
+    headers: { Authorization: `Bearer ${config.apiKey}` },
+    config,
+    fetchImpl,
+    signal
+  });
+  if (!attempt.response.ok) {
+    throw mapHttpError(
+      attempt.response.status,
+      attempt.bodyText,
+      providerName(config),
+      attempt.response.headers?.get?.("retry-after") ?? null
+    );
+  }
+  let data;
+  try {
+    data = JSON.parse(attempt.bodyText);
+  } catch {
+    throw new TranslationApiError(msg("translation_bad_json"), {
+      code: "parse_error"
+    });
+  }
+  if (data?.choices?.[0]?.finish_reason === "length") {
+    throw new TranslationApiError(msg("translation_truncated"), { code: "truncated" });
+  }
+  const message = data?.choices?.[0]?.message;
+  const content = typeof message?.content === "string" ? message.content : "";
+  return {
+    translations: parseQwenMtOutput(content, texts.length),
+    usage: normalizeUsage(data.usage),
+    model: String(data.model || config.model),
     latencyMs: Date.now() - startedAt
   };
 }
@@ -1148,6 +1379,16 @@ export async function translateTexts({
   }
   if (resolved.protocol === "deepl") {
     return translateWithDeepL({ texts, context, config: resolved, fetchImpl, signal });
+  }
+  if (resolved.protocol === "qwen-mt") {
+    return translateWithQwenMt({
+      texts,
+      config: resolved,
+      glossaryEntries,
+      domainHint,
+      fetchImpl,
+      signal
+    });
   }
   const endpoint = chatCompletionsUrl(resolved.baseUrl);
   const startedAt = Date.now();

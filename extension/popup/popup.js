@@ -4,6 +4,7 @@ import {
   normalizeSettings,
   normalizeWsUrl
 } from "../lib/caption-utils.js";
+import { totalTokens } from "../lib/usage-ledger.js";
 import {
   GLOSSARY_PRESETS,
   MAX_CUSTOM_GLOSSARY_CHARS,
@@ -14,6 +15,7 @@ import {
   serializeWlkGlossary
 } from "../lib/glossary.js";
 import {
+  BAILIAN_TRANSLATION_MODELS,
   TRANSLATION_PROVIDERS,
   normalizeTranslationBaseUrl,
   translatesInExtension,
@@ -58,12 +60,15 @@ const elements = {
   apiTranslationFields: document.querySelector("#apiTranslationFields"),
   translationBaseUrl: document.querySelector("#translationBaseUrl"),
   translationModel: document.querySelector("#translationModel"),
+  translationModelSelect: document.querySelector("#translationModelSelect"),
+  translationModelLabel: document.querySelector("#translationModelLabel"),
   translationApiKey: document.querySelector("#translationApiKey"),
   translationKeyHint: document.querySelector("#translationKeyHint"),
   testTranslationButton: document.querySelector("#testTranslationButton"),
   clearTranslationKey: document.querySelector("#clearTranslationKey"),
   translationTestResult: document.querySelector("#translationTestResult"),
   translationUsage: document.querySelector("#translationUsage"),
+  usageLedger: document.querySelector("#usageLedger"),
   glossaryEnabled: document.querySelector("#glossaryEnabled"),
   glossaryPresetPoe: document.querySelector("#glossaryPresetPoe"),
   glossarySummaryHint: document.querySelector("#glossarySummaryHint"),
@@ -74,6 +79,9 @@ const elements = {
   exportGlossaryTextButton: document.querySelector("#exportGlossaryTextButton"),
   exportGlossaryCsvButton: document.querySelector("#exportGlossaryCsvButton"),
   glossaryActionHint: document.querySelector("#glossaryActionHint"),
+  deeplGlossaryRow: document.querySelector("#deeplGlossaryRow"),
+  deeplGlossaryHint: document.querySelector("#deeplGlossaryHint"),
+  syncDeeplGlossary: document.querySelector("#syncDeeplGlossary"),
   openMonitor: document.querySelector("#openMonitor"),
   openMonitorFooter: document.querySelector("#openMonitorFooter"),
   localServiceBadge: document.querySelector("#localServiceBadge"),
@@ -274,6 +282,7 @@ function render() {
   setFieldValue(elements.wsUrl, settings.wsUrl);
   renderSpeechSettings();
   renderTranslationSettings();
+  void refreshUsageLedger();
   renderGlossarySettings();
 }
 
@@ -408,6 +417,29 @@ function modelForPreset(preset, typed) {
   return String(typed || "").trim();
 }
 
+/**
+ * Bailian offers a closed model list, so it uses a select instead of the free
+ * text field the other providers share. The options never change at runtime.
+ * @returns {boolean} whether the select is the visible model control
+ */
+function usesModelSelect(provider) {
+  return provider?.id === "bailian";
+}
+
+function populateBailianModels() {
+  if (elements.translationModelSelect.options.length > 0) return;
+  for (const model of BAILIAN_TRANSLATION_MODELS) {
+    elements.translationModelSelect.append(new Option(model, model));
+  }
+}
+
+/** The model currently shown in whichever control the provider uses. */
+function selectedModelValue(provider) {
+  return usesModelSelect(provider)
+    ? elements.translationModelSelect.value
+    : elements.translationModel.value;
+}
+
 function renderTranslationSettings() {
   const providerId = settings.translationProvider;
   const provider = TRANSLATION_PROVIDERS[providerId];
@@ -417,6 +449,7 @@ function renderTranslationSettings() {
     elements.translationProvider.value = "";
     elements.translationProvider.disabled = true;
     elements.translationModel.disabled = true;
+    elements.translationModelSelect.disabled = true;
     elements.translationUsage.textContent = t("popup_provider_unknown", providerId);
     return;
   }
@@ -437,11 +470,27 @@ function renderTranslationSettings() {
   elements.translationProvider.value = provider.id;
   setFieldValue(elements.translationBaseUrl, settings.translationBaseUrl);
   setFieldValue(elements.translationModel, settings.translationModel);
+  // Bailian's four qwen-mt-* models and the chat default are a closed list:
+  // a select removes the typo path that used to silently keep the old model.
+  const modelSelect = usesModelSelect(provider);
+  populateBailianModels();
+  elements.translationModel.hidden = modelSelect;
+  elements.translationModelSelect.hidden = !modelSelect;
+  elements.translationModelLabel.htmlFor = modelSelect
+    ? "translationModelSelect"
+    : "translationModel";
+  if (modelSelect) {
+    setFieldValue(elements.translationModelSelect, settings.translationModel);
+  }
   // DeepL picks its own engine and DeepSeek ships a single flash id: typing a
   // model there could only put a value back that the resolver ignores.
   elements.translationModel.disabled =
     provider.requiresModel === false || Boolean(provider.fixedModel);
   elements.apiTranslationFields.hidden = settings.translationMode !== "api";
+  // DeepL pins terminology with a glossary instead of a prompt; the button only
+  // makes sense while DeepL is the provider.
+  elements.deeplGlossaryRow.hidden = provider.id !== "deepl";
+  if (provider.id === "deepl") void refreshDeepLGlossary();
   elements.translationKeyHint.textContent = configured
     ? t("popup_key_saved", providerLabel)
     : provider.id === "deepl"
@@ -479,6 +528,148 @@ function renderTranslationSettings() {
     usageText += ` · ${renderMessage(translationState.error).slice(0, 90)}`;
   }
   elements.translationUsage.textContent = usageText;
+}
+
+// Cross-session usage: the session line above comes from runtimeState and is
+// cleared on stop, so the daily/monthly totals and the account-level number are
+// fetched from the worker. Refetching on every status broadcast would hammer a
+// rate-limited endpoint, so the result is keyed to provider+model and cached.
+let usageLedgerCache = { at: 0, key: "", data: null };
+let usageLedgerInFlight = false;
+const USAGE_LEDGER_REFRESH_MS = 10_000;
+
+function usageAmount(totals) {
+  if ((Number(totals?.billedCharacters) || 0) > 0) {
+    return t("popup_usage_amount_chars", Number(totals.billedCharacters).toLocaleString());
+  }
+  return t("popup_usage_amount_tokens", totalTokens(totals).toLocaleString());
+}
+
+function remoteUsageText(remote) {
+  if (!remote) return "";
+  if (remote.kind === "characters") {
+    const percent = remote.limit > 0 ? Math.round((remote.used / remote.limit) * 100) : 0;
+    return t(
+      "popup_usage_remote_chars",
+      Number(remote.used).toLocaleString(),
+      Number(remote.limit).toLocaleString(),
+      percent
+    );
+  }
+  if (remote.kind === "balance") {
+    return t(
+      "popup_usage_remote_balance",
+      remote.currency || "",
+      Number(remote.total).toFixed(2),
+      Number(remote.granted).toFixed(2)
+    );
+  }
+  if (remote.kind === "error") {
+    return t("popup_usage_remote_error", remote.reason);
+  }
+  const reasonKey = {
+    console_only: "popup_usage_remote_console",
+    admin_key_required: "popup_usage_remote_admin",
+    free: "popup_usage_remote_free",
+    local_or_unknown: "popup_usage_remote_local"
+  }[remote.reason || ""];
+  return reasonKey ? t(reasonKey) : "";
+}
+
+function renderUsageLedger(data) {
+  const node = elements.usageLedger;
+  if (!node) return;
+  if (!data) {
+    node.hidden = true;
+    return;
+  }
+  const lines = [
+    t("popup_usage_today", Number(data.today?.requests) || 0, usageAmount(data.today)),
+    t("popup_usage_month", Number(data.month?.requests) || 0, usageAmount(data.month))
+  ];
+  const remote = remoteUsageText(data.remote);
+  if (remote) lines.push(remote);
+  node.textContent = lines.join(" · ");
+  node.hidden = false;
+}
+
+async function refreshUsageLedger(force = false) {
+  const key = `${settings.translationProvider}|${settings.translationModel}|${settings.translationMode}`;
+  const now = Date.now();
+  if (
+    !force &&
+    usageLedgerCache.data &&
+    usageLedgerCache.key === key &&
+    now - usageLedgerCache.at < USAGE_LEDGER_REFRESH_MS
+  ) {
+    return;
+  }
+  // render() runs on every status broadcast; without this flag a burst of
+  // broadcasts would send one get-usage message each while the first is still
+  // in flight.
+  if (usageLedgerInFlight) return;
+  usageLedgerInFlight = true;
+  try {
+    const response = await chrome.runtime.sendMessage({
+      target: "background",
+      type: "get-usage"
+    });
+    if (!response?.ok) return;
+    usageLedgerCache = { at: Date.now(), key, data: response.usage };
+    renderUsageLedger(response.usage);
+  } catch {
+    // A closed worker or a failed remote call must not break the panel.
+  } finally {
+    usageLedgerInFlight = false;
+  }
+}
+
+/**
+ * DeepL glossary state: whether the account already holds a glossary built from
+ * the current term base. Computed in the worker, so this only reads it.
+ */
+let deeplGlossaryCache = { at: 0, data: null };
+let deeplGlossaryInFlight = false;
+const DEEPL_GLOSSARY_REFRESH_MS = 5000;
+
+function renderDeepLGlossary(data) {
+  if (!elements.deeplGlossaryHint) return;
+  let text;
+  if (!data) {
+    text = "";
+  } else if (!data.synced) {
+    text = t("popup_deepl_glossary_unsynced");
+  } else if (data.stale) {
+    text = t("popup_deepl_glossary_stale");
+  } else {
+    text = t("popup_deepl_glossary_synced", Number(data.count) || 0);
+  }
+  const hint = data ? `${text}
+${t("popup_deepl_glossary_hint")}` : "";
+  elements.deeplGlossaryHint.textContent = hint;
+  elements.deeplGlossaryHint.hidden = !hint;
+}
+
+async function refreshDeepLGlossary(force = false) {
+  const now = Date.now();
+  if (!force && deeplGlossaryCache.data && now - deeplGlossaryCache.at < DEEPL_GLOSSARY_REFRESH_MS) {
+    return;
+  }
+  if (deeplGlossaryInFlight) return;
+  deeplGlossaryInFlight = true;
+  try {
+    const response = await chrome.runtime.sendMessage({
+      target: "background",
+      type: "get-deepl-glossary"
+    });
+    if (!response?.ok) return;
+    deeplGlossaryCache = { at: Date.now(), data: response.glossary };
+    renderDeepLGlossary(response.glossary);
+  } catch {
+    // A closed worker must not break the panel.
+  } finally {
+    deeplGlossaryInFlight = false;
+  }
 }
 
 // render() runs on every status broadcast, but the summary only depends on
@@ -1029,7 +1220,7 @@ async function startCapture() {
       if (!baseUrl) throw new Error(t("popup_base_url_required"));
       patch.translationBaseUrl = baseUrl;
     }
-    patch.translationModel = modelForPreset(preset, elements.translationModel.value);
+    patch.translationModel = modelForPreset(preset, selectedModelValue(preset));
     if (preset.requiresModel !== false && !patch.translationModel) {
       throw new Error(t("popup_model_required"));
     }
@@ -1216,7 +1407,9 @@ elements.translationProvider.addEventListener("change", () => {
     translationProvider: preset.id,
     translationBaseUrl: preset.baseUrl,
     translationModel: preset.model
-  }).catch((error) => setError(errorText(error)));
+  })
+    .then(() => refreshUsageLedger(true))
+    .catch((error) => setError(errorText(error)));
 });
 
 elements.translationBaseUrl.addEventListener("change", () => {
@@ -1232,11 +1425,18 @@ elements.translationBaseUrl.addEventListener("change", () => {
   }
 });
 
+elements.translationModelSelect.addEventListener("change", () => {
+  const model = elements.translationModelSelect.value.trim();
+  void savePatch({ translationModel: model })
+    .then(() => refreshUsageLedger(true))
+    .catch((error) => setError(errorText(error)));
+});
+
 elements.translationModel.addEventListener("change", () => {
   const model = elements.translationModel.value.trim();
-  void savePatch({ translationModel: model }).catch((error) =>
-    setError(errorText(error))
-  );
+  void savePatch({ translationModel: model })
+    .then(() => refreshUsageLedger(true))
+    .catch((error) => setError(errorText(error)));
 });
 
 elements.translationApiKey.addEventListener("change", () => {
@@ -1284,7 +1484,7 @@ elements.testTranslationButton.addEventListener("click", async () => {
         if (!baseUrl) throw new Error(t("popup_base_url_required"));
         patch.translationBaseUrl = baseUrl;
       }
-      patch.translationModel = modelForPreset(preset, elements.translationModel.value);
+      patch.translationModel = modelForPreset(preset, selectedModelValue(preset));
       if (preset.requiresModel !== false && !patch.translationModel) {
         throw new Error(t("popup_model_required"));
       }
@@ -1551,6 +1751,32 @@ elements.exportGlossaryTextButton.addEventListener("click", () => {
 
 elements.exportGlossaryCsvButton.addEventListener("click", () => {
   downloadGlossaryFile("csv");
+});
+
+// Rebuilding deletes the account's only glossary on the Free plan, so this is a
+// deliberate click, never a side effect of editing the term base.
+elements.syncDeeplGlossary.addEventListener("click", async () => {
+  elements.syncDeeplGlossary.disabled = true;
+  elements.deeplGlossaryHint.hidden = false;
+  elements.deeplGlossaryHint.textContent = t("popup_deepl_glossary_syncing");
+  setError();
+  try {
+    // The textarea may hold unsaved edits; the glossary is built from what the
+    // worker knows, so persist the draft first.
+    await savePatch(collectGlossaryPatchFromInputs());
+    const response = await chrome.runtime.sendMessage({
+      target: "background",
+      type: "sync-deepl-glossary"
+    });
+    if (!response?.ok) throw new Error(response?.error || t("deepl_glossary_empty"));
+    await refreshDeepLGlossary(true);
+  } catch (error) {
+    setError(errorText(error));
+    elements.deeplGlossaryHint.textContent = "";
+    elements.deeplGlossaryHint.hidden = true;
+  } finally {
+    elements.syncDeeplGlossary.disabled = false;
+  }
 });
 
 chrome.runtime.onMessage.addListener((message) => {

@@ -11,6 +11,8 @@ import { createOffscreenClient } from "./offscreen-client.js";
 import { createRuntimeStore } from "./runtime-store.js";
 import { createSessionLifecycle } from "./session-lifecycle.js";
 import { createSettingsStore, translationSettingsChanged } from "./settings-store.js";
+import { createDeepLGlossaryService } from "./deepl-glossary-service.js";
+import { createUsageService } from "./usage-service.js";
 import { createViews } from "./views.js";
 
 // Composition root: build the services, then register the chrome.* listeners.
@@ -31,11 +33,23 @@ async function builtinTranslate(texts) {
   return response.translations;
 }
 const history = createHistorySync({ store, views });
+const usage = createUsageService({ getConfig: () => settings.translationConfig() });
+// One DeepL glossary, synced from the panel on demand: DeepL cannot be prompted,
+// so this id is the only way the term base reaches it.
+const deeplGlossary = createDeepLGlossaryService({
+  getConfig: () => settings.translationConfig()
+});
 const scheduler = createTranslationScheduler({
   getState: () => store.state,
-  getConfig: () => settings.translationConfig(),
+  // The glossary id rides on the config so every request in a session uses the
+  // same glossary the user synced, without a lookup per batch.
+  getConfig: () => ({
+    ...settings.translationConfig(),
+    deeplGlossaryId: deeplGlossary.currentId()
+  }),
   isApiEnabled: () => settings.apiTranslationActive(),
   translateTexts: (options) => translateTexts({ ...options, builtinTranslate }),
+  recordUsage: (delta, config) => usage.record(delta, config),
   knownLines: history.knownLines,
   enqueueHistory: (lines) => history.enqueue(lines),
   publish: () => lifecycle.publishCaptions(),
@@ -57,7 +71,11 @@ let initializationPromise = null;
 function initialize() {
   if (initializationPromise) return initializationPromise;
   initializationPromise = (async () => {
-    const [, restored] = await Promise.all([settings.load(), store.rehydrate()]);
+    const [, restored] = await Promise.all([
+      settings.load(),
+      store.rehydrate(),
+      deeplGlossary.load()
+    ]);
     if (restored) {
       scheduler.restore({
         usage: restored.translation?.usage,
@@ -72,6 +90,9 @@ function initialize() {
 async function saveSettings(patch) {
   await initialize();
   const saved = await settings.applyPatch(patch);
+  // Any translation setting may change which account the quota comes from
+  // (provider, key, base URL), so the cached account number is dropped here.
+  usage.invalidateRemote();
   await views.broadcastToExtension({
     type: "settings-changed",
     settings: settingsForBroadcast(saved)
@@ -94,7 +115,13 @@ const dispatch = createMessageDispatcher({
     publicSettings: () => settingsForBroadcast(settings.current),
     saveSettings,
     overlayEnabled: () => settings.current.overlayEnabled,
-    testTranslationApi: () => testTranslationApi(settings.translationConfig(), { builtinTranslate }),
+    testTranslationApi: () => testTranslationApi(
+      { ...settings.translationConfig(), deeplGlossaryId: deeplGlossary.currentId() },
+      { builtinTranslate }
+    ),
+    getUsage: () => usage.snapshot(),
+    syncDeepLGlossary: () => deeplGlossary.sync(),
+    deepLGlossaryStatus: () => deeplGlossary.status(),
     openMonitorWindow: () => views.openMonitorWindow(),
     refreshOverlay: () => views.refreshOverlay(),
     acknowledgeContentReady: (sender) => views.acknowledgeContentReady(sender),
@@ -113,6 +140,12 @@ chrome.runtime.onInstalled.addListener((details) => {
 
 chrome.runtime.onStartup.addListener(() => {
   void initialize();
+});
+
+// MV3 stops the worker when it goes idle; a ledger bucket still waiting for its
+// throttle window would be lost. Best effort: Chrome may not wait for the write.
+chrome.runtime.onSuspend?.addListener(() => {
+  void usage.flush();
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

@@ -31,6 +31,10 @@
 | `16-stage-translation-0.5.8.md` | 阶段译文（单调递进）、停用 buffer 送翻、英文固定单行 |
 | `17-scrollback-live-0.5.9.md` | 滚轮回看窗口改实时跟随、行节点增量复用 |
 | `18-overlay-bounce-0.5.10.md` | 去 `text-wrap: balance`、量宽余量、变宽零延迟、盒子高度 160 ms 缓动 |
+| `19-broadcast-visuals-0.5.11.md` | 广播风视觉改版：无衬线字体、冷暖分轨实色、闭合描边、黑曜石底板、英文 stash 尾巴 |
+| `20-bailian-free-tier.md` | 百炼免费额度选型：可填的 6 个模型、`qwen-mt` 与仅思考模式的坑、每月重置的 ASR、专用翻译模型实测 |
+| `22-deepl-glossary-0.5.12.md` | DeepL 术语库：免费层实测可用但限 1 个、手动同步按钮、大小写变体、TSV 与 root ZH |
+| `21-usage-panel.md` | 用量面板：本地 90 天账本、DeepL/DeepSeek 账号额度、百炼无 API 的取舍 |
 | `compare-codex-vs-paseo.md` | Codex 与 paseo 分工的评估（历史记录） |
 | `mock-openai-server.mjs` | 无 Key 联调用的 OpenAI 兼容 mock |
 

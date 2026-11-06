@@ -437,6 +437,39 @@
   "popup_usage_characters": {
     "message": "$1 requests / $2 characters this session"
   },
+  "popup_usage_today": {
+    "message": "$1 requests today · $2"
+  },
+  "popup_usage_month": {
+    "message": "$1 requests this month · $2"
+  },
+  "popup_usage_amount_tokens": {
+    "message": "$1 tokens"
+  },
+  "popup_usage_amount_chars": {
+    "message": "$1 characters"
+  },
+  "popup_usage_remote_chars": {
+    "message": "DeepL: $1 / $2 characters this month ($3%)"
+  },
+  "popup_usage_remote_balance": {
+    "message": "DeepSeek balance $1 $2 (granted $3)"
+  },
+  "popup_usage_remote_console": {
+    "message": "Bailian quota lives in the console"
+  },
+  "popup_usage_remote_admin": {
+    "message": "OpenAI quota needs an admin key"
+  },
+  "popup_usage_remote_free": {
+    "message": "On-device translation, no billing"
+  },
+  "popup_usage_remote_local": {
+    "message": "Custom endpoint, no account quota"
+  },
+  "popup_usage_remote_error": {
+    "message": "Usage lookup failed ($1)"
+  },
   "popup_no_model": {
     "message": "no model set"
   },
@@ -1256,5 +1289,32 @@
   },
   "popup_switch_bailian": {
     "message": "Use Alibaba Bailian"
+  },
+  "deepl_glossary_needs_deepl": {
+    "message": "Sync the glossary to DeepL only after choosing DeepL as the translation provider"
+  },
+  "deepl_glossary_empty": {
+    "message": "The term base is empty: enable a preset or type custom terms first"
+  },
+  "deepl_glossary_create_failed": {
+    "message": "DeepL refused to create the glossary (HTTP $1): $2"
+  },
+  "popup_sync_deepl_glossary": {
+    "message": "Sync to DeepL"
+  },
+  "popup_deepl_glossary_unsynced": {
+    "message": "DeepL glossary not synced, terms are inactive"
+  },
+  "popup_deepl_glossary_stale": {
+    "message": "Terms changed: sync again before the new ones apply"
+  },
+  "popup_deepl_glossary_synced": {
+    "message": "$1 terms synced to DeepL"
+  },
+  "popup_deepl_glossary_syncing": {
+    "message": "Syncing the glossary…"
+  },
+  "popup_deepl_glossary_hint": {
+    "message": "DeepL pins terminology only through glossaries, never through prompts. A free account allows one glossary, so a sync replaces the previous one"
   }
 }

@@ -14,8 +14,11 @@ import {
   normalizeCaptionLines,
   normalizeSettings,
   composeLiveSource,
+  composeLiveSourceParts,
+  composeLiveSourceText,
   planTranscriptDiff,
   reconcileLineTranslations,
+  resolveRetranslateThrottle,
   sanitizeSettingsPatch,
   shouldRetranslateLine,
   selectDisplayCaption,
@@ -410,11 +413,39 @@ test("selectDisplayCaption appends the uncommitted tail instead of replacing the
   assert.deepEqual(caption, {
     lineId: "line-1",
     source: "The stable sentence. A newer unfinished sentence",
+    sourceStable: "The stable sentence.",
+    sourceStash: "A newer unfinished sentence",
     translation: "稳定的译文。",
     error: "",
     pending: false,
     failed: false
   });
+});
+
+test("composeLiveSourceParts splits the committed row from the uncommitted tail", () => {
+  const append = composeLiveSourceParts("The stable sentence.", "A newer unfinished sentence");
+  assert.deepEqual(append, {
+    stable: "The stable sentence.",
+    stash: "A newer unfinished sentence"
+  });
+  assert.equal(composeLiveSourceText(append), composeLiveSource("The stable sentence.", "A newer unfinished sentence"));
+
+  // The buffer only repeats the row's tail: nothing new to dim.
+  assert.deepEqual(composeLiveSourceParts("one two three", "two three"), {
+    stable: "one two three",
+    stash: ""
+  });
+  // The buffer overlaps the tail and then adds words.
+  assert.deepEqual(composeLiveSourceParts("one two three", "three four five"), {
+    stable: "one two three",
+    stash: "four five"
+  });
+  // Nothing committed yet: the whole slot is the stash.
+  assert.deepEqual(composeLiveSourceParts("", "only buffer"), {
+    stable: "only buffer",
+    stash: ""
+  });
+  assert.deepEqual(composeLiveSourceParts("only row", ""), { stable: "only row", stash: "" });
 });
 
 test("selectDisplayCaption does not wait for the translation of a committed line", () => {
@@ -428,6 +459,8 @@ test("selectDisplayCaption does not wait for the translation of a committed line
   assert.deepEqual(caption, {
     lineId: "line-2",
     source: "Second sentence.",
+    sourceStable: "Second sentence.",
+    sourceStash: "",
     translation: "第一句。",
     error: "",
     pending: true,
@@ -475,6 +508,8 @@ test("selectDisplayCaption leaves the first pending translation empty", () => {
   assert.deepEqual(caption, {
     lineId: null,
     source: "First sentence",
+    sourceStable: "First sentence",
+    sourceStash: "",
     translation: "",
     error: "",
     pending: true,
@@ -819,4 +854,23 @@ test("shouldRetranslateLine waits for new text or enough time", () => {
     shouldRetranslateLine(line, { source: "hello there world", at: 1_000 }, { now: 1_500 }),
     true
   );
+});
+
+test("a keyed backend retranslates on a wider window than a free one", () => {
+  const free = resolveRetranslateThrottle({ apiKey: "" });
+  assert.deepEqual(free, { minNewChars: 8, minIntervalMs: 400 });
+  // Chrome builtin and a keyless custom endpoint both resolve to no key.
+  assert.deepEqual(resolveRetranslateThrottle({}), free);
+  assert.deepEqual(resolveRetranslateThrottle({ apiKey: "   " }), free);
+
+  const paid = resolveRetranslateThrottle({ apiKey: "deepl-key" });
+  assert.deepEqual(paid, { minNewChars: 24, minIntervalMs: 1200 });
+
+  // Ten new characters is enough for the free window, not for the paid one.
+  const line = { translation: "阶段译文", source: "hello there world and more" };
+  const guard = { source: "hello there", at: 1_000 };
+  assert.equal(shouldRetranslateLine(line, guard, { now: 1_400, ...free }), true);
+  assert.equal(shouldRetranslateLine(line, guard, { now: 1_400, ...paid }), false);
+  // 1.2 s later the paid window is over even without new text.
+  assert.equal(shouldRetranslateLine(line, guard, { now: 2_200, ...paid }), true);
 });

@@ -1,6 +1,143 @@
 # 项目进度记录 (PROGRESS.md)
 
-## 2026-11-04 · 修复在途请求期间源文被覆盖导致的译文截断
+## 2026-11-05 · 0.5.12 · 百炼模型封闭下拉 + DeepL 术语库
+
+两项 backlog 一起做，另加用户点名的 turbo 实测。基线 0.5.11（325 项 verify 前是 315）。
+
+### 先查事实，再写代码
+
+- 百炼翻译模型：官方现存 `qwen-mt-plus` / `qwen-mt-turbo` / `qwen-mt-flash` / `qwen-mt-lite`，都是 16k、无思考模式。实测（真实 Key、2 行真实字幕批 + terms + domains、各 5 次交错）：`qwen-mt-flash` 中位 **325 ms**、`qwen-mt-lite` **321 ms**、`qwen-mt-plus` **442 ms**，三者 5/5 返回 2 行、约 180 token；**`qwen-mt-turbo` 5/5 全是 404 `model_not_found`**（cn 地域），故不入面板白名单。全量数据 `.pr-test/probe-qwen-mt-models.json`。
+- DeepL 术语库：网络上传言「API glossary 仅 Pro」，用仓库已存的 `:fx` Key 实测**免费层可用**：`POST /v2/glossaries` 201、带 `glossary_id` 翻译 `Spirit` 命中「精魂」、不带则「灵体」、`DELETE` 204。但免费层**只能存在 1 个** glossary（第二个 456 `Too many glossaries`，v3 同样 456 `Quota exceeded`）。另核实：创建必须 `source_lang: EN` + `target_lang: ZH`（root code，`ZH-HANS` 被拒），翻译时可用 `ZH-HANS` 并自动匹配 `ZH` 词典；条目大小写敏感；单条 ≤1024 字节。
+- 百炼 ASR：`paraformer-realtime-v2` 的 `run-task` 里 `input` 官方写明固定 `{}`，没有 fun-asr 的 `input.context`，热词只能靠 `vocabulary_id`。按用户决定**先记入 plan 待查，本轮不实现**。
+
+### 已修改文件
+
+- `extension/lib/translation-api.js`：新增 `BAILIAN_TRANSLATION_MODELS`（4 项，封闭列表）并在 `normalizeTranslationSettings` 里把百炼的其它 id 归一到预设；新增 `deeplGlossaryUrl`；`buildDeepLRequestBody` 支持 `glossaryId`（自动补 `source_lang: EN`）；`translateWithDeepL` 带 `config.deeplGlossaryId`，400 提到 glossary 时去 id 重试一次。
+- `extension/lib/deepl-glossary.js`（新增）：`buildDeepLGlossaryPairs`（展开 `sources[]`、追加全小写变体、丢弃含 tab/换行/非 ASCII/超长条目、同拼写先到先得）、`serializeDeepLGlossaryTsv`、`deepLGlossaryFingerprint`（FNV-1a + 条目数）。
+- `extension/background/deepl-glossary-service.js`（新增）：`load/currentId/status/sync`；`chrome.storage.local.deeplGlossary` 存 `{glossaryId, fingerprint, count, updatedAt}`；`sync` 先 DELETE 旧 id 再 POST，456 映射 `glossary_quota` 并保留服务端原话。
+- `extension/background/service-worker.js`：建服务、初始化时 `load()`、scheduler 的 `getConfig()` 注入 `deeplGlossaryId`、`test-translation-api` 也带同一 id、暴露 `syncDeepLGlossary` / `deepLGlossaryStatus`。
+- `extension/background/message-router.js`：新增 `sync-deepl-glossary`、`get-deepl-glossary`，均 `extension-page`。
+- `extension/popup/popup.html` / `popup.js`：百炼时把模型输入换成 `#translationModelSelect`（label `for` 动态切换，取值统一走 `selectedModelValue`）；术语库折叠区新增「同步到 DeepL」按钮与状态行（未同步 / 词条已变 / 已同步 N 条 + Free 只允许 1 个的说明）。
+- `extension/_locales/{zh_CN,en,zh_TW}/messages.json`：各 +9 键（439 条，三语一致）。
+- `package.json` / `extension/manifest.json`：0.5.11 → 0.5.12。
+- 测试：`tests/deepl-glossary.test.js`（4 项，纯函数）、`tests/deepl-glossary-service.test.js`（5 项，mock storage/fetch，含 456 与 stale 判定）、`tests/translation-api.test.js` +2（白名单归一 / glossary 随请求与 400 降级）、`tests/message-router.test.js` 期望表 +2。
+- 文档：`paseo/22-deepl-glossary-0.5.12.md`（新增）、`paseo/20` §6 补 4 模型实测与 turbo 404、`paseo/README.md` 索引、`README.md`（版本 + 术语库段补 DeepL）、`AGENTS.md`（版本、测试数 325、顶层键加 glossary、百炼封闭下拉、DeepL glossary 红线）、`plan.md` 重写。
+
+### 验证
+
+- `pnpm run verify` 325 项（324 pass / 1 skip / 0 fail）；`pnpm run smoke` 11 项全过。
+- 真机（dev 9223，真实 `:fx` Key）：面板切 DeepL → 勾术语库 + PoE 预设 → 点同步 → `已同步 680 条术语到 DeepL`；CDP 抓 service worker 网络确认 `POST /v2/glossaries`（680 行 TSV、`source_lang: EN`、`target_lang: ZH`）与后续 `POST /v2/translate` 带 `glossary_id: bbeca0d7-…` + `source_lang: EN`；`GET /v2/glossaries` 显示 `shengmu-captions` / `entry_count: 680` / `ready: true`；「测试翻译 API」457 ms 正常返回。
+- popup 下拉真机检查：`#translationModelSelect` 显示 4 项、`#translationModel` 隐藏、label `for` 正确。
+
+### 未做 / 风险
+
+- `paraformer-realtime-v2` 未实现（先查热词与断句，见 plan 第 2 节第 1 项）。
+- DeepL 术语库不会自动跟随词条变更：面板只提示「词条已变化，重新同步后新术语才生效」。这是刻意取舍（Free 只有 1 个坑位，重建要删库）。
+- 同步过程中先 DELETE 后 POST，中间窗口里在飞请求会带失效 id，靠 400 重试兜底；若 POST 失败则账号里暂时没有库。
+- 探测脚本与原始数据在仓库外 `.pr-test/probe-deepl-glossary*.mjs`、`probe-qwen-mt-models.mjs`。
+
+### 跨模型审阅（qwen3.7-plus · Code Review profile · 只读 worktree `shengmu-review-0512` @ `3257f54`）
+
+范围 `42e9eac..3257f54`（23 文件 +1134/−59）：0 P0、1 P1、2 P2。
+
+1. **P1（已修）**：`sync()` 先 DELETE 再 POST，若 POST 失败，`cached.glossaryId` 仍指向已被删掉的库 → 之后每个翻译批次都先 400 再重试，面板还显示「已同步」。改法比审阅建议更早一步：**DELETE 成功后立刻清空 `cached` 并写回存储**（这样 POST 任一种失败都不会留死 id；而 DELETE 自己失败时旧库还在，保留 id 才是对的）。新增回归测试 `a failed recreate drops the deleted id instead of keeping a dead one`（去掉修复会红，已验证）。
+2. **P2（记录，不改）**：存储里旧值 `qwen-plus` / `qwen-mt-turbo` 被静默归一为 `qwen3.7-flash`，面板下拉直接显示新值、没有一次性提示。判断：这两者一个没免费额度、一个 404，回落后功能只会更好；为一次性迁移加 i18n 键与渲染分支不值得。面板值本身是可见的。
+3. **P2（不是 bug）**：`deepLGlossaryFingerprint` 用 `charCodeAt` 遍历，对 surrogate pair 是确定双射；且 `usablePair` 已过滤非 ASCII 源词，输入里根本不会出现非 BMP 字符。
+
+审阅者核实无异议的关键项：`initialize()` 的 `Promise.all` 时序安全（路由先 `await ready()`）、`deeplGlossaryId` 只被 scheduler 与 `test-translation-api` 消费、DeepL 两条降级正则（`target_lang`/`language` 与 `glossary`）互不交叉、去重顺序与 `resolveEffectiveGlossary` 一致、`TextEncoder` 在 MV3 worker 可用、popup 的 label `for` 与 `selectedModelValue` 两条保存路径都正确、三语 9 个新键占位符一致、审阅 worktree `git status` 干净且 `pnpm test` 全过。
+
+- 修复后 `pnpm run verify` 326 项（325 pass / 1 skip / 0 fail）。
+
+## 2026-11-05 · 用量面板（本地 90 天账本 + DeepL/DeepSeek 账号额度）
+
+- 背景：`runtimeState.translation.usage` 只有会话内可见，`stop-capture` 会清空；面板看不到「今日/本月」和账号额度。
+- 先查清楚各家能查到什么（不臆造）：DeepL 有 `GET /v2/usage`（`character_count`/`character_limit`），DeepSeek 有 `GET /user/balance`（在 `/v1` 前缀之外，只认 `*.deepseek.com`），**百炼没有用量 API**（控制台页 + `bl` CLI，需 AccessKey），OpenAI 需管理员 Key。
+- 分层实现：
+  - `extension/lib/usage-ledger.js`（纯函数）：按本地日 + `provider:model` 分桶、90 天保留、坏数据降级、今日/本月汇总。
+  - `extension/lib/provider-usage.js`（纯函数）：端点构造（DeepL `:fx` 走 api-free、DeepSeek 去 `/v1`）与响应归一。
+  - `extension/background/usage-service.js`：`chrome.storage.local.usageLedger` 读写（节流 2 s 合并）、远端查询与 5 分钟缓存、`record/flush/snapshot`。
+  - `translation-scheduler.js` 新增 `recordUsage(delta, config)` 回调；`message-router` 新增 `get-usage`（仅 `extension-page`，因为返回的是账号额度）。
+  - popup 新增 `#usageLedger` 一行：今日/本月 + 远端；换 provider/模型后立即强制刷新。
+  - i18n 三语新增 11 个键；`AGENTS.md` 顶层键冻名单加 `usageLedger`。
+- 真机修了一个 bug：远端缓存只按时间缓存，切到 DeepSeek 时把 DeepL 的 551,077 字符原样显示。现在缓存命中要求 provider 相同，并补了单测（临时去掉判据会红，已验证）。
+- 实测：DeepL `551,077 / 1,000,000 字符（55%）`；DeepSeek `CNY 99.95`；百炼 `console_only`；用 DeepSeek 跑 30 s 后本地账本 `today.requests = 2 / 1041 prompt / 109 completion`（桶 `deepseek:deepseek-flash`）；面板文案三种 provider 都正确渲染。
+- 验证：`pnpm run verify` 313 项（312 pass / 1 skip）、`pnpm run smoke` 11 项全过。新增 12 项单测（ledger 6、provider-usage 3、usage-service 3）。
+- 文档：`paseo/21-usage-panel.md`（能力表 + 数据模型 + 刷新策略 + 已知限制）、`paseo/README.md` 索引。
+
+### 跨模型审阅（qwen3.7-plus，Code Review profile，只读 worktree `shengmu-review-usage` @ `90d1536`）
+
+范围 `f062750..90d1536`（19 文件）：0 P0、0 P1、6 P2，全部已修：
+
+1. `addUsage` 用的是 `getConfig()` 而不是请求时的 config → 在途期间换 provider 会把用量记到新桶；改为 `addUsage(value, config)` 由 `requestBatch` 传入，并补了一条回归测试（改回 `getConfig()` 会红，已验证）。顺带把测试里的 `getConfig` 改成每次返回新对象，否则「设置对象共享引用」会掩盖这个 bug。
+2. 远端缓存不判 apiKey / 设置变更 → `saveSettings` 里无条件 `usage.invalidateRemote()`（provider、Key、地址任一变更都可能换账号）。
+3. popup 在 `await` 期间可能并发多个 `get-usage` → 加 `usageLedgerInFlight` 标志。
+4. service worker 被 MV3 回收时 pending 桶会丢 → 加 `chrome.runtime.onSuspend` 调 `usage.flush()`（Chrome 不保证等完，尽力而为）。
+5. `AGENTS.md` 测试数还是 284 → 改为当前实际值。
+6. 关闭上面的缓存失效覆盖。
+
+审阅者核实无异议项：拆半重试不会双重记账（拆半路径直接 `return { split: true }`）；`flushChain` 串行化正确、`flush()` 与定时器无竞争；三个 storage 键各写各的、无全量覆盖；DeepL `:fx` 路由与 DeepSeek 主机判定正确；`get-usage` 仅扩展页且不回传 Key、`usageLedger` 不会被 `settingsForBroadcast` 广播；三语 i18n 占位符与传参完全匹配。
+
+- 修复后 `pnpm run verify` 314 项（313 pass / 1 skip）、`pnpm run smoke` 11 项全过。
+
+## 2026-11-05 · 百炼默认模型换 `qwen3.7-flash` + 接入 `qwen-mt-*` 专用翻译协议
+
+- 默认值：`TRANSLATION_PROVIDERS.bailian.model` 由 `qwen-plus` 改为 `qwen3.7-flash`（老别名没有免费额度，开了「用完即停」会直接报错）。只影响没存过模型的用户；已存 `qwen-plus` 的不自动迁移（用户可能是故意选的），面板里改一下即可。
+- 慢的定位（先量后改）：百炼裸请求 551~589 ms，但真实链路（`SYSTEM_PROMPT` 646 字符 + context + JSON 输出）1125~1244 ms；面板测试 1488 ms。**推理是关的**——`enable_thinking: false` 时 1.04/1.14 s，传 `true` 或省略字段时 29.7~36.7 s、reasoning 近 1 万字符，这组 A/B 写进了 AGENTS.md 红线。
+- 压缩 prompt 试过又回滚：9 条规则压到 6 条（646→388 字符），交替 A/B 5+5 次结果旧 1207 ms / 新 1323 ms，input token 550→406 但没有速度收益（延迟由输出 100~150 个中文字决定），不值得多改文档与测试断言，已回滚。
+- 新协议：`resolveTranslationProtocol` 按模型名前缀把 `protocol` 切成 `qwen-mt`，用户在百炼的模型框里填 `qwen-mt-flash` 即生效（Key/地址不变）。新增 `buildQwenMtRequestBody`（单条 user 消息、`\n` 一行一段、`translation_options.terms/domains`、无 system）与 `parseQwenMtOutput`（按行切、行数不符抛 `count_mismatch` 进拆半重试）。无 context，跨行衔接交给模型，取舍已写入 `paseo/20` §6。
+- 实测：`qwen-mt-flash` 2 行批 246~362 ms（qwen3.7-flash 同口径 1007~1370 ms）；面板测试 197/209/211 ms（原 1488 ms）；术语 `Spirit/Orb of Augmentation/Divination card` 全部命中，领域传入生效。
+- 真机 120 s（WLK + `qwen-mt-flash` + `vkCu3V81N74-poe-05m15-07m15.wav`）：10 行 / 10 有译文、缺译 0、失败 0、截断 0、`deliveredRatio` 0.99916、历史 10 行一致、**首中文 avg 0.7 s / p50 <1 s**、`overlayStale` 7/120（DeepL 同口径 58/120）。译文抽查通顺，但同一段里 `tome` 出现「典籍/大部头书」两译、`Alder League`/`Alder Lake` 按 ASR 原样翻——这就是没有 context 的代价。
+- 验证：`pnpm run verify` 301 项（300 pass / 1 skip）、`translation-api.test.js` 50 项（新增 5 项：协议切换、请求体形状、输出切分与错数、端到端 mock、拆半可重试）。`pnpm run smoke` 待本次提交前重跑。
+- 真机环境坑：dev Chrome 重启后 `chrome.runtime.reload()` 会让页面标签消失，必须重新开 subtitle 页；页面被遮挡时 `visibilityState` 变 `hidden`，需 CDP `Page.bringToFront` 后再采集。
+
+### 跨模型审阅（qwen3.7-plus，Code Review profile，只读 worktree `shengmu-review-mt` @ `83b92ab`）
+
+范围 `14a96b4..83b92ab`（6 文件）：0 P0、0 P1、3 P2。三条处理结果：
+
+1. `parseQwenMtOutput` 的 `if (stripped.length === count && …)` 不可达（`stripped.length === lines.length` 恒等，前一行已处理 `lines.length === count`）——**已删**。
+2. 编号剥离会误伤「译文本身以 `3.` 开头」的行——已知取舍，**不改**，已在代码注释与 `paseo/20` §6 记明。
+3. `AGENTS.md` 写 `0.20~0.36 s` 与实测 `246~362 ms` 不一致——**已改** `0.25~0.36 s`。
+
+审阅者核实无异议的关键项：`count_mismatch` 确实进拆半重试（拆分到底后 `count <= 1` 短路，不会无限拆）；协议切换只作用于 `openai` 基础协议，DeepL/Chrome 内置不受影响，custom 端点命名 `qwen-mt-*` 也会正确切且已有测试；请求端压平内部换行与解析端一致；`terms` 走 JSON 对象无分隔符注入风险（不适用 WLK 那套 `|` 规则）；非 200 / 非 JSON / 空 content / `finish_reason=length` 各有对应 code；不注入 `enable_thinking`。
+
+- 修复后 `pnpm run verify` 301 项（300 pass / 1 skip）、`translation-api.test.js` 50 项全过。
+
+## 2026-11-05 · 重译限流按后端分档 + 百炼免费额度选型入库
+
+- 拍板：主力是付费 API 且挂后台常开，按上一轮成本核算选方案 B——按后端分档，而不是全局放宽（全局放会白丢本地模型跟手度）。
+- 实现：`extension/lib/caption-utils.js` 新增 `TRANSLATION_RETRANSLATE_PAID_MIN_NEW_CHARS = 24` / `_PAID_MIN_INTERVAL_MS = 1200` 与 `resolveRetranslateThrottle(config)`：配置带 `apiKey` 就是付费档，无 Key（Chrome 内置、无 Key 的自定义本地端点）保持 8 / 400。判据用户拍板为「有没有 API Key」，不按地址猜本机还是局域网。
+- 接入：`extension/lib/translation-scheduler.js` 的 `shouldHoldRetranslation` 每帧从 `getConfig()` 重算档位，`scheduleTranslationWake` 的补发上限跟着档位走（原来硬编码 400 ms，若不放宽，付费档的 held 行最多 400 ms 就会被唤醒，等于分档无效）。
+- 单测：`tests/caption-utils.test.js` 新增档位判据用例（空 Key / 无 Key / 全空白归免费，有 Key 归付费，同一增长量在两档下的不同结论）；`tests/translation-scheduler.test.js` 新增付费档用例（源文增长 10 字符，400 ms 时不重译且 `wakeTimer` 已挂，1200 ms 时重译并定稿）。
+- 验证：`pnpm run verify` 296 项（295 pass / 1 skip）、`pnpm run smoke` 11 项全过。真机未跑（需用户启动采集），列入 plan.md 第 2 节第 4 步。
+- 文档：`paseo/20-bailian-free-tier.md`（`research.md` §7 拆出：免费额度规则、默认模型 `qwen-plus` 已无额度、6 个可填模型、`qwen-mt-*` 与仅思考模式的坑、每月重置的 `paraformer-realtime-v2`），`paseo/README.md` 加索引；`AGENTS.md` 首行版本号 0.5.10 → 0.5.11，两处限流常量说明改为按后端分档。`research.md` 其余部分继续留在仓库外（untracked）。
+- 仓库状态修正：`master` 相对 `origin/master` 是 ahead 5 / behind 1（上游已用 `865f0d9` 合并 PR #2）。已核对本地 `1efaa8c` 与 `865f0d9` 的 PR #2 实现与测试等价，差异全部是本地独有的 0.5.11；push 前应 merge 而非 rebase。
+- 待办：merge `origin/master` → 跨模型 `code review`（含本轮分档）→ push。
+
+### 跨模型审阅（qwen3.7-plus，Code Review profile，只读 worktree `shengmu-review-0511` @ `256fc15`）
+
+- 范围 `865f0d9..256fc15`（17 文件 +584/−277）：0 P0、0 P1、1 P2。
+- P2 已修：`extension/content/content-overlay.js` 旧 worker 降级路径把 `composeLiveSourceParts` 返回的**对象**当条件（`Boolean(source && …)` 恒真），与 `caption-utils.js` 的 `latestSource.stable` 不一致；空字幕时会误亮等待小点。改判 `source.stable`。该文件不被单测 import，靠 `node --check` + smoke 兜底。
+- 审阅者核过且我复核无异议的六项：`resolveRetranslateThrottle` 判据与 `getConfig()` 返回的 `apiKey` 一致且无循环导入；付费档 `wakeTimer` 不会丢（session 不活跃时不挂，恢复时由 `scheduleLines(0)` 重评）；改设置后档位下一帧生效（旧 timer 最多多等 800 ms）；`composeLiveSourceParts` 两份实现等价且 `setSourceText` 保持 `.caption-text` = 单串；PR #2 的 `fallbackSource` 机制完整且与本轮限流正交；文档常量/版本与代码一致。
+- 审阅者误判一处，已澄清：它称「line 为空 + buffer 非空时 caption-utils 判 pending=false」——实际那种情况 `stable = buffer`，两侧同为 true；真实差异只在两者都空时。
+
+### 真机验收（2026-11-05，dev 9223 + WLK large-v3-turbo + DeepL + 新档 24/1200）
+
+环境：新起 dev Chrome（`pnpm services.mjs dev-browser --port 9223`）、WLK pid 28288 参数与 `scripts/local-service/config.mjs` 一致（`--buffer_trimming segment --buffer_trimming_sec 10`）、`translationProvider = deepl`（Key 已存）、`asrBackend = wlk`、`translationMode = api` → 走付费档。采集用 `.pr-test/auto-capture.mjs`（CDP `userGesture` 调 `getMediaStreamId` + `start-capture`）两次都成功，不必手点 popup。
+
+| 指标 | `vkCu3V81N74-poe-05m15-07m15.wav`（120 s） | `Gq2r7x5qgmg-poe-24m00-26m00.wav`（120 s） |
+|---|---|---|
+| 行数 / 有译文 | 21 / 20 | **1 / 1** |
+| 缺译 / 失败 / 截断被定稿 | 0 / 0 / 0 | 0 / 0 / 0 |
+| `deliveredRatio` / `peak` | 0.99993 / 0.75 | 0.99919 / 0.238 |
+| 历史行数 / 截断 / 缺译 | 20 / 0 / 0 | 未落盘（未停采） |
+| `overlayStale` / `overlayPending` | 58/120 / 0 | 85/120 / 0 |
+
+- 样本 A 结论：**新档 24/1200 在真实 DeepL 链路下没有制造缺译、截断或历史不一致**，缺译 0、`deliveredRatio ≥ 0.999` 过线。
+- 样本 B 是 WLK 分段问题，不是本轮回归：整段只出一行（`len 3543`、`end 0:02:44.79`、`fragmentIds` 长度 1 → 未经过客户端合并），`translationPending` 全程 true，阶段译文 1293 字符。推断为连续讲话没有 ≥1 s 停顿，`--pause-segmentation-seconds 1` 不切，`--buffer_trimming segment 10` 也没生效；本轮改动只碰限流与浮层 `pending` 判据，与 ASR 分段无交集。
+- 顺带暴露的既有缺陷：一行 3543 字符会顶满 `.caption-shell` 的 70vh 与历史 2 行截断。记 backlog（guillotine：WLK 侧强制按字符/时长切段，或客户端对超长行做 `FRAGMENT_MAX_CHARS` 级切分）。
+- 采集后已 `stop-capture`（`active: false`）；探针与样本均在仓库外 `.pr-test/`，原始采样 `probe-0511-throttle.json`、`probe-0511-vkCu3.json`。
+
+## 2026-11-04 · PR #2 · 修复在途请求期间源文被覆盖导致的译文截断
 
 - 现象：句子还在生长时发出的请求，响应回来后被当成整句的最终译文，句尾没有中文，且写入历史与 SRT。
 - 根因：`collectPending` 会改写在途条目的 `source`，而每次 ASR 更新都会调用它，于是 `applyLineTranslations` 拿新源文和新源文比较，判不出过期。该问题自调度器出现就有；它也让 0.5.8 的阶段译文在真实流程里几乎不会被判为过期。旧单测在改写源文后没有调用 `scheduleLines`，所以没有测出来。
@@ -10,8 +147,77 @@
 - 修复失败后按帧重试：带阶段译文的行遇到不可重试错误（如 Key 失效）后，下一帧 `reconcileLineTranslations` 会清掉失败标记并重新标为待译，调度器也只对无译文的行检查失败记录，于是每个 ASR 帧都发一次请求（合成复现：10 帧 10 次，修复后 0 次）。现在同一源文失败后不再重发，阶段译文留在屏上且不再显示“还在翻”；行继续生长或修改翻译设置后才重新尝试。
 - 验证：`pnpm run verify` 293 项全过、`pnpm run smoke` 11 项全过；新增 8 项回归测试，修复前失败。
 - 合成回放（200 句逐词生长、回显翻译器，非真实音频）：延迟 600 / 1000 / 1000 / 1500 ms、ASR 步长 700 / 700 / 400 / 900 ms 时，错误行由 82 / 95 / 143 / 120 降为 0；请求数由 521 / 433 / 326 / 434 升至 802 / 689 / 475 / 630（约 1.45~1.6 倍）。
-- 待决定：请求增加是重译限流（8 字符 / 400 ms）的真实成本，之前被这个 bug 掩盖，DeepL 按字符计费时尤其明显。本次未调整限流参数。
-- 未做：真实音频端到端（`test-assets/quality-samples`）。
+- 本机合入：先以隔离 worktree（`.pr-test/pr2`）验证（`pnpm run verify` 293 项 292 pass / 1 skip、`pnpm run smoke` 11 项全过），再 merge 进 0.5.11 工作区；代码文件全部自动合并，仅本文件冲突手工解决。合并后 `pnpm run verify` 294 项（293 pass / 1 skip）、`pnpm run smoke` 11 项全过。
+
+### 本机真机验证（dev 9223 + tabCapture + WLK large-v3-turbo + DeepL，`test-assets/quality-samples/vkCu3V81N74-poe-05m15-07m15.wav`，各 120 s）
+
+| 指标 | 合并版（0.5.11 + PR #2） | 旧版（`c6f54f6`，无补丁，同一音频/后端） |
+|---|---|---|
+| 行数 / 有译文 | 24 / 23 | 16 / 15 |
+| 截断仍被定稿（`translation` 有值 + `translatedSource !== source` + 非 pending） | 0 | 0 |
+| 缺译 / 翻译失败 | 0 / 0 | 0 / 0 |
+| 历史落盘一致性 | 23 行，截断 0、缺译 0 | 15 行，截断 0、缺译 0 |
+| `deliveredRatio` / `peak` | 0.9994 / 0.93 | 0.9992 / 0.94 |
+
+- 真机在 DeepL 快响应下测不出两版差异：旧版把在途条目的 `source` 改写成新源文，响应回来后 `translatedSource` 正好等于新源文，探针的判据被 bug 自身掩盖；只有「译文内容覆盖度」能区分，而那是人工/模型判读，不适合做自动化回归。
+- 补丁必要性改由单测证明：把 PR 新增测试跑在 `c6f54f6` 的 `extension/lib` 上，8 项失败（`a merged row's fallback covers every fragment…`、`an ASR update during a request does not pass the old answer off as final`、`a batch split in flight still sends the text of the original request`、`a worker that runs out of rounds…`、`a fallback for the shorter text does not finish a row that grew`、`a permanent failure on a stage row…`、`a stage row that failed gets one new attempt…`、reducer 的 `fragments merge into one pending row…`），换回补丁后全绿。
+- 采集自动化：扩展页 `Runtime.evaluate` 带 `userGesture: true` 可以调 `chrome.tabCapture.getMediaStreamId` + `start-capture`，不必每次手点 popup；但标签页导航、Chrome 重启都会让 activeTab 失效，必须用户再按一次 `Ctrl+Shift+Y`。
+- 环境坑：Git Bash 会把 `node x.mjs /quality-samples/...` 的参数改写成 `C:/Program Files/Git/quality-samples/...`，页面里表现为 `MEDIA_ELEMENT_ERROR: Media load rejected by URL safety check`，传裸文件名、脚本里拼路径即可。
+- 探针与临时资产（未入库，仓库外）：`C:/Users/moule/Documents/ChatGPT/.pr-test/` 下 `probe-pr2.mjs`（采 runtimeState 行 + 浮层 DOM + IndexedDB 历史）、`auto-capture.mjs`、`reload.mjs`、`static-server.mjs`（带 Range 的 8783 静态服务器）、`old/extension`（`c6f54f6` 快照）。dev Chrome 中途自行退出一次（CDP 9223 拒绝连接，原因未定位）。
+
+### 限流成本核算（2026-11-05，只估算不动代码，等用户决策）
+
+PR 的核心代价是重译请求变多。本轮把「请求数」拆开重算了一遍，结论：**请求数只是表象，DeepL 按源文字符计费，钱花在「每次重译都重发整句」上**。
+
+- 机制：`extension/lib/caption-utils.js:589-590` 的 `TRANSLATION_RETRANSLATE_MIN_NEW_CHARS = 8` / `TRANSLATION_RETRANSLATE_MIN_INTERVAL_MS = 400` 是「或」关系（`shouldRetranslateLine`，`translation-scheduler.js:219-233` 消费）。WLK 的 ASR 帧间隔本来就在 0.5~1.5 s，400 ms 恒成立，实际门槛只剩 8 字符（≈1.5 个英文词），于是几乎每帧都发一次整句。涨的是原本被这个 bug 吞掉的开销，不是新功能开销。
+- 回放方法：`.pr-test/cost-estimate.mjs`（仓库外）把真机采样的每秒行快照喂给真实 `shouldRetranslateLine`，只统计「有源文」的行。1 s 采样粒度，所以是请求数下限。
+
+| 限流档位（字符 / ms） | 请求数 | 发送字符 | 字符/终态字符 | 相对当前省 |
+|---|---|---|---|---|
+| 8 / 400（当前） | 85 | 9 736 | **4.27×** | — |
+| 16 / 800 | 85 | 9 736 | 4.27× | 0% |
+| 24 / 1200 | 60 | 5 860 | **2.57×** | 40% |
+| 32 / 1500 | 60 | 5 888 | 2.58× | 40% |
+
+（合并版 120 s、24 行、终态 2 280 字符；旧版同口径 5.19×。16/800 一分钱没省——8 字符本来就约 1.5 个词，门槛提到 16 仍被 ASR 追加跨过；要动就得一次到 24~32。）
+
+- 成本量级（按 2026 年第三方整理的 Growth 报价：$32.50/月含 1 M 字符、超出 $27.5/1 M；官方页与现有账号套餐需另行核对）：1 h/天 → 终态 1.5 M，当前发 6.4 M（≈$148）、放宽后 3.9 M（≈$80）；2 h/天 → 3.0 M，当前 12.8 M（≈$325）、放宽后 7.7 M（≈$182）。若用的是 Developer 计划 1 M 一次性额度，当前设置约 4.7 小时烧光，放宽到 24 字符约 7.9 小时。
+- 这笔冗余买到的东西：0.5.8 的阶段译文（中文跟着英文往前进）。真机那轮 73/120 帧处于 `stale`（正在显示上一版阶段译文），即近 60% 时间屏上中文慢半拍但有内容；放宽后更新粒度从 ~1.5 个词变成 4~5 个词，最坏等 1.2 s。缺译、历史正确性、最终译文质量不受限流影响（实测 0 缺译、历史 23 行全一致）。
+- 三个选项：A 不动（适合本地 9B / Chrome 内置为主，成本 0）；B 按后端分档——付费 API 用 24/1200、本地 `server` 模式与 Chrome 内置保持 8/400（`shouldRetranslateLine` 已接受 options，约 10 行改动 + 单测）；C 直接全局调到 24/1200（本地模型白省、跟手度下降）。分析倾向 B，但涉及产品取舍，**本轮不实现、不改常量**。
+- 决策前需要用户回答：① 日常主要用哪个翻译后端（本地 Index-Translate-9B / DeepL）；② 每天大约看多久直播（决定账单是几十还是几百美元）。
+- 顺带发现：`runtimeState.usage` 里已有 `billedCharacters`（DeepL 返回的计费字符），但 `stop-capture` 收尾会清空 session，探针没抓到实测值；下轮采集应把 `usage` 一并写进采样 JSON，用实测替代估算。
+
+### 待办
+- 限流是否放宽：**暂时不决定**，见上节；需要用户先回答后端偏好与观看时长。
+- 本地合并（`1efaa8c`）尚未 push，提交前按 AGENTS 送跨模型 `code review`。
+- 合并版 + 本地 9B（慢翻译 1~3 s）的一轮真机采样未做（用户叫停）。
+
+## 2026-11-04 · 0.5.11 浮层广播风视觉改版 + 英文未定稿尾巴
+
+设计依据：`research.md` §6（ReaLingo 对比调研的三条拍板方向），落地记录 `paseo/19-broadcast-visuals-0.5.11.md`。定位浮层第一受众为「看推流画面的直播间观众」。
+
+### 已修改文件
+- `extension/content/content-overlay.js`：
+  - CSS：`.stage` 新增 `--caption-sans`（HarmonyOS Sans SC→MiSans→PingFang SC→Microsoft YaHei，700）/`--caption-latin`（Inter→Segoe UI，500）/`--caption-outline-strong`（8 向 1px 黑边+底影）/`--caption-outline-soft`（4 向）；译文 `#ffffff`、英文 `rgb(180 212 244 / .92)`、上一句 `rgb(203 213 225 / .88)`、`.pending` 冰蓝 68%、`.source-stash` 56%；底板改中性黑曜石 `180deg rgb(14 18 26) → rgb(8 11 16)`，去 `saturate(.8)`、去左侧 3px 金条与 `.caption-shell::after` 金线，`border-radius: 14px` 对称 + `padding: 14px 22px`；历史面板同语言（冰蓝英文 / `#f1f5f9` 中文 / 冷灰蓝 meta chip）；等待点由暗黄改冰蓝；`<720px` 内边距 `12px 16px`。
+  - JS：内联 `composeLiveSourceParts` / `composeLiveSourceText`（`composeLiveSource` 语义保持 `stable + " " + stash`）；`latestCaption()` 输出 `sourceStable`/`sourceStash`，旧 worker 只发 `source` 时整行回退为已定稿；新增 `setSourceText(stable, stash)` 把 stash 包进 `.source .caption-text > span.source-stash`（重建条件同时看内容键与子节点，防模式来回切换后空槽不恢复）；`OVERLAY_VERSION` 10 → 11。
+- `extension/lib/caption-utils.js`：新增 `composeLiveSourceParts`（返回 `{ stable, stash }`）与 `composeLiveSourceText`，`composeLiveSource` 改为两者组合；`selectDisplayCaption` 返回值新增 `sourceStable`/`sourceStash`。
+- `tests/caption-utils.test.js`：新增 `composeLiveSourceParts` 四项切分用例（buffer 仅重复尾巴、尾部重叠后追加、纯 buffer、纯行）；三处 `selectDisplayCaption` 断言补新字段。
+- `tests/transcript-reducer.test.js`：`displayCaption` deepEqual 补 `sourceStable`/`sourceStash`。
+- `package.json` / `extension/manifest.json`：0.5.10 → 0.5.11。
+- `AGENTS.md` §2：`OVERLAY_VERSION` 改 11 并补 10→11 说明；新增「视觉（0.5.11 广播风）」与「英文未定稿尾巴」两条红线（字体栈、文字色不乘 `--overlay-opacity`、禁 `-webkit-text-stroke`、禁恢复金条/金线/`saturate`、`.caption-text` 的 `textContent` 必须等于 `composeLiveSource` 单串）。
+- `README.md`：版本 0.5.11；等待点改「小冰蓝点」；行为列表补「英文未定稿尾巴淡一档」与「浮层按直播画面来做」两条。
+- `paseo/19-broadcast-visuals-0.5.11.md`（新增）与 `paseo/README.md` 索引。
+
+### 已执行验证
+- `pnpm run verify` 286 项（285 pass / 1 skip）、`pnpm run smoke` 11 项全过。
+- 可视化预览（仓库外 `C:/Users/moule/Documents/ChatGPT/.style-preview/preview.mjs`：mock `chrome.*` + 注入真实 `content-overlay.js` + CDP 截图）：5 张图覆盖双语、stash、dual+等待点、纯白压测、5% 底板；量得 `shell` 851px、英文槽恒 28px、stash 取色 `rgba(180,212,244,0.56)`、译文 9 条 text-shadow。
+- 真机采集（dev 9223 + 真实 tabCapture + `GHEBkhT1K7A-05m41-07m41.wav` + wlk ASR + DeepL，`OVERLAY_VERSION` 11 已重载）：50 s + 25 s 两轮采样；stash 出现 11/25，`.source` 高度恒 28px（无假折行）、无 A→B→A 回弹、`border-radius: 14px`、译文恒 `rgb(255,255,255)`、英文 `rgba(180,212,244,0.92)`。
+
+### 未执行 / 待后续
+- `subtitle/subtitle.html` 未跟进本次视觉（用户拍板暂不动，长文阅读页保留原样式）。
+- 未走跨模型 `code review`（待视觉定稿、提交前统一送审）。
+- Chrome 本机识别路径未复测（本轮真机跑的是 wlk + DeepL）。
+- `.style-preview/preview.mjs`、`probe-live.mjs`、`evaluate.mjs` 是仓库外的一次性可视化/采样工具，未入库。
 
 ## 2026-11-04 · 固定测试音频入库（`test-assets/quality-samples`）
 

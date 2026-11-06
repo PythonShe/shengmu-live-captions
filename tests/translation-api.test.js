@@ -3,7 +3,9 @@ import http from "node:http";
 import test from "node:test";
 
 import {
+  BAILIAN_TRANSLATION_MODELS,
   buildDeepLRequestBody,
+  buildQwenMtRequestBody,
   buildTranslationRequestBody,
   chatCompletionsUrl,
   DEEPL_TARGET_LANG,
@@ -16,11 +18,13 @@ import {
   MAX_RETRY_AFTER_MS,
   normalizeTranslationSettings,
   parseDeepLResponse,
+  parseQwenMtOutput,
   parseRetryAfter,
   parseTranslationOutput,
   recentTranslationContext,
   resetTranslationRequestShapeCache,
   resolveTranslationConfig,
+  resolveTranslationProtocol,
   MANAGED_TRANSLATION_PORT,
   translatesInExtension,
   usesManagedTranslator,
@@ -986,7 +990,9 @@ test("the bailian translation endpoint follows the speech region and keeps the s
     translationApiKeys: { bailian: "sk" }
   });
   assert.equal(intl.baseUrl, "https://dashscope-intl.aliyuncs.com/compatible-mode/v1");
-  assert.equal(intl.model, "qwen-plus");
+  // The 1M free grant sits on the 3.7/3.8 ids, not on the bare `qwen-plus`.
+  assert.equal(intl.model, "qwen3.7-flash");
+  assert.equal(cn.model, "qwen3.7-flash");
 });
 
 function deeplConfig(baseUrl, overrides = {}) {
@@ -1152,4 +1158,213 @@ test("DeepSeek always uses its fixed flash model, whatever was stored", () => {
     translationModel: "Index-Translate-9B"
   });
   assert.equal(custom.model, "Index-Translate-9B");
+});
+
+function qwenMtConfig(baseUrl, overrides = {}) {
+  // The bailian preset pins its own base URL, so the mock server is reached
+  // through a custom endpoint; the protocol still follows the model id.
+  return resolveTranslationConfig({
+    translationMode: "api",
+    translationProvider: "custom",
+    translationBaseUrl: baseUrl,
+    translationModel: "qwen-mt-flash",
+    translationApiKeys: { custom: "test-key" },
+    ...overrides
+  });
+}
+
+test("a qwen-mt model id selects its own protocol on top of the preset", () => {
+  assert.equal(resolveTranslationProtocol({ protocol: "openai" }, "qwen-mt-flash"), "qwen-mt");
+  assert.equal(resolveTranslationProtocol({ protocol: "openai" }, "qwen-mt-plus"), "qwen-mt");
+  assert.equal(resolveTranslationProtocol({ protocol: "openai" }, "qwen3.7-flash"), "openai");
+  assert.equal(resolveTranslationProtocol({ protocol: "deepl" }, "qwen-mt-flash"), "deepl");
+  assert.equal(qwenMtConfig("http://127.0.0.1:1/v1").protocol, "qwen-mt");
+
+  const bailian = resolveTranslationConfig({
+    translationProvider: "bailian",
+    translationModel: "qwen-mt-flash",
+    translationApiKeys: { bailian: "sk" }
+  });
+  assert.equal(bailian.protocol, "qwen-mt");
+  const plain = resolveTranslationConfig({
+    translationProvider: "bailian",
+    translationModel: "qwen3.7-flash",
+    translationApiKeys: { bailian: "sk" }
+  });
+  assert.equal(plain.protocol, "openai");
+});
+
+test("qwen-mt sends one line per segment with terms and no system message", () => {
+  const config = qwenMtConfig("http://127.0.0.1:1/v1");
+  const body = buildQwenMtRequestBody({
+    texts: ["I specced into Spirit.", "Nice."],
+    config,
+    glossaryEntries: [{ sources: ["Spirit"], target: "精魂" }],
+    domainHint: "Path of Exile"
+  });
+  assert.equal(body.model, "qwen-mt-flash");
+  assert.equal(body.messages.length, 1);
+  assert.equal(body.messages[0].role, "user");
+  assert.equal(body.messages[0].content, "I specced into Spirit.\nNice.");
+  assert.deepEqual(body.translation_options, {
+    source_lang: "English",
+    target_lang: "Chinese",
+    domains: "Path of Exile",
+    terms: [{ source: "Spirit", target: "精魂" }]
+  });
+  assert.equal(body.stream, false);
+  // No thinking switch exists on the dedicated translation models.
+  assert.equal(body.enable_thinking, undefined);
+
+  // Without glossary or domain neither key is sent at all.
+  const plain = buildQwenMtRequestBody({ texts: ["Hi."], config });
+  assert.deepEqual(plain.translation_options, {
+    source_lang: "English",
+    target_lang: "Chinese"
+  });
+
+  // A segment with an internal line break would shift the answer, so it is flattened.
+  const flattened = buildQwenMtRequestBody({ texts: ["one\ntwo"], config });
+  assert.equal(flattened.messages[0].content, "one two");
+});
+
+test("qwen-mt output splits line by line and rejects a wrong count", () => {
+  assert.deepEqual(parseQwenMtOutput("第一行\n第二行", 2), ["第一行", "第二行"]);
+  assert.deepEqual(parseQwenMtOutput("1. 第一行\n2. 第二行", 2), ["第一行", "第二行"]);
+  // A single segment may legitimately contain a line break of its own.
+  assert.deepEqual(parseQwenMtOutput("第一行\n续行", 1), ["第一行\n续行"]);
+  assert.throws(
+    () => parseQwenMtOutput("只有一行", 2),
+    (error) => error.code === "count_mismatch"
+  );
+  assert.throws(
+    () => parseQwenMtOutput("   ", 1),
+    (error) => error.code === "empty_response"
+  );
+});
+
+test("qwen-mt requests reach the endpoint without a system prompt", async () => {
+  const server = await startServer(({ response }) => {
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(
+      JSON.stringify({
+        model: "qwen-mt-flash",
+        choices: [{ message: { content: "我点了精魂。\n很好。" }, finish_reason: "stop" }],
+        usage: { prompt_tokens: 12, completion_tokens: 9 }
+      })
+    );
+  });
+  try {
+    const result = await translateTexts({
+      texts: ["I specced into Spirit.", "Nice."],
+      config: qwenMtConfig(server.url),
+      glossaryEntries: [{ sources: ["Spirit"], target: "精魂" }],
+      domainHint: "Path of Exile"
+    });
+    assert.deepEqual(result.translations, ["我点了精魂。", "很好。"]);
+    assert.equal(result.model, "qwen-mt-flash");
+    assert.equal(result.usage.promptTokens, 12);
+    const body = server.requests[0].body;
+    assert.equal(body.messages.length, 1);
+    assert.equal(body.messages.some((message) => message.role === "system"), false);
+    assert.deepEqual(body.translation_options.terms, [{ source: "Spirit", target: "精魂" }]);
+    assert.equal(server.requests[0].request.headers.authorization, "Bearer test-key");
+  } finally {
+    await server.close();
+  }
+});
+
+test("a qwen-mt answer with the wrong line count is a splittable failure", async () => {
+  const server = await startServer(({ response }) => {
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(
+      JSON.stringify({ choices: [{ message: { content: "只有一行" }, finish_reason: "stop" }] })
+    );
+  });
+  try {
+    await assert.rejects(
+      translateTexts({ texts: ["Hello.", "Good morning."], config: qwenMtConfig(server.url) }),
+      (error) => error.code === "count_mismatch" && isSplittableTranslationError(error, 2)
+    );
+  } finally {
+    await server.close();
+  }
+});
+
+test("Bailian offers a closed model list and normalises anything else", () => {
+  // The popup renders exactly these five as a select, so a stored id outside
+  // the list has no option to highlight; it falls back to the preset default
+  // instead of silently keeping a model the field cannot show.
+  assert.deepEqual([...BAILIAN_TRANSLATION_MODELS], [
+    "qwen3.7-flash",
+    "qwen-mt-flash",
+    "qwen-mt-plus",
+    "qwen-mt-lite"
+  ]);
+
+  const legacy = normalizeTranslationSettings({
+    translationProvider: "bailian",
+    translationModel: "qwen-plus"
+  });
+  assert.equal(legacy.model, "qwen3.7-flash");
+
+  const listed = normalizeTranslationSettings({
+    translationProvider: "bailian",
+    translationModel: " qwen-mt-lite "
+  });
+  assert.equal(listed.model, "qwen-mt-lite");
+
+  // qwen-mt-turbo answers 404 model_not_found (cn region, 2026-11-05), so a
+  // stored value for it must not survive as an unselectable model.
+  const dead = normalizeTranslationSettings({
+    translationProvider: "bailian",
+    translationModel: "qwen-mt-turbo"
+  });
+  assert.equal(dead.model, "qwen3.7-flash");
+
+  const config = resolveTranslationConfig({
+    translationMode: "api",
+    translationProvider: "bailian",
+    translationModel: "qwen-mt-lite",
+    translationApiKeys: { bailian: "bk" },
+    bailianRegion: "cn"
+  });
+  assert.equal(config.protocol, "qwen-mt");
+  assert.equal(config.enabled, true);
+});
+
+test("a DeepL glossary rides on the request and degrades when it is gone", async () => {
+  const body = buildDeepLRequestBody({
+    texts: ["I found a Spirit."],
+    glossaryId: "g-123"
+  });
+  assert.equal(body.glossary_id, "g-123");
+  // DeepL rejects a glossary without an explicit source language.
+  assert.equal(body.source_lang, "EN");
+  assert.equal(buildDeepLRequestBody({ texts: ["Hi"], glossaryId: "  " }).glossary_id, undefined);
+
+  // A glossary deleted on the account side answers 400 naming the glossary;
+  // the retry must drop it instead of failing the row.
+  const server = await startServer(({ body: requestBody, response, requests }) => {
+    response.setHeader("Content-Type", "application/json");
+    if (requestBody.glossary_id) {
+      response.writeHead(400);
+      response.end(JSON.stringify({ message: "Glossary with id 'g-123' not found." }));
+      return;
+    }
+    assert.equal(requests.length, 2);
+    response.writeHead(200);
+    response.end(JSON.stringify({ translations: [{ text: "我找到了一只精魂。" }] }));
+  });
+  try {
+    const result = await translateTexts({
+      texts: ["I found a Spirit."],
+      config: { ...deeplConfig(server.url, { translationApiKeyConfigured: { deepl: true } }), deeplGlossaryId: "g-123" }
+    });
+    assert.deepEqual(result.translations, ["我找到了一只精魂。"]);
+    assert.equal(server.requests[0].body.glossary_id, "g-123");
+    assert.equal(server.requests[1].body.glossary_id, undefined);
+  } finally {
+    await server.close();
+  }
 });

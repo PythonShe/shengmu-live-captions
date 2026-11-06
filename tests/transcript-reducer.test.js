@@ -82,8 +82,11 @@ test("API mode: fragments merge into one pending row and the buffer extends the 
     displayCaption: {
       lineId: "s1:e1:0:00:01.00",
       // The buffer only carries the words after the row, so the English slot
-      // keeps the sentence and appends what has not been committed yet.
+      // keeps the sentence and appends what has not been committed yet, with
+      // the uncommitted tail split out so the overlay can dim it.
       source: "We went to the shop and bought some bread. and then we",
+      sourceStable: "We went to the shop and bought some bread.",
+      sourceStash: "and then we",
       translation: "",
       error: "rate limited",
       pending: true,

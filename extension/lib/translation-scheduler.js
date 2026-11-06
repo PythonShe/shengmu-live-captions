@@ -11,6 +11,7 @@
 import {
   TRANSLATION_RETRANSLATE_MIN_INTERVAL_MS,
   cleanText,
+  resolveRetranslateThrottle,
   selectDisplayCaption,
   shouldRetranslateLine
 } from "./caption-utils.js";
@@ -81,6 +82,9 @@ function emptyUsage() {
  * @property {() => any} getConfig Resolved translation config (mode, enabled,
  *   provider, model, glossary entries ...), read fresh on every decision.
  * @property {(options: any) => Promise<{ translations: string[], usage?: any }>} translateTexts
+ * @property {(delta: any, config: any) => void} [recordUsage] Receives one
+ *   request's totals so a persistent ledger can outlive the session.
+ *   The scheduler's own `usage` is cleared when a session stops.
  * @property {Map<string, any>} knownLines Last known copy of every session row,
  *   including rows that already left the runtime window.
  * @property {(lines: any[]) => void} enqueueHistory
@@ -102,6 +106,7 @@ export function createTranslationScheduler(deps) {
     getState,
     getConfig,
     translateTexts,
+    recordUsage = null,
     knownLines,
     enqueueHistory,
     publish,
@@ -210,34 +215,49 @@ export function createTranslationScheduler(deps) {
   /**
    * Whether this row's newer source has to wait for the throttle window.
    * The wake timer re-runs the queue once the window is over, so a held row is
-   * delayed, never lost.
+   * delayed, never lost. The window itself depends on who pays for the text:
+   * a keyed backend resends the whole row on every retranslation, so it waits
+   * for a bigger chunk (see resolveRetranslateThrottle).
    */
   function shouldHoldRetranslation(lineId, entry, at) {
     const line =
       runtimeLines().find((item) => item?.id === lineId) || knownLines.get(lineId);
     if (!line?.translation) return false;
     const guard = retranslateGuards.get(lineId);
-    const allowed = shouldRetranslateLine(line, guard, { now: at });
+    const throttle = resolveRetranslateThrottle(getConfig());
+    const allowed = shouldRetranslateLine(line, guard, { now: at, ...throttle });
     if (allowed) return false;
     scheduleTranslationWake(
-      TRANSLATION_RETRANSLATE_MIN_INTERVAL_MS - (at - Number(guard?.at || 0))
+      throttle.minIntervalMs - (at - Number(guard?.at || 0)),
+      throttle.minIntervalMs
     );
     return true;
   }
 
-  function scheduleTranslationWake(delay) {
+  function scheduleTranslationWake(delay, windowMs = TRANSLATION_RETRANSLATE_MIN_INTERVAL_MS) {
     if (wakeTimer || !sessionActive()) return;
     wakeTimer = setTimer(() => {
       wakeTimer = null;
       scheduleLines(0);
-    }, Math.max(50, Math.min(Number(delay) || 0, TRANSLATION_RETRANSLATE_MIN_INTERVAL_MS)));
+    }, Math.max(50, Math.min(Number(delay) || 0, windowMs)));
   }
 
-  function addUsage(value) {
+  function addUsage(value, config = getConfig()) {
     usage.requests += 1;
     usage.promptTokens += Number(value?.promptTokens) || 0;
     usage.completionTokens += Number(value?.completionTokens) || 0;
     usage.billedCharacters += Number(value?.billedCharacters) || 0;
+    // The config that produced this answer, not the one current now: a provider
+    // switched while the request was in flight must not get credited for it.
+    recordUsage?.(
+      {
+        requests: 1,
+        promptTokens: Number(value?.promptTokens) || 0,
+        completionTokens: Number(value?.completionTokens) || 0,
+        billedCharacters: Number(value?.billedCharacters) || 0
+      },
+      config
+    );
   }
 
   function patchRuntimeLine(lineId, patch) {
@@ -516,7 +536,7 @@ export function createTranslationScheduler(deps) {
     }
     if (startGeneration !== generation) return null;
     lastError = "";
-    addUsage(result.usage);
+    addUsage(result.usage, config);
     return result;
   }
 

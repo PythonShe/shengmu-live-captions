@@ -375,7 +375,7 @@ export function selectDisplayCaption(current = {}) {
   // slot is that row plus whatever has not been committed yet. Replacing the
   // row with the buffer is what made the English line jump between a whole
   // sentence and two words.
-  const latestSource = composeLiveSource(latestLine?.source, bufferSource);
+  const latestSource = composeLiveSourceParts(latestLine?.source, bufferSource);
   // The translation slot reads the newest row's own translation first. A row
   // that is still growing keeps the stage translation it already had (see
   // reconcileLineTranslations), so the slot moves forward instead of falling
@@ -390,7 +390,11 @@ export function selectDisplayCaption(current = {}) {
     lineId: latestLine?.id || null,
     // Never copy a translation into the source slot: a translation-only line
     // would otherwise print Chinese in the English row of bilingual mode.
-    source: latestSource,
+    source: composeLiveSourceText(latestSource),
+    // The split itself, so the overlay can dim the words the recogniser has not
+    // committed yet. `sourceStable + " " + sourceStash` is always `source`.
+    sourceStable: latestSource.stable,
+    sourceStash: latestSource.stash,
     translation: latestTranslation,
     error: cleanText(current.translationError),
     // `pending` means "the Chinese on screen is not the newest source yet":
@@ -399,7 +403,7 @@ export function selectDisplayCaption(current = {}) {
     // is not a wait: WhisperLiveKit keeps a buffer almost all the time, and a
     // dot that glows constantly reads as a permanent failure.
     pending: Boolean(
-      latestSource && !failed && (latestLine?.translationPending || !lineTranslation)
+      latestSource.stable && !failed && (latestLine?.translationPending || !lineTranslation)
     ),
     failed
   };
@@ -420,10 +424,22 @@ export function selectDisplayCaption(current = {}) {
  * disagree.
  */
 export function composeLiveSource(lineSource, bufferSource) {
+  return composeLiveSourceText(composeLiveSourceParts(lineSource, bufferSource));
+}
+
+/**
+ * Same split as `composeLiveSource`, kept apart because the overlay renders the
+ * two halves at different opacities: the committed row stays solid, the tail the
+ * recogniser is still revising is dimmed.
+ *
+ * @returns {{ stable: string, stash: string }} `stable` is the committed row,
+ *   `stash` the words after it (empty when the buffer adds nothing new).
+ */
+export function composeLiveSourceParts(lineSource, bufferSource) {
   const line = cleanText(lineSource);
   const buffer = cleanText(bufferSource);
-  if (!line) return buffer;
-  if (!buffer) return line;
+  if (!line) return { stable: buffer, stash: "" };
+  if (!buffer) return { stable: line, stash: "" };
   const lineWords = line.split(" ");
   const bufferWords = buffer.split(" ");
   const shorter = Math.min(lineWords.length, bufferWords.length);
@@ -433,10 +449,16 @@ export function composeLiveSource(lineSource, bufferSource) {
     if (tail !== head) continue;
     // The buffer only repeats the row's tail: nothing new to append.
     return count === bufferWords.length
-      ? line
-      : `${line} ${bufferWords.slice(count).join(" ")}`;
+      ? { stable: line, stash: "" }
+      : { stable: line, stash: bufferWords.slice(count).join(" ") };
   }
-  return `${line} ${buffer}`;
+  return { stable: line, stash: buffer };
+}
+
+/** Join the two halves back into the single string the slots measure. */
+export function composeLiveSourceText({ stable = "", stash = "" } = {}) {
+  if (!stable) return stash;
+  return stash ? `${stable} ${stash}` : stable;
 }
 
 export function parseTimecode(value) {
@@ -566,6 +588,40 @@ export function mergeCaptionLines(existingLines, incomingLines, limit = 20000) {
 /** A growing row is retranslated only after this much new text or this long. */
 export const TRANSLATION_RETRANSLATE_MIN_NEW_CHARS = 8;
 export const TRANSLATION_RETRANSLATE_MIN_INTERVAL_MS = 400;
+/**
+ * Same throttle for a backend that bills per character.
+ *
+ * Every retranslation resends the whole row, so at the free-backend cadence a
+ * 120 s session sent about 4.3x its final character count (measured on real
+ * DeepL traffic, see PROGRESS.md). The 400 ms window is always satisfied by the
+ * ASR cadence (0.5-1.5 s per frame), so the cadence is what has to move: 24
+ * characters is about four English words, which lands at 2.6x and still keeps
+ * the stage translation following the recogniser.
+ */
+export const TRANSLATION_RETRANSLATE_PAID_MIN_NEW_CHARS = 24;
+export const TRANSLATION_RETRANSLATE_PAID_MIN_INTERVAL_MS = 1200;
+
+/**
+ * Which retranslate throttle applies to a resolved translation config.
+ *
+ * A key means someone pays for the characters, whatever the endpoint is: Chrome
+ * builtin and a keyless custom endpoint (a local llama.cpp / Ollama) stay at the
+ * responsive cadence, everything else waits for a bigger chunk of the row.
+ * @param {{ apiKey?: string }} [config] Resolved translation config.
+ * @returns {{ minNewChars: number, minIntervalMs: number }}
+ */
+export function resolveRetranslateThrottle(config = {}) {
+  if (!cleanText(config?.apiKey)) {
+    return {
+      minNewChars: TRANSLATION_RETRANSLATE_MIN_NEW_CHARS,
+      minIntervalMs: TRANSLATION_RETRANSLATE_MIN_INTERVAL_MS
+    };
+  }
+  return {
+    minNewChars: TRANSLATION_RETRANSLATE_PAID_MIN_NEW_CHARS,
+    minIntervalMs: TRANSLATION_RETRANSLATE_PAID_MIN_INTERVAL_MS
+  };
+}
 
 /** A fragment is only merged when the next row really follows it. */
 export const FRAGMENT_GAP_SECONDS = 2.0;
