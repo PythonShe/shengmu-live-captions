@@ -277,6 +277,60 @@ test("a finished row is not rewritten to history on every update", () => {
   assert.deepEqual(linesChangedSince(state.current.lines.slice(0, -1), knownLines), []);
 });
 
+test("a row pruned from the front keeps its ids", () => {
+  // Past --retention-seconds WhisperLiveKit drops the row's oldest words, which
+  // moves its start: the raw id derived from that start changes on every frame.
+  let state = initialState();
+  ({ state } = step(state, [raw(RUN_ON, 0, 40)]));
+  const before = new Map(state.current.lines.map((row) => [row.source, row]));
+  const words = RUN_ON.split(" ");
+  const expectedTail = state.current.lines.at(-1).id;
+
+  for (const [dropped, start] of [[3, 1.1], [6, 2.2], [40, 14]]) {
+    ({ state } = step(state, [raw(words.slice(dropped).join(" "), start, 40)]));
+    const rows = state.current.lines;
+    assert.equal(rows.at(-1).id, expectedTail, `after dropping ${dropped} words`);
+    for (const row of rows) {
+      const earlier = before.get(row.source);
+      assert.ok(earlier, `${row.id} is a row the state already had`);
+      assert.equal(row.id, earlier.id);
+      assert.equal(row.start, earlier.start);
+    }
+    // The row the cut falls into stays whole until all of it is older than the
+    // window; rows entirely before the cut leave, like any row past retention.
+    assert.ok(rows[0].source.includes(words[dropped]) || rows[0].source.includes(words[dropped - 1]));
+  }
+});
+
+test("a row pruned right up to a piece keeps its ids when the piece's start is an estimate", () => {
+  // Real WLK frames: the raw start was 2.28 s, the estimate for that piece 2.29 s.
+  let state = initialState();
+  ({ state } = step(state, [raw(RUN_ON, 0, 40)]));
+  const rows = state.current.lines;
+  const second = rows[1];
+  const rest = RUN_ON.slice(RUN_ON.indexOf(second.source));
+  const [hours, minutes, seconds] = second.start.split(":").map(Number);
+  const justBefore = hours * 3600 + minutes * 60 + seconds - 0.01;
+
+  ({ state } = step(state, [raw(rest, justBefore, 40)]));
+  assert.deepEqual(state.current.lines.map((row) => row.id), rows.slice(1).map((row) => row.id));
+});
+
+test("repeated words do not misplace a pruned row", () => {
+  // The first 48 characters of what is left also occur earlier in the row.
+  const refrain = "and that is exactly why we kept on doing the very same thing again";
+  const text = `${refrain}. Something else was said in between all of this for a while here. ${refrain}. And the row carries on after that with another full sentence.`;
+  let state = initialState();
+  ({ state } = step(state, [raw(text, 0, 30)]));
+  const rows = state.current.lines;
+  const rest = text.slice(text.lastIndexOf(refrain));
+
+  ({ state } = step(state, [raw(rest, 15, 30)]));
+  assert.ok(state.current.lines.at(-1).id === rows.at(-1).id);
+  assert.equal(state.current.lines.at(-1).source, rows.at(-1).source);
+  assert.equal(state.current.lines.map((row) => row.source).join(" ").split(refrain).length - 1, 1);
+});
+
 test("a finished short row that took a piece of a growing row stops changing", () => {
   // "Okay." cannot stand alone, so the first piece of the next row joins it.
   const words = RUN_ON.split(" ");
@@ -319,6 +373,52 @@ test("a row after a split row keeps its own timing, and the split row's last pie
   assert.equal(rows.at(-1).end, "0:00:26.00");
   assert.equal(rows.at(-2).end, "0:00:20.00");
   assert.ok(rows.at(-3).end < rows.at(-2).end);
+});
+
+test("a row pruned after it gave its first piece to a short row keeps its later ids", () => {
+  let state = initialState();
+  ({ state } = step(state, [raw("Okay.", 0, 0.5), raw(RUN_ON, 1, 40)]));
+  assert.match(state.current.lines[0].source, /^Okay\. /);
+  const later = state.current.lines.slice(1).map((row) => row.id);
+  const words = RUN_ON.split(" ");
+
+  // The short row is older, so it left first; then the long row loses words.
+  ({ state } = step(state, [raw(words.slice(2).join(" "), 1.5, 40)]));
+  const ids = state.current.lines.map((row) => row.id);
+  for (const id of later) assert.ok(ids.includes(id), id);
+  assert.equal(new Set(ids).size, ids.length);
+});
+
+test("a pruned row keeps growing on its own ids, and closes on a silence", () => {
+  let state = initialState();
+  ({ state } = step(state, [raw(RUN_ON, 0, 40)]));
+  const tailId = state.current.lines.at(-1).id;
+  const trimmed = RUN_ON.split(" ").slice(3).join(" ");
+  // "We shipped." is too short to stand alone, so the new sentence joins it.
+  const grownText = `${trimmed} And here is one more sentence for it.`;
+
+  ({ state } = step(state, [raw(grownText, 1.1, 42)]));
+  assert.equal(state.current.lines.at(-1).id, tailId);
+  assert.match(state.current.lines.at(-1).source, /one more sentence for it\.$/);
+
+  // The silence freezes the trimmed row, and a new row starts after it.
+  ({ state } = step(state, [raw(grownText, 1.1, 42), raw("A new row after the pause.", 44, 46)]));
+  assert.equal(state.current.lines.at(-2).id, tailId);
+  assert.equal(state.current.lines.at(-1).id, `${SESSION}:${EPOCH}:0:00:44.00`);
+});
+
+test("a reconnect starts its rows over instead of continuing the old epoch", () => {
+  let state = initialState();
+  ({ state } = step(state, [raw(RUN_ON, 0, 40)]));
+  ({ state } = step(state, [raw(RUN_ON, 5, 40)], { epochId: "e2" }));
+  assert.ok(state.current.lines.every((row) => row.id.startsWith(`${SESSION}:e2:0:00:05.00`)));
+});
+
+test("a row that only starts inside a split row is not taken for it", () => {
+  let state = initialState();
+  ({ state } = step(state, [raw(RUN_ON, 0, 40)]));
+  ({ state } = step(state, [raw("Completely different words that were never in that row.", 10, 12)]));
+  assert.deepEqual(state.current.lines.map((row) => row.id), [`${SESSION}:${EPOCH}:0:00:10.00`]);
 });
 
 test("a following 'and ...' stays off a row that was cut on purpose", () => {

@@ -95,7 +95,7 @@ export function reduceTranscriptUpdate(state, message, options) {
   if (useApi) {
     const previousLines = previous.lines || [];
     normalized.lines = settleSegmentTimes(
-      mergeCaptionFragments(segmentCaptionLines(normalized.lines)),
+      mergeCaptionFragments(segmentCaptionLines(normalized.lines, previousLines)),
       previousLines,
       knownLines
     );
