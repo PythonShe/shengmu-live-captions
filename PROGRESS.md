@@ -1,5 +1,18 @@
 # 项目进度记录 (PROGRESS.md)
 
+## 2026-11-06 · 超长 ASR 行切句（连续讲话不分段）
+
+设计与实测见 `paseo/23-long-row-segmentation.md`。
+
+- 根因：关闭说话人分离时 WLK 只在静音处结束一行，与标点无关，`--buffer_trimming` 也管不到。
+- 比原记录严重：真机上约 55 s、行长约 1250 字符时译文超过输出上限，此后不再发请求，历史里 2571 字符英文只有 338 字中文并记为失败。每次重译重发整行，发送字符是终态的 44~68 倍。
+- 新发现：行活过 `--retention-seconds` 后 WLK 会裁掉开头，`start` 每帧变化，行 id 随之变化，每帧都成了一行新字幕（保留 30 s 复现：120 s 内 72 个行 id）。
+- 改动：API 模式下 `lib/caption-segment.js` 把超长行切成 ≤180 字符的句子（`<id>#<序号>`），追加文本不移动已有切点；不超长的行原样通过。被裁剪的行按文本接回原 id。`trimToSentenceStart` 改用同样的切分。server 模式不切。未改 WLK 参数，未动浮层，所以不升 `OVERLAY_VERSION`。
+- 回放（真实 WLK 帧）：`Gq2…` 1 行 2620 字符 → 20 行最长 179，发送字符 44.5× → 3.95×；`WIuIdulr…` 45.6× → 4.63×；对照 `vkCu3V81N74…` 4.5× → 2.86×。
+- 真机（headless Chrome + tabCapture + WLK 0.2.26 mlx + DeepSeek，125 s）：`Gq2…` 16 行、缺译 0、失败 0、`deliveredRatio` 0.9992、首个译文 p50 2 s / p90 3 s / 最大 5 s；保留 30 s 时历史 17 行同一锚点、文本重复 0。修复前 token 更少只是因为翻译中途停了（`paseo/23` §5）。
+- 验证：`pnpm run verify` 359 项（359 pass / 0 fail / 0 skip，macOS）、`pnpm run smoke` 11 项全过。
+- 未验证：Windows 上的 WLK fork + faster-whisper、百炼与 Chrome 识别真机、`qwen-mt-*` 与 DeepL 切在句中的译文。
+
 ## 2026-11-05 · 0.5.12 · 百炼模型封闭下拉 + DeepL 术语库
 
 两项 backlog 一起做，另加用户点名的 turbo 实测。基线 0.5.11（325 项 verify 前是 315）。

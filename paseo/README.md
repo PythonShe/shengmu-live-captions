@@ -35,6 +35,7 @@
 | `20-bailian-free-tier.md` | 百炼免费额度选型：可填的 6 个模型、`qwen-mt` 与仅思考模式的坑、每月重置的 ASR、专用翻译模型实测 |
 | `22-deepl-glossary-0.5.12.md` | DeepL 术语库：免费层实测可用但限 1 个、手动同步按钮、大小写变体、TSV 与 root ZH |
 | `21-usage-panel.md` | 用量面板：本地 90 天账本、DeepL/DeepSeek 账号额度、百炼无 API 的取舍 |
+| `23-long-row-segmentation.md` | 超长 ASR 行切句：WLK 只在静音处结束行、翻译中途停止、行被裁剪后 id 每帧变化；切点不变量与实测 |
 | `compare-codex-vs-paseo.md` | Codex 与 paseo 分工的评估（历史记录） |
 | `mock-openai-server.mjs` | 无 Key 联调用的 OpenAI 兼容 mock |
 
